@@ -5,14 +5,17 @@ name: EDIS composer lock bootstrap
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   composer-lock:
-    name: Generate composer.lock evidence
+    if: github.actor != 'github-actions[bot]'
+    name: Generate and commit composer.lock
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.head_ref }}
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: '8.4'
@@ -21,9 +24,18 @@ jobs:
           extensions: json, iconv
       - name: Resolve Composer lock
         run: composer update --no-interaction --prefer-dist --no-progress
-      - name: Emit Composer lock evidence
+      - name: Validate and commit Composer lock
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          printf 'EDIS_COMPOSER_LOCK_SHA256=%s\n' "$(sha256sum composer.lock | cut -d' ' -f1)"
-          printf 'EDIS_COMPOSER_LOCK_BASE64_BEGIN\n'
-          base64 -w0 composer.lock
-          printf '\nEDIS_COMPOSER_LOCK_BASE64_END\n'
+          composer validate --strict
+          printf 'composer.lock sha256: %s\n' "$(sha256sum composer.lock | cut -d' ' -f1)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add composer.lock
+          if git diff --cached --quiet; then
+            echo 'composer.lock is already current.'
+            exit 0
+          fi
+          git commit -m 'build: add resolved Composer lockfile'
+          git push origin "HEAD:${HEAD_REF}"
