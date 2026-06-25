@@ -24,8 +24,8 @@ final class AdminMenu
     {
         $rootPage = $this->page('overview');
         $rootHook = add_menu_page(
-            __((string) $this->config['page_title'], 'edis-evidence-exporter'),
-            __((string) $this->config['menu_title'], 'edis-evidence-exporter'),
+            __('EDIS Evidence', 'edis-evidence-exporter'),
+            __('EDIS Evidence', 'edis-evidence-exporter'),
             (string) $this->config['capability'],
             (string) $this->config['menu_slug'],
             [$rootPage, 'render'],
@@ -41,8 +41,8 @@ final class AdminMenu
             $page = $this->page((string) $pageConfig['id']);
             $hook = add_submenu_page(
                 (string) $this->config['menu_slug'],
-                __((string) $pageConfig['title'], 'edis-evidence-exporter'),
-                __((string) $pageConfig['menu_title'], 'edis-evidence-exporter'),
+                $this->translatedPageLabel((string) $pageConfig['id']),
+                $this->translatedPageLabel((string) $pageConfig['id']),
                 (string) $this->config['capability'],
                 (string) $pageConfig['slug'],
                 [$page, 'render'],
@@ -71,6 +71,20 @@ final class AdminMenu
             throw new \LogicException('Missing admin page implementation: ' . $id);
         }
         return $page;
+    }
+
+    private function translatedPageLabel(string $id): string
+    {
+        return match ($id) {
+            'overview' => __('Overview', 'edis-evidence-exporter'),
+            'create-export' => __('Create Export', 'edis-evidence-exporter'),
+            'data-sources' => __('Data Sources', 'edis-evidence-exporter'),
+            'data-coverage' => __('Data Coverage', 'edis-evidence-exporter'),
+            'diagnostics' => __('Diagnostics', 'edis-evidence-exporter'),
+            'settings' => __('Settings', 'edis-evidence-exporter'),
+            'help' => __('Help', 'edis-evidence-exporter'),
+            default => $id,
+        };
     }
 
     private function addContextualHelp(string $pageId): bool
