@@ -3,7 +3,6 @@
   <description>Release-blocking PHP compatibility, WordPress security, database, deprecation, and internationalization checks. Full WordPress style and documentation remain visible through the advisory boundary report.</description>
   <arg name="basepath" value="."/>
   <arg name="colors"/>
-  <arg value="ps"/>
   <config name="testVersion" value="8.2-8.5"/>
   <file>edis-evidence-exporter.php</file>
   <file>uninstall.php</file>
