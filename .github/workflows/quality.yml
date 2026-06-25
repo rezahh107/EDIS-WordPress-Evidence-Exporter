@@ -7,10 +7,33 @@ name: EDIS quality gates
 permissions:
   contents: read
 
+concurrency:
+  group: edis-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  composer-integrity:
+    name: Composer metadata and lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+          extensions: json, iconv
+      - run: test -f composer.lock
+      - run: composer validate --strict
+      - run: composer install --no-interaction --prefer-dist --no-progress --dry-run
+      - run: composer audit --locked
+
   php-matrix:
     name: PHP ${{ matrix.php }}
+    needs: composer-integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -23,22 +46,26 @@ jobs:
           coverage: none
           tools: composer:v2
           extensions: json, iconv
-      - run: test -f composer.lock
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - run: composer audit --locked
       - run: find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: vendor/bin/phpunit --configuration phpunit.xml.dist
-      - if: matrix.php == '8.4'
+      - name: Release-blocking PHP compatibility and WordPress security
+        if: matrix.php == '8.4'
         run: vendor/bin/phpcs --standard=phpcs.xml.dist
+      - name: Advisory full WordPress boundary report
+        if: matrix.php == '8.4'
+        continue-on-error: true
+        run: vendor/bin/phpcs --standard=phpcs-wordpress-boundary.xml --report=summary
       - run: php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php
       - if: matrix.php == '8.4'
         run: npm ci
       - if: matrix.php == '8.4'
-        run: npm run lint:js && npm run lint:css
+        run: npm run lint:js && npm run lint:css && npm run lint:workflows:strict
 
   plugin-check:
     name: Plugin Check / WordPress ${{ matrix.wordpress }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -131,6 +158,7 @@ jobs:
   elementor-smoke:
     name: Elementor 4.1.3 smoke / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -209,6 +237,7 @@ jobs:
   multisite-runtime:
     name: WordPress 7.0 multisite lifecycle and CLI
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       mysql:
         image: mysql:8.0
@@ -253,11 +282,11 @@ jobs:
           wp core multisite-convert --path=/tmp/wordpress --title='EDIS Network' --base=/
           rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
           ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
-          wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress
+          wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress --url=http://localhost
       - name: Create secondary site
         run: |
-          SITE_TWO_ID=$(wp site create --path=/tmp/wordpress --slug=site-two --title='Site Two' --email=admin@example.test --porcelain)
-          SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress)
+          SITE_TWO_ID=$(wp site create --path=/tmp/wordpress --url=http://localhost --slug=site-two --title='Site Two' --email=admin@example.test --porcelain)
+          SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress --url=http://localhost)
           printf 'SITE_TWO_ID=%s\n' "$SITE_TWO_ID" >> "$GITHUB_ENV"
           printf 'SITE_TWO_URL=%s\n' "$SITE_TWO_URL" >> "$GITHUB_ENV"
       - name: Verify lifecycle initialization on both sites
@@ -297,14 +326,14 @@ jobs:
                     exit(1);
                 }
             }
-          ' --path=/tmp/wordpress
+          ' --path=/tmp/wordpress --url=http://localhost
       - name: Verify multisite WP-CLI commands
         run: |
           wp edis worker status --path=/tmp/wordpress --url=http://localhost
           wp edis jobs repair --path=/tmp/wordpress --url=http://localhost
       - name: Verify network deactivation cleans scheduled hooks
         run: |
-          wp plugin deactivate edis-evidence-exporter --network --path=/tmp/wordpress
+          wp plugin deactivate edis-evidence-exporter --network --path=/tmp/wordpress --url=http://localhost
           wp eval '
             if (false !== wp_next_scheduled("edis_cleanup_export_files")) {
                 fwrite(STDERR, "Cleanup hook remains scheduled after deactivation.\n");
