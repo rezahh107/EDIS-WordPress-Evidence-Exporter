@@ -286,7 +286,7 @@ jobs:
       - name: Create secondary site
         run: |
           SITE_TWO_ID=$(wp site create --path=/tmp/wordpress --url=http://localhost --slug=site-two --title='Site Two' --email=admin@example.test --porcelain)
-          SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress --url=http://localhost)
+          SITE_TWO_URL=$(EDIS_SITE_ID="$SITE_TWO_ID" wp eval 'echo get_site_url((int) getenv("EDIS_SITE_ID"));' --path=/tmp/wordpress --url=http://localhost)
           printf 'SITE_TWO_ID=%s\n' "$SITE_TWO_ID" >> "$GITHUB_ENV"
           printf 'SITE_TWO_URL=%s\n' "$SITE_TWO_URL" >> "$GITHUB_ENV"
       - name: Verify lifecycle initialization on both sites
