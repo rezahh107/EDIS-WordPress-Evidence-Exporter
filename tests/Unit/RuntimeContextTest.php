@@ -49,4 +49,12 @@ final class RuntimeContextTest extends TestCase
         self::assertFalse($runtime->isRest());
         self::assertFalse($runtime->requiresApplicationRuntime());
     }
+
+    public function testNonScalarRequestValuesAreRejectedWithoutWarnings(): void
+    {
+        $_GET['rest_route'] = ['unexpected'];
+        $_SERVER['REQUEST_URI'] = ['unexpected'];
+        $runtime = new RuntimeContext();
+        self::assertFalse($runtime->isRest());
+    }
 }
