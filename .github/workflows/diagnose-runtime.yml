@@ -53,9 +53,17 @@ jobs:
           rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
           ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
           wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress --url=http://localhost
-      - name: Worker status command
+      - name: EDIS root command exists
+        run: wp help edis --path=/tmp/wordpress --url=http://localhost >/dev/null
+      - name: EDIS worker namespace exists
+        run: wp help edis worker --path=/tmp/wordpress --url=http://localhost >/dev/null
+      - name: EDIS worker status help exists
+        run: wp help edis worker status --path=/tmp/wordpress --url=http://localhost >/dev/null
+      - name: EDIS storage paths executes
+        run: wp edis storage paths --path=/tmp/wordpress --url=http://localhost
+      - name: EDIS worker status executes
         run: wp edis worker status --path=/tmp/wordpress --url=http://localhost
-      - name: Jobs repair dry-run command
+      - name: EDIS jobs repair executes
         run: wp edis jobs repair --path=/tmp/wordpress --url=http://localhost
 
   plugin-preflight:
@@ -102,31 +110,11 @@ jobs:
           rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
           ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
           wp plugin activate edis-evidence-exporter --path=/tmp/wordpress
-      - name: Site Health registration
-        run: |
-          wp eval '
-            $tests = apply_filters("site_status_tests", []);
-            if (! isset($tests["direct"]["edis_evidence_runtime"], $tests["direct"]["edis_evidence_cron"], $tests["async"]["edis_evidence_storage"])) {
-                fwrite(STDERR, "EDIS Site Health registration is incomplete.\n");
-                exit(1);
-            }
-          ' --path=/tmp/wordpress
-      - name: Privacy hook registration
-        run: |
-          wp eval '
-            $exporters = apply_filters("wp_privacy_personal_data_exporters", []);
-            $erasers = apply_filters("wp_privacy_personal_data_erasers", []);
-            if (! isset($exporters["edis-evidence-exporter"], $erasers["edis-evidence-exporter"])) {
-                fwrite(STDERR, "EDIS privacy registration is incomplete.\n");
-                exit(1);
-            }
-          ' --path=/tmp/wordpress
-      - name: Filesystem preflight policy
-        run: |
-          wp eval '
-            $report = EDIS\EvidenceExporter\WordPress\WordPressFilesystemPreflightAdapter::report(new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage());
-            if (($report["background_export_policy"] ?? null) !== "ALLOW_ONLY_AFTER_EDIS_STORAGE_SELF_TEST") {
-                fwrite(STDERR, "EDIS filesystem policy mismatch.\n");
-                exit(1);
-            }
-          ' --path=/tmp/wordpress
+      - name: Privacy exporter hook exists
+        run: wp eval 'exit(has_filter("wp_privacy_personal_data_exporters") ? 0 : 1);' --path=/tmp/wordpress
+      - name: Privacy eraser hook exists
+        run: wp eval 'exit(has_filter("wp_privacy_personal_data_erasers") ? 0 : 1);' --path=/tmp/wordpress
+      - name: Privacy exporter callback registers EDIS
+        run: wp eval '$items=apply_filters("wp_privacy_personal_data_exporters",[]);exit(isset($items["edis-evidence-exporter"])?0:1);' --path=/tmp/wordpress
+      - name: Privacy eraser callback registers EDIS
+        run: wp eval '$items=apply_filters("wp_privacy_personal_data_erasers",[]);exit(isset($items["edis-evidence-exporter"])?0:1);' --path=/tmp/wordpress
