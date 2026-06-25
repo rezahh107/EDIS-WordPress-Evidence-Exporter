@@ -38,10 +38,9 @@ final class DocumentActions
             $raw = (string) get_post_meta($post->ID, '_elementor_data', true);
             $state = $this->exportState($raw, $last);
             if ($state !== null) {
-                $actions['edis_evidence_status'] = '<span class="edis-row-status">' . esc_html(sprintf(
-                    __('Last EDIS export: %s', 'edis-evidence-exporter'),
-                    $state,
-                )) . '</span>';
+                /* translators: %s: Current EDIS export state, such as current or stale. */
+                $status = sprintf(__('Last EDIS export: %s', 'edis-evidence-exporter'), $state);
+                $actions['edis_evidence_status'] = '<span class="edis-row-status">' . esc_html($status) . '</span>';
             }
         }
         return $actions;
