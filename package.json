@@ -1,0 +1,15 @@
+{
+  "name": "edis-evidence-exporter",
+  "version": "3.7.11",
+  "private": true,
+  "description": "Local lint gates for the EDIS WordPress Evidence Exporter admin assets.",
+  "license": "GPL-2.0-or-later",
+  "type": "module",
+  "scripts": {
+    "lint:js": "node tools/ci/check-js.mjs assets/js",
+    "lint:css": "node tools/ci/check-css.mjs assets/css",
+    "lint:workflows": "node tools/ci/check-github-actions-pinning.mjs .github/workflows --policy tools/ci/github-actions-policy.json",
+    "quality:assets": "npm run lint:js && npm run lint:css && npm run lint:workflows",
+    "lint:workflows:strict": "node tools/ci/check-github-actions-pinning.mjs .github/workflows --strict-sha"
+  }
+}

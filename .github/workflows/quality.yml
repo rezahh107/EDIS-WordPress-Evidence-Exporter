@@ -1,0 +1,322 @@
+name: EDIS quality gates
+
+'on':
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  php-matrix:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+          extensions: json, iconv
+      - run: test -f composer.lock
+      - run: composer validate --strict
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: composer audit --locked
+      - run: find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: vendor/bin/phpunit --configuration phpunit.xml.dist
+      - if: matrix.php == '8.4'
+        run: vendor/bin/phpcs --standard=phpcs.xml.dist
+      - run: php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php
+      - if: matrix.php == '8.4'
+        run: npm ci
+      - if: matrix.php == '8.4'
+        run: npm run lint:js && npm run lint:css
+
+  plugin-check:
+    name: Plugin Check / WordPress ${{ matrix.wordpress }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        wordpress: ['6.5.8', '7.0']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli, json, iconv
+      - name: Install verified WP-CLI 2.12.0
+        env:
+          WP_CLI_SHA512: be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832
+        run: |
+          curl -fsSLo /tmp/wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar
+          printf '%s  %s\n' "$WP_CLI_SHA512" /tmp/wp-cli.phar | sha512sum --check --strict
+          chmod +x /tmp/wp-cli.phar
+          sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
+          wp --version | grep -Fx 'WP-CLI 2.12.0'
+      - name: Install pinned WordPress and Plugin Check
+        run: |
+          mkdir -p /tmp/wordpress/wp-content/plugins
+          wp core download --path=/tmp/wordpress --version=${{ matrix.wordpress }} --force
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306
+          wp config set EDIS_EVIDENCE_PRIVATE_STORAGE_DIR /tmp/edis-private --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG_LOG true --raw --path=/tmp/wordpress --type=constant
+          wp config set SCRIPT_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set ELEMENTOR_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp core install --path=/tmp/wordpress --url=http://localhost --title=EDIS --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
+          mkdir -p /tmp/plugin-build/edis-evidence-exporter
+          rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
+          ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
+          wp plugin install plugin-check --version=2.0.0 --activate --path=/tmp/wordpress
+          wp plugin activate edis-evidence-exporter --path=/tmp/wordpress
+      - name: Static Plugin Check
+        run: wp plugin check edis-evidence-exporter --path=/tmp/wordpress
+      - name: Runtime Plugin Check
+        run: wp plugin check edis-evidence-exporter --path=/tmp/wordpress --require=/tmp/wordpress/wp-content/plugins/plugin-check/cli.php
+      - name: Verify Site Health, privacy hooks and filesystem preflight
+        run: |
+          wp eval '
+            $tests = apply_filters("site_status_tests", []);
+            if (! isset($tests["direct"]["edis_evidence_runtime"], $tests["direct"]["edis_evidence_cron"], $tests["async"]["edis_evidence_storage"])) {
+                fwrite(STDERR, "EDIS Site Health registration is incomplete.\n");
+                exit(1);
+            }
+            $exporters = apply_filters("wp_privacy_personal_data_exporters", []);
+            $erasers = apply_filters("wp_privacy_personal_data_erasers", []);
+            if (! isset($exporters["edis-evidence-exporter"], $erasers["edis-evidence-exporter"])) {
+                fwrite(STDERR, "EDIS privacy registration is incomplete.\n");
+                exit(1);
+            }
+            $report = EDIS\EvidenceExporter\WordPress\WordPressFilesystemPreflightAdapter::report(new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage());
+            if (($report["background_export_policy"] ?? null) !== "ALLOW_ONLY_AFTER_EDIS_STORAGE_SELF_TEST") {
+                fwrite(STDERR, "EDIS filesystem policy mismatch.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress
+      - name: Verify retention-disabled uninstall
+        if: matrix.wordpress == '7.0'
+        run: |
+          ROOT=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress)
+          wp option update edis_evidence_retain_data_on_uninstall 0 --path=/tmp/wordpress
+          wp plugin uninstall edis-evidence-exporter --deactivate --path=/tmp/wordpress
+          test ! -e "$ROOT"
+          ! wp option get edis_evidence_installed_version --path=/tmp/wordpress
+      - name: Require zero EDIS-origin debug output
+        run: |
+          if [ -f /tmp/wordpress/wp-content/debug.log ]; then
+            ! grep -E 'EDIS|edis-evidence-exporter' /tmp/wordpress/wp-content/debug.log
+          fi
+
+  elementor-smoke:
+    name: Elementor 4.1.3 smoke / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: mysqli, json, iconv
+      - name: Install verified WP-CLI 2.12.0
+        env:
+          WP_CLI_SHA512: be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832
+        run: |
+          curl -fsSLo /tmp/wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar
+          printf '%s  %s\n' "$WP_CLI_SHA512" /tmp/wp-cli.phar | sha512sum --check --strict
+          chmod +x /tmp/wp-cli.phar
+          sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
+          wp --version | grep -Fx 'WP-CLI 2.12.0'
+      - name: Install pinned WordPress and Elementor
+        run: |
+          mkdir -p /tmp/wordpress/wp-content/plugins
+          wp core download --path=/tmp/wordpress --version=7.0 --force
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306
+          wp config set EDIS_EVIDENCE_PRIVATE_STORAGE_DIR /tmp/edis-private --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG_LOG true --raw --path=/tmp/wordpress --type=constant
+          wp config set SCRIPT_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set ELEMENTOR_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp core install --path=/tmp/wordpress --url=http://localhost --title=EDIS --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
+          mkdir -p /tmp/plugin-build/edis-evidence-exporter
+          rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
+          ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
+          wp plugin install elementor --version=4.1.3 --activate --path=/tmp/wordpress
+          wp plugin activate edis-evidence-exporter --path=/tmp/wordpress
+      - name: Verify Elementor and EDIS deterministic runtime
+        run: |
+          wp eval '
+            if (! did_action("elementor/loaded")) {
+                fwrite(STDERR, "Elementor did not load.\n");
+                exit(1);
+            }
+            $ready = EDIS\\EvidenceExporter\\Infrastructure\\Support\\CanonicalJson::environmentReady();
+            if (! $ready) {
+                fwrite(STDERR, "EDIS-CJ-2 runtime rejected.\n");
+                exit(1);
+            }
+            $result = (new EDIS\\EvidenceExporter\\Infrastructure\\Support\\PrivateStorage())->selfTest();
+            if (($result["state"] ?? null) !== "PASS") {
+                fwrite(STDERR, "Private storage self-test failed.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress
+      - name: Require zero EDIS-origin debug output
+        run: |
+          if [ -f /tmp/wordpress/wp-content/debug.log ]; then
+            ! grep -E 'EDIS|edis-evidence-exporter' /tmp/wordpress/wp-content/debug.log
+          fi
+
+  multisite-runtime:
+    name: WordPress 7.0 multisite lifecycle and CLI
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli, json, iconv
+      - name: Install verified WP-CLI 2.12.0
+        env:
+          WP_CLI_SHA512: be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832
+        run: |
+          curl -fsSLo /tmp/wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar
+          printf '%s  %s\n' "$WP_CLI_SHA512" /tmp/wp-cli.phar | sha512sum --check --strict
+          chmod +x /tmp/wp-cli.phar
+          sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
+          wp --version | grep -Fx 'WP-CLI 2.12.0'
+      - name: Install WordPress multisite and network-activate EDIS
+        run: |
+          mkdir -p /tmp/wordpress/wp-content/plugins /tmp/plugin-build/edis-evidence-exporter
+          wp core download --path=/tmp/wordpress --version=7.0 --force
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306
+          wp config set EDIS_EVIDENCE_PRIVATE_STORAGE_DIR /tmp/edis-multisite-private --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG_LOG true --raw --path=/tmp/wordpress --type=constant
+          wp config set SCRIPT_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp core install --path=/tmp/wordpress --url=http://localhost --title=EDIS --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
+          wp core multisite-convert --path=/tmp/wordpress --title='EDIS Network' --base=/
+          rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
+          ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
+          wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress
+      - name: Verify lifecycle, site isolation, Site Health and WP-CLI
+        run: |
+          SITE_TWO_ID=$(wp site create --path=/tmp/wordpress --slug=site-two --title='Site Two' --email=admin@example.test --porcelain)
+          SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress)
+          wp eval '
+            $stored = get_option("edis_evidence_installed_version");
+            $expected = EDIS_EVIDENCE_EXPORTER_VERSION;
+            if ($stored !== $expected) {
+                fwrite(STDERR, "Installed version mismatch: {$stored} != {$expected}.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url=http://localhost
+          wp eval '
+            $stored = get_option("edis_evidence_installed_version");
+            $expected = EDIS_EVIDENCE_EXPORTER_VERSION;
+            if ($stored !== $expected) {
+                fwrite(STDERR, "Installed version mismatch: {$stored} != {$expected}.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url="$SITE_TWO_URL"
+          wp edis storage self-test --path=/tmp/wordpress --url=http://localhost
+          wp edis storage self-test --path=/tmp/wordpress --url="$SITE_TWO_URL"
+          ROOT_ONE=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url=http://localhost)
+          ROOT_TWO=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url="$SITE_TWO_URL")
+          test "$ROOT_ONE" != "$ROOT_TWO"
+          [[ "$ROOT_ONE" == *site-* ]]
+          [[ "$ROOT_TWO" == *site-* ]]
+          wp eval '
+            $tests = apply_filters("site_status_tests", []);
+            foreach (["edis_evidence_runtime", "edis_evidence_cron"] as $id) {
+                if (! isset($tests["direct"][$id])) {
+                    fwrite(STDERR, "Missing Site Health test: {$id}.\n");
+                    exit(1);
+                }
+            }
+          ' --path=/tmp/wordpress
+          wp edis worker status --path=/tmp/wordpress --url=http://localhost
+          wp edis jobs repair --path=/tmp/wordpress --url=http://localhost
+      - name: Verify network deactivation cleans scheduled hooks
+        run: |
+          wp plugin deactivate edis-evidence-exporter --network --path=/tmp/wordpress
+          wp eval '
+            if (false !== wp_next_scheduled("edis_cleanup_export_files")) {
+                fwrite(STDERR, "Cleanup hook remains scheduled after deactivation.\n");
+                exit(1);
+            }
+            $role = get_role("administrator");
+            if ($role instanceof WP_Role && $role->has_cap("edis_export_evidence")) {
+                fwrite(STDERR, "EDIS capability remains after network deactivation.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url=http://localhost
+          wp eval '
+            $role = get_role("administrator");
+            if ($role instanceof WP_Role && $role->has_cap("edis_export_evidence")) {
+                fwrite(STDERR, "EDIS capability remains on secondary site.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url="$SITE_TWO_URL"
+      - name: Require zero EDIS-origin debug output
+        run: |
+          if [ -f /tmp/wordpress/wp-content/debug.log ]; then
+            ! grep -E 'EDIS|edis-evidence-exporter' /tmp/wordpress/wp-content/debug.log
+          fi
+

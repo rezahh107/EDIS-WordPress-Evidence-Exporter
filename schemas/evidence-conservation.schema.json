@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:edis:schema:validation:evidence-conservation:1.0.0",
+  "title": "EDIS Evidence Conservation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["state", "checks", "loss_detected"],
+  "properties": {
+    "state": {"enum": ["PASS", "FAIL", "NOT_APPLICABLE"]},
+    "loss_detected": {"type": "boolean"},
+    "checks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_count", "indexed_count", "state"],
+        "properties": {
+          "source_count": {"type": "integer"},
+          "indexed_count": {"type": "integer"},
+          "state": {"enum": ["PASS", "FAIL"]}
+        }
+      }
+    }
+  }
+}

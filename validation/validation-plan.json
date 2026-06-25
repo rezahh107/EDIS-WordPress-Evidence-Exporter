@@ -1,0 +1,79 @@
+{
+  "schema_version": "EDIS-VALIDATION-PLAN-2",
+  "evidence_schema_version": "EDIS-VALIDATION-EVIDENCE-2",
+  "plugin_version": "3.7.11",
+  "scope": "validation_evidence_corrective_only",
+  "runtime_feature_change": false,
+  "frozen_contract_change": false,
+  "local_completion_policy": "all_required_local_gates_must_pass",
+  "strict_external_policy": "all_required_external_gates_must_pass",
+  "gates": [
+    {
+      "id": "local_repository_validation",
+      "scope": "local",
+      "required": true,
+      "state": "implemented",
+      "owner": "repository",
+      "command": "php tools/validation/run-local-validation.php --report=validation/evidence/local-validation.json"
+    },
+    {
+      "id": "composer_lock",
+      "scope": "external",
+      "required": true,
+      "state": "blocked_external",
+      "owner": "release_environment",
+      "command": "composer update --with-all-dependencies"
+    },
+    {
+      "id": "official_phpunit",
+      "scope": "external",
+      "required": true,
+      "state": "blocked_external",
+      "owner": "release_environment",
+      "command": "vendor/bin/phpunit --configuration phpunit.xml.dist"
+    },
+    {
+      "id": "plugin_check",
+      "scope": "external",
+      "required": true,
+      "state": "configured_not_run",
+      "owner": "wordpress_runtime",
+      "command": "wp plugin check edis-evidence-exporter"
+    },
+    {
+      "id": "wordpress_single_site",
+      "scope": "external",
+      "required": true,
+      "state": "configured_not_run",
+      "owner": "wordpress_runtime"
+    },
+    {
+      "id": "wordpress_multisite",
+      "scope": "external",
+      "required": true,
+      "state": "configured_not_run",
+      "owner": "wordpress_runtime"
+    },
+    {
+      "id": "elementor_real_fixtures",
+      "scope": "external",
+      "required": true,
+      "state": "insufficient_evidence",
+      "owner": "controlled_real_export"
+    },
+    {
+      "id": "windows_localwp",
+      "scope": "external",
+      "required": true,
+      "state": "not_run",
+      "owner": "windows_localwp_runtime"
+    },
+    {
+      "id": "cross_product_ingestion",
+      "scope": "external",
+      "required": true,
+      "state": "not_run",
+      "owner": "python_deterministic_engine"
+    }
+  ]
+}

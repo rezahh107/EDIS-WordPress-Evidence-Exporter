@@ -1,0 +1,106 @@
+{
+  "$id": "urn:edis:schema:shared:artifact-envelope:2.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_instance_sha256": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "artifact_type": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "canonicalization": {
+      "additionalProperties": false,
+      "properties": {
+        "hash_algorithm": {
+          "const": "sha256"
+        },
+        "number_profile": {
+          "const": "EXACT_JSON_DECIMAL_OR_IEEE754"
+        },
+        "object_key_order": {
+          "const": "UTF8_BYTES"
+        },
+        "profile": {
+          "const": "EDIS-CJ-2"
+        },
+        "semantic_identity_policy_version": {
+          "const": "1.0.0"
+        },
+        "unicode_normalization": {
+          "const": "NONE"
+        }
+      },
+      "required": [
+        "profile",
+        "hash_algorithm",
+        "object_key_order",
+        "unicode_normalization",
+        "number_profile",
+        "semantic_identity_policy_version"
+      ],
+      "type": "object"
+    },
+    "captured_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "data": {},
+    "diagnostics": {
+      "items": {
+        "$ref": "diagnostic.schema.json"
+      },
+      "maxItems": 10000,
+      "type": "array"
+    },
+    "producer": {
+      "additionalProperties": false,
+      "properties": {
+        "product": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "product",
+        "version"
+      ],
+      "type": "object"
+    },
+    "schema_id": {
+      "maxLength": 200,
+      "minLength": 8,
+      "type": "string"
+    },
+    "schema_version": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "semantic_payload_sha256": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_id",
+    "schema_version",
+    "artifact_type",
+    "producer",
+    "captured_at",
+    "canonicalization",
+    "data",
+    "diagnostics",
+    "semantic_payload_sha256",
+    "artifact_instance_sha256"
+  ],
+  "title": "EDIS Shared Artifact Envelope",
+  "type": "object"
+}

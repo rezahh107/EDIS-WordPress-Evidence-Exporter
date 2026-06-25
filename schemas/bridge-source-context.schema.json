@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:edis:schema:bridge:source-context:1.0.0",
+  "title": "EDIS Browser Bridge Source Context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_set_id", "wordpress_bundle_id", "source_export_root_sha256", "site_fingerprint",
+    "url_normalization_profile", "site_locator_candidates", "multisite_mode", "site_path_scope",
+    "export_scope", "dependency_scope", "strict_single_document_isolation", "bridge_readiness",
+    "documents", "elements", "document_count", "element_count"
+  ],
+  "properties": {
+    "analysis_set_id": {"type": "string", "minLength": 1},
+    "wordpress_bundle_id": {"type": "string", "minLength": 1},
+    "source_export_root_sha256": {"type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$"},
+    "site_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "url_normalization_profile": {"const": "EDIS-URL-1"},
+    "site_locator_candidates": {"type": "array", "items": {"type": "object"}},
+    "multisite_mode": {"enum": ["SINGLE_SITE", "MULTISITE"]},
+    "site_path_scope": {"type": "string"},
+    "export_scope": {"type": "string"},
+    "dependency_scope": {"type": "string"},
+    "strict_single_document_isolation": {"type": "boolean"},
+    "bridge_readiness": {"enum": ["READY", "NOT_READY"]},
+    "documents": {"type": "array", "items": {"type": "object"}},
+    "elements": {"type": "array", "items": {"type": "object"}},
+    "document_count": {"type": "integer"},
+    "element_count": {"type": "integer"}
+  }
+}

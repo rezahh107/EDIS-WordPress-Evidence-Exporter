@@ -1,0 +1,755 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.11\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: edis-evidence-exporter\n"
+
+#, php-format
+msgid "%d components registered"
+msgstr ""
+
+msgid "(no title)"
+msgstr ""
+
+msgid "1. Export scope"
+msgstr ""
+
+msgid "2. Privacy mode"
+msgstr ""
+
+msgid "3. Source components"
+msgstr ""
+
+msgid "4. Elementor documents"
+msgstr ""
+
+msgid "5. Effective export options"
+msgstr ""
+
+msgid "6. Preflight, review and start"
+msgstr ""
+
+msgid "64-bit PHP runtime"
+msgstr ""
+
+msgid "Add subtree to EDIS selection"
+msgstr ""
+
+msgid "All editable Elementor documents, bounded by the configured inventory limit."
+msgstr ""
+
+msgid "Architecture"
+msgstr ""
+
+msgid "Architecture boundary"
+msgstr ""
+
+msgid "Artifact path"
+msgstr ""
+
+msgid "Artifact storage"
+msgstr ""
+
+msgid "Automatic cleanup"
+msgstr ""
+
+msgid "Available"
+msgstr ""
+
+msgid "Background exports are unsafe on the current storage backend and remain blocked."
+msgstr ""
+
+msgid "Bundle schema"
+msgstr ""
+
+msgid "Bundle storage"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Check"
+msgstr ""
+
+msgid "Choose an explicit document scope. EDIS exports saved source evidence and the minimum shared context Python needs; it does not score UX or infer browser geometry."
+msgstr ""
+
+msgid "Choose default collectors"
+msgstr ""
+
+msgid "Choose export options"
+msgstr ""
+
+msgid "Choose export scope"
+msgstr ""
+
+msgid "Choose privacy mode"
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
+msgid "Clear selected"
+msgstr ""
+
+msgid "Compare source hashes and bounded counts with the previous completed EDIS export."
+msgstr ""
+
+msgid "Component"
+msgstr ""
+
+msgid "Component registry"
+msgstr ""
+
+msgid "Components"
+msgstr ""
+
+msgid "Copy report"
+msgstr ""
+
+msgid "Coverage is not a UX score. It tells Python which source evidence exists, is partial, is unavailable, or could not be collected."
+msgstr ""
+
+msgid "Create Source Evidence Export"
+msgstr ""
+
+msgid "Created timestamp"
+msgstr ""
+
+msgid "Current environment"
+msgstr ""
+
+msgid "Data Sources and Components"
+msgstr ""
+
+msgid "Declared truth"
+msgstr ""
+
+msgid "Default collectors"
+msgstr ""
+
+msgid "Default privacy"
+msgstr ""
+
+msgid "Default privacy mode"
+msgstr ""
+
+msgid "Dependency scope"
+msgstr ""
+
+msgid "Detail"
+msgstr ""
+
+msgid "Deterministic JSON environment"
+msgstr ""
+
+msgid "Diagnostic metadata"
+msgstr ""
+
+msgid "Diagnostic mode can include more technical metadata. Confirm that you are authorized to export it."
+msgstr ""
+
+msgid "Diagnostic — additional technical metadata"
+msgstr ""
+
+msgid "Diagnostics"
+msgstr ""
+
+msgid "Diagnostics copied."
+msgstr ""
+
+msgid "Disabled by setting"
+msgstr ""
+
+msgid "Disabled; REST worker remains available"
+msgstr ""
+
+msgid "Document"
+msgstr ""
+
+msgid "Document search failed."
+msgstr ""
+
+msgid "Download Browser Bridge Context"
+msgstr ""
+
+msgid "Download source-evidence ZIP"
+msgstr ""
+
+msgid "Dry run only. Re-run with --apply to queue repairable stale jobs."
+msgstr ""
+
+msgid "EDIS Evidence"
+msgstr ""
+
+msgid "EDIS Evidence Encyclopedia"
+msgstr ""
+
+msgid "EDIS Evidence Exporter"
+msgstr ""
+
+msgid "EDIS Evidence Exporter could not be activated because its deterministic runtime or protected storage preflight failed."
+msgstr ""
+
+msgid "EDIS Evidence Exporter could not initialize. Review Site Health and the EDIS diagnostics page for storage or runtime failures."
+msgstr ""
+
+msgid "EDIS Evidence Exporter creates owner-bound operational job records and temporary private evidence files when an authorized user starts an export. These records are retained only for the configured retention period unless an administrator explicitly retains completed evidence. EDIS does not send evidence to an external service."
+msgstr ""
+
+msgid "EDIS Evidence Exporter is inactive because the current PHP runtime is outside the verified deterministic range (64-bit PHP 8.2–8.5 with fsync)."
+msgstr ""
+
+msgid "EDIS Evidence Exporter operational records"
+msgstr ""
+
+msgid "EDIS Evidence Inspector"
+msgstr ""
+
+msgid "EDIS Help"
+msgstr ""
+
+msgid "EDIS Settings"
+msgstr ""
+
+msgid "EDIS activation failed"
+msgstr ""
+
+msgid "EDIS could not encode the command result."
+msgstr ""
+
+msgid "EDIS could not obtain a stable saved-source element identifier."
+msgstr ""
+
+msgid "EDIS deterministic runtime"
+msgstr ""
+
+msgid "EDIS deterministic runtime is available"
+msgstr ""
+
+msgid "EDIS deterministic runtime is unavailable"
+msgstr ""
+
+msgid "EDIS exports saved technical evidence and reports explicit truth states. Open the Help page for the complete workflow and privacy guidance."
+msgstr ""
+
+msgid "EDIS private storage failed integrity checks"
+msgstr ""
+
+msgid "EDIS private storage integrity"
+msgstr ""
+
+msgid "EDIS private storage passed integrity checks"
+msgstr ""
+
+msgid "EDIS recovery scheduling is healthy"
+msgstr ""
+
+msgid "EDIS recovery scheduling needs attention"
+msgstr ""
+
+#, php-format
+msgid "EDIS selection: %d"
+msgstr ""
+
+msgid "EDIS storage self-test failed."
+msgstr ""
+
+msgid "EDIS storage self-test passed."
+msgstr ""
+
+msgid "EDIS worker recovery schedule"
+msgstr ""
+
+msgid "EDIS-CJ-2 ready"
+msgstr ""
+
+msgid "Elementor"
+msgstr ""
+
+msgid "Elementor Inspector selection"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+msgid "Enabled as recovery"
+msgstr ""
+
+msgid "Entire site evidence"
+msgstr ""
+
+msgid "Environment"
+msgstr ""
+
+msgid "Environment, registries and inventory without saved document source."
+msgstr ""
+
+msgid "Evidence component index"
+msgstr ""
+
+msgid "Exactly one Elementor document."
+msgstr ""
+
+msgid "Expiry timestamp"
+msgstr ""
+
+msgid "Export EDIS Evidence"
+msgstr ""
+
+msgid "Export defaults"
+msgstr ""
+
+msgid "Export job"
+msgstr ""
+
+msgid "Export job not found."
+msgstr ""
+
+msgid "Export selected elements"
+msgstr ""
+
+msgid "Export this element"
+msgstr ""
+
+msgid "Export this subtree + required dependencies"
+msgstr ""
+
+msgid "Exports are blocked because the current PHP runtime cannot satisfy the deterministic runtime contract."
+msgstr ""
+
+msgid "How to read the states"
+msgstr ""
+
+msgid "Hybrid REST worker with WP-Cron recovery"
+msgstr ""
+
+msgid "I confirm that I am authorized to create a Diagnostic export."
+msgstr ""
+
+msgid "Immutable input snapshot storage"
+msgstr ""
+
+msgid "Include additional operational diagnostic metadata."
+msgstr ""
+
+msgid "Include controlled real-fixture authoring metadata. This does not create expected findings automatically."
+msgstr ""
+
+msgid "Include diagnostic metadata by default."
+msgstr ""
+
+msgid "Include original saved Elementor documents by default. This is unavailable in Strict mode."
+msgstr ""
+
+msgid "Include the original saved Elementor document object. Strict mode overrides this to off."
+msgstr ""
+
+msgid "Invalid or unreadable"
+msgstr ""
+
+msgid "Invalid privacy mode. The safe Standard default was used."
+msgstr ""
+
+msgid "JSON support"
+msgstr ""
+
+msgid "Job ID"
+msgstr ""
+
+msgid "Job executor mode"
+msgstr ""
+
+msgid "Job storage"
+msgstr ""
+
+#, php-format
+msgid "Last EDIS export: %s"
+msgstr ""
+
+msgid "Latest export job"
+msgstr ""
+
+msgid "Latest job evidence states"
+msgstr ""
+
+msgid "Loaded"
+msgstr ""
+
+msgid "Loading documents…"
+msgstr ""
+
+msgid "Manifest loading"
+msgstr ""
+
+msgid "Maximum inventory records"
+msgstr ""
+
+msgid "Metadata only"
+msgstr ""
+
+msgid "Multiple documents"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+#, php-format
+msgid "Next cleanup: %1$s. Stale queued/running jobs: %2$d. WP-Cron is a recovery trigger and exact execution time is not assumed."
+msgstr ""
+
+msgid "No export job has been created yet."
+msgstr ""
+
+msgid "No matching Elementor documents were found."
+msgstr ""
+
+msgid "Not available"
+msgstr ""
+
+msgid "Not detected"
+msgstr ""
+
+msgid "Not writable"
+msgstr ""
+
+msgid "One or more selected Elementor documents."
+msgstr ""
+
+msgid "Only executable manifest-declared collectors can be saved as defaults."
+msgstr ""
+
+msgid "Open Diagnostics"
+msgstr ""
+
+msgid "Original documents"
+msgstr ""
+
+msgid "Original documents are forcibly excluded."
+msgstr ""
+
+msgid "PHP compatibility"
+msgstr ""
+
+#, php-format
+msgid "Page %1$d of %2$d"
+msgstr ""
+
+msgid "Page + full site context"
+msgstr ""
+
+msgid "Page + required dependencies (recommended)"
+msgstr ""
+
+msgid "Page source only"
+msgstr ""
+
+msgid "Plugin"
+msgstr ""
+
+msgid "Preflight found blocking issues."
+msgstr ""
+
+msgid "Preflight passed. The export can start."
+msgstr ""
+
+msgid "Previous"
+msgstr ""
+
+msgid "Privacy-safe JSON"
+msgstr ""
+
+#, php-format
+msgid "Processed %d eligible job(s)."
+msgstr ""
+
+#, php-format
+msgid "Protected storage, durable writes, atomic replacement and lock exclusion are available. Independent-process behavior is verified by the release test gate. WordPress filesystem method: %s. EDIS retains its verified direct deterministic backend for background jobs."
+msgstr ""
+
+msgid "REST API"
+msgstr ""
+
+msgid "Recommended for controlled analysis runs."
+msgstr ""
+
+msgid "Remove expired temporary bundles automatically."
+msgstr ""
+
+msgid "Remove from EDIS selection"
+msgstr ""
+
+msgid "Remove selection"
+msgstr ""
+
+msgid "Required dependencies and final bundle processors are added automatically."
+msgstr ""
+
+msgid "Reset defaults"
+msgstr ""
+
+msgid "Reset to defaults"
+msgstr ""
+
+msgid "Resume"
+msgstr ""
+
+msgid "Retain completed evidence and private operational data when the plugin is deleted. Disable only when uninstall must remove all EDIS data."
+msgstr ""
+
+msgid "Retention must be between 1 and 168 hours."
+msgstr ""
+
+msgid "Retry"
+msgstr ""
+
+msgid "Run preflight"
+msgstr ""
+
+msgid "Run preflight before starting the export."
+msgstr ""
+
+msgid "Run safe worker test"
+msgstr ""
+
+msgid "Running a minimal real export path…"
+msgstr ""
+
+msgid "Save Settings"
+msgstr ""
+
+msgid "Saved WordPress and Elementor evidence for the Python deterministic truth engine."
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Search documents"
+msgstr ""
+
+msgid "Search to load Elementor documents."
+msgstr ""
+
+msgid "Select"
+msgstr ""
+
+msgid "Select at least one document for this export scope."
+msgstr ""
+
+msgid "Select at least one source component."
+msgstr ""
+
+msgid "Select visible"
+msgstr ""
+
+msgid "Selected documents:"
+msgstr ""
+
+msgid "Settings define safe defaults. Every export remains reviewable before execution."
+msgstr ""
+
+msgid "Settings were reset to documented defaults."
+msgstr ""
+
+msgid "Single Document scope requires exactly one selected document."
+msgstr ""
+
+msgid "Single document"
+msgstr ""
+
+msgid "Source Evidence Coverage"
+msgstr ""
+
+msgid "Source availability"
+msgstr ""
+
+msgid "Source collectors read saved facts. Index builders derive deterministic lightweight indexes. Bundle processors package and validate the complete export."
+msgstr ""
+
+msgid "Source truth"
+msgstr ""
+
+msgid "Stale queued jobs"
+msgstr ""
+
+msgid "Stale running jobs"
+msgstr ""
+
+msgid "Standard — balanced evidence"
+msgstr ""
+
+msgid "Start Export"
+msgstr ""
+
+msgid "State"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+#, php-format
+msgid "Status: %1$s. Phase: %2$s."
+msgstr ""
+
+msgid "Strict minimizes sensitive evidence. Diagnostic can include more technical metadata."
+msgstr ""
+
+msgid "Strict — minimum source content"
+msgstr ""
+
+msgid "Technical contract and example JSON"
+msgstr ""
+
+msgid "Temporary export retention"
+msgstr ""
+
+msgid "The EDIS selection limit has been reached."
+msgstr ""
+
+msgid "The Elementor document changed, so the previous EDIS selection was cleared."
+msgstr ""
+
+msgid "The English and Persian explanations below have equal scope. Each entry explains what the evidence is, how it is collected, why Python needs it, and what cannot be concluded from it."
+msgstr ""
+
+msgid "The Inspector selection could not be transferred securely. Try again."
+msgstr ""
+
+msgid "The Inspector selection token is invalid or expired. Return to Elementor and select the elements again."
+msgstr ""
+
+msgid "The WordPress plugin does not analyze UX. It exports saved declarations and provenance. Python resolves and evaluates them only after source, runtime, and coverage evidence are verified."
+msgstr ""
+
+msgid "The active PHP runtime satisfies the EDIS-CJ-2 integer, JSON, precision and durable-write requirements."
+msgstr ""
+
+msgid "The bounded REST worker is processing the export."
+msgstr ""
+
+msgid "The download token is invalid or expired."
+msgstr ""
+
+msgid "The export could not be started."
+msgstr ""
+
+msgid "The export is unavailable."
+msgstr ""
+
+msgid "The request could not be completed. Check the connection and try again."
+msgstr ""
+
+msgid "The source bundle failed deterministic ZIP integrity validation."
+msgstr ""
+
+msgid "The source contract and retrieval path are verified. This does not mean the design is good."
+msgstr ""
+
+msgid "The source contract cannot be identified safely."
+msgstr ""
+
+msgid "The source contract is explicitly unsupported. Version 3.4 no longer mislabels missing index builders as unsupported Elementor collectors."
+msgstr ""
+
+msgid "These values prefill new exports. Every export can still be reviewed before it starts."
+msgstr ""
+
+msgid "This export does not contain a Browser Bridge Context."
+msgstr ""
+
+msgid "This removes only EDIS preference options. It does not delete completed bundles immediately."
+msgstr ""
+
+msgid "This report is privacy-safe. The worker test executes a minimal real source export rather than checking function names only."
+msgstr ""
+
+msgid "Type"
+msgstr ""
+
+msgid "Unavailable"
+msgstr ""
+
+msgid "Uninstall data retention"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Unsaved editor changes were reported. The export will use the last saved WordPress source only."
+msgstr ""
+
+msgid "Unsupported PHP version, serialize_precision, fsync, or integer width"
+msgstr ""
+
+msgid "Use only when authorized to export technical metadata."
+msgstr ""
+
+msgid "Use search, the Pages row action, or the Pages bulk action. Single and Multiple scopes cannot start without the required selection."
+msgstr ""
+
+msgid "Valid source evidence exists, but exact semantics remain version- or fixture-bounded."
+msgstr ""
+
+msgid "Version 3.7 captures immutable saved-source snapshots, uses lossless EDIS-CJ-2 canonicalization, validates document scope before creating a job, and runs final processors only after source collection and index construction."
+msgstr ""
+
+msgid "WP-Cron recovery"
+msgstr ""
+
+msgid "WordPress compatibility"
+msgstr ""
+
+msgid "Writable"
+msgstr ""
+
+msgid "You cannot export evidence for this document."
+msgstr ""
+
+msgid "You do not have permission to access this page."
+msgstr ""
+
+msgid "You do not have permission to download this export."
+msgstr ""
+
+msgid "You do not have permission to export evidence."
+msgstr ""
+
+msgid "You do not have permission to export one of the requested documents."
+msgstr ""
+
+msgid "You do not have permission to reset these settings."
+msgstr ""
+
+msgid "You no longer have permission to access one of the exported documents."
+msgstr ""
+
+msgid "Your session expired. Refresh the page and try again."
+msgstr ""
+
+msgid "ZIP backend"
+msgstr ""
+
+msgid "current"
+msgstr ""
+
+msgid "hours"
+msgstr ""
+
+msgid "not scheduled"
+msgstr ""
+
+msgid "stale"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+#, php-format
+msgid "Background exports are blocked. Diagnostic code: %s."
+msgstr ""
+
+#, php-format
+msgid "EDIS Evidence Exporter is in fail-closed diagnostic mode. Exports are disabled, but WordPress remains available. Diagnostic: %1$s. Define %2$s in wp-config.php to a writable directory outside the public WordPress root, then run the EDIS storage test again."
+msgstr ""

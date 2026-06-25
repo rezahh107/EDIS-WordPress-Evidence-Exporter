@@ -1,0 +1,83 @@
+{
+  "profile": "EDIS-CJ-2",
+  "version": "1.0.0",
+  "object_key_order": "UTF8_BYTES",
+  "unicode_normalization": "NONE",
+  "cases": [
+    {
+      "id": "ascii-key-order",
+      "raw_json": "{\"b\":2,\"a\":1}",
+      "canonical": "{\"a\":1,\"b\":2}",
+      "sha256": "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    },
+    {
+      "id": "persian-arabic-key-order",
+      "raw_json": "{\"ی\":1,\"ا\":2,\"ب\":3}",
+      "canonical": "{\"ا\":2,\"ب\":3,\"ی\":1}",
+      "sha256": "sha256:713e039b6b43dd70866eb4b5736f7f509153402ed9f77b050be2d635b7107fd1"
+    },
+    {
+      "id": "composed-decomposed-distinct",
+      "raw_json": "{\"é\":1,\"e\\u0301\":2}",
+      "canonical": "{\"é\":2,\"é\":1}",
+      "sha256": "sha256:a7962fb10dc1255be368ece9c22b2256605921dc6d0a8c9409d3ee406bcb86e5"
+    },
+    {
+      "id": "emoji-and-astral",
+      "raw_json": "{\"😀\":\"face\",\"𐐀\":\"deseret\",\"a\":\"latin\"}",
+      "canonical": "{\"a\":\"latin\",\"𐐀\":\"deseret\",\"😀\":\"face\"}",
+      "sha256": "sha256:d0a79a1ad2b2f8ff9341309ff4f8c6b1b510d1241297ade8dbc0949ae0be5bd8"
+    },
+    {
+      "id": "numeric-looking-object-keys",
+      "raw_json": "{\"1\":\"one\",\"0\":\"zero\",\"01\":\"leading\"}",
+      "canonical": "{\"0\":\"zero\",\"01\":\"leading\",\"1\":\"one\"}",
+      "sha256": "sha256:b7687274e746ec21d173cfbd71e9241e75aa55dc5d66c284bc9f89c664830332"
+    },
+    {
+      "id": "empty-object-array-shape",
+      "raw_json": "[{},[]]",
+      "canonical": "[{},[]]",
+      "sha256": "sha256:7a38905296006c575d7d45d1d881690a3ee87361ed67ce64642e2504482da818"
+    },
+    {
+      "id": "exact-decimal-normalization",
+      "raw_json": "[1e3,-0,1.2300,1e-3,123456789012345678901234567890]",
+      "canonical": "[1000,0,1.23,0.001,123456789012345678901234567890]",
+      "sha256": "sha256:03f74698dfcfafcc97202bf90bb51b740f1aa3ff56179cd16a657050dc740a71"
+    },
+    {
+      "id": "escaped-text",
+      "raw_json": "{\"line\":\"a\\nb\",\"slash\":\"a/b\",\"unicode\":\"\\u06cc\"}",
+      "canonical": "{\"line\":\"a\\nb\",\"slash\":\"a/b\",\"unicode\":\"ی\"}",
+      "sha256": "sha256:1c4ceaf26345d716deaf1f36f422210049da57b03e6f50851bcce5188e654baa"
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "duplicate-key",
+      "raw_json": "{\"a\":1,\"a\":2}",
+      "diagnostic_code": "EDIS_DUPLICATE_JSON_OBJECT_KEY"
+    },
+    {
+      "id": "invalid-leading-zero",
+      "raw_json": "[01]",
+      "diagnostic_code": "EDIS_JSON_ARRAY_SEPARATOR_REQUIRED"
+    },
+    {
+      "id": "trailing-content",
+      "raw_json": "{}x",
+      "diagnostic_code": "EDIS_JSON_TRAILING_CONTENT"
+    },
+    {
+      "id": "unterminated-string",
+      "raw_json": "[\"x]",
+      "diagnostic_code": "EDIS_JSON_UNEXPECTED_END"
+    },
+    {
+      "id": "number-expansion-budget",
+      "raw_json": "[1e100001]",
+      "diagnostic_code": "EDIS_JSON_NUMBER_LIMIT_EXCEEDED"
+    }
+  ]
+}

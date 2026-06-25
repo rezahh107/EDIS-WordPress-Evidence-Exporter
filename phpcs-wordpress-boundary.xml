@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<ruleset name="EDIS WordPress Boundary">
+  <description>WordPress-native boundary gates for REST, admin, lifecycle, privacy, CLI, templates and integration code.</description>
+  <file>edis-evidence-exporter.php</file>
+  <file>uninstall.php</file>
+  <file>src/Admin</file>
+  <file>src/Elementor</file>
+  <file>src/Rest</file>
+  <file>src/WordPress</file>
+  <file>templates</file>
+  <arg name="extensions" value="php"/>
+  <rule ref="WordPress-Core"/>
+  <rule ref="WordPress-Extra"/>
+  <rule ref="WordPress-Docs"/>
+  <rule ref="PHPCompatibilityWP"/>
+</ruleset>

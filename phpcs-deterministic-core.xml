@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<ruleset name="EDIS Deterministic Core">
+  <description>Deterministic core gates for source evidence processing, storage, canonicalization and package construction.</description>
+  <file>src/Application</file>
+  <file>src/Domain</file>
+  <file>src/Infrastructure</file>
+  <arg name="extensions" value="php"/>
+  <rule ref="PHPCompatibilityWP"/>
+  <rule ref="WordPress.Security"/>
+  <rule ref="WordPress.WP.AlternativeFunctions"/>
+  <rule ref="WordPress.PHP.NoSilencedErrors"/>
+</ruleset>

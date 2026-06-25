@@ -1,0 +1,300 @@
+{
+  "entries": {
+    "urn:edis:schema:bridge:source-context@1.0.0": {
+      "artifact_path": "bridge/source-context.json",
+      "artifact_type": "bridge_source_context",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "evidence_schema": "schemas/bridge-source-context.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/bridge_source_context",
+      "schema_id": "urn:edis:schema:bridge:source-context",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:bundle:diagnostics@1.0.0": {
+      "artifact_path": "diagnostics/diagnostics.json",
+      "artifact_type": "bundle_diagnostics",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/bundle_diagnostics",
+      "schema_id": "urn:edis:schema:bundle:diagnostics",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:bundle:estimated-size@1.0.0": {
+      "artifact_path": "diagnostics/estimated-export-size.json",
+      "artifact_type": "estimated_export_size",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/estimated_export_size",
+      "schema_id": "urn:edis:schema:bundle:estimated-size",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:bundle:selection-snapshot@1.2.0": {
+      "artifact_path": "selection/selection-snapshot.json",
+      "artifact_type": "selection_snapshot",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "evidence_schema": "schemas/selection-snapshot.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/selection_snapshot",
+      "schema_id": "urn:edis:schema:bundle:selection-snapshot",
+      "schema_version": "1.2.0"
+    },
+    "urn:edis:schema:comparison:previous-source-export@1.0.0": {
+      "artifact_path": "comparison/previous-export-diff.json",
+      "artifact_type": "export_comparison",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/export_comparison",
+      "schema_id": "urn:edis:schema:comparison:previous-source-export",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:coverage:source@1.0.0": {
+      "artifact_path": "coverage/source-coverage.json",
+      "artifact_type": "source_coverage",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "evidence_schema": "schemas/source-coverage.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/source_coverage",
+      "schema_id": "urn:edis:schema:coverage:source",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:breakpoints@1.0.0": {
+      "artifact_path": "sources/elementor/breakpoints.json",
+      "artifact_type": "elementor_breakpoints",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_breakpoints",
+      "schema_id": "urn:edis:schema:elementor:breakpoints",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:document-inventory@1.0.0": {
+      "artifact_path": "sources/elementor/document-inventory.json",
+      "artifact_type": "elementor_document_inventory",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_document_inventory",
+      "schema_id": "urn:edis:schema:elementor:document-inventory",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:document-source@1.1.0": {
+      "artifact_path": "sources/elementor/documents/selected-documents.json",
+      "artifact_type": "elementor_document_source",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_document_source",
+      "schema_id": "urn:edis:schema:elementor:document-source",
+      "schema_version": "1.1.0"
+    },
+    "urn:edis:schema:elementor:dynamic-references@1.0.0": {
+      "artifact_path": "sources/elementor/dynamic-references.json",
+      "artifact_type": "elementor_dynamic_references",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_dynamic_references",
+      "schema_id": "urn:edis:schema:elementor:dynamic-references",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:feature-flags@1.0.0": {
+      "artifact_path": "sources/elementor/feature-flags.json",
+      "artifact_type": "elementor_feature_flags",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_feature_flags",
+      "schema_id": "urn:edis:schema:elementor:feature-flags",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:global-classes-order@1.0.0": {
+      "artifact_path": "sources/elementor/global-classes-order.json",
+      "artifact_type": "elementor_global_classes_order",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_global_classes_order",
+      "schema_id": "urn:edis:schema:elementor:global-classes-order",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:global-classes@1.0.0": {
+      "artifact_path": "sources/elementor/global-classes.json",
+      "artifact_type": "elementor_global_classes_registry",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_global_classes_registry",
+      "schema_id": "urn:edis:schema:elementor:global-classes",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:installation@1.0.0": {
+      "artifact_path": "sources/elementor/installation.json",
+      "artifact_type": "elementor_installation",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_installation",
+      "schema_id": "urn:edis:schema:elementor:installation",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:kit-metadata@1.0.0": {
+      "artifact_path": "sources/elementor/kit-metadata.json",
+      "artifact_type": "elementor_kit_metadata",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_kit_metadata",
+      "schema_id": "urn:edis:schema:elementor:kit-metadata",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:kit-settings@1.1.0": {
+      "artifact_path": "sources/elementor/kit-settings.json",
+      "artifact_type": "elementor_kit_settings",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_kit_settings",
+      "schema_id": "urn:edis:schema:elementor:kit-settings",
+      "schema_version": "1.1.0"
+    },
+    "urn:edis:schema:elementor:legacy-global-styles@1.0.0": {
+      "artifact_path": "sources/elementor/legacy-global-styles.json",
+      "artifact_type": "elementor_legacy_global_styles",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_legacy_global_styles",
+      "schema_id": "urn:edis:schema:elementor:legacy-global-styles",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:performance-configuration@1.0.0": {
+      "artifact_path": "sources/elementor/performance-configuration.json",
+      "artifact_type": "elementor_performance_configuration",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_performance_configuration",
+      "schema_id": "urn:edis:schema:elementor:performance-configuration",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:registered-document-types@1.0.0": {
+      "artifact_path": "sources/elementor/registered-document-types.json",
+      "artifact_type": "elementor_registered_document_types",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_registered_document_types",
+      "schema_id": "urn:edis:schema:elementor:registered-document-types",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:registered-widgets@1.0.0": {
+      "artifact_path": "sources/elementor/registered-widgets.json",
+      "artifact_type": "elementor_registered_widgets",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_registered_widgets",
+      "schema_id": "urn:edis:schema:elementor:registered-widgets",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:elementor:variables@1.0.0": {
+      "artifact_path": "sources/elementor/variables.json",
+      "artifact_type": "elementor_variables_registry",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_variables_registry",
+      "schema_id": "urn:edis:schema:elementor:variables",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:fixture:capture-metadata@1.0.0": {
+      "artifact_path": "fixture/fixture-metadata.json",
+      "artifact_type": "fixture_capture",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/fixture_capture",
+      "schema_id": "urn:edis:schema:fixture:capture-metadata",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:architecture@1.0.0": {
+      "artifact_path": "indexes/architecture-index.json",
+      "artifact_type": "elementor_architecture_index",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_architecture_index",
+      "schema_id": "urn:edis:schema:index:architecture",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:capabilities@1.0.0": {
+      "artifact_path": "indexes/capability-evidence.json",
+      "artifact_type": "elementor_capability_evidence",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_capability_evidence",
+      "schema_id": "urn:edis:schema:index:capabilities",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:documents@1.0.0": {
+      "artifact_path": "indexes/document-index.json",
+      "artifact_type": "elementor_document_index",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_document_index",
+      "schema_id": "urn:edis:schema:index:documents",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:element-structure@1.0.0": {
+      "artifact_path": "indexes/element-structure-index.json",
+      "artifact_type": "elementor_element_structure_index",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "evidence_schema": "schemas/element-structure-index.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_element_structure_index",
+      "schema_id": "urn:edis:schema:index:element-structure",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:references@1.0.0": {
+      "artifact_path": "indexes/reference-index.json",
+      "artifact_type": "elementor_reference_index",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_reference_index",
+      "schema_id": "urn:edis:schema:index:references",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:responsive-declarations@1.0.0": {
+      "artifact_path": "indexes/responsive-declaration-index.json",
+      "artifact_type": "elementor_responsive_declaration_index",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_responsive_declaration_index",
+      "schema_id": "urn:edis:schema:index:responsive-declarations",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:site-settings@1.1.0": {
+      "artifact_path": "indexes/site-settings-index.json",
+      "artifact_type": "elementor_site_settings_index",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_site_settings_index",
+      "schema_id": "urn:edis:schema:index:site-settings",
+      "schema_version": "1.1.0"
+    },
+    "urn:edis:schema:index:unknown-structures@1.0.0": {
+      "artifact_path": "diagnostics/unknown-structures.json",
+      "artifact_type": "elementor_unknown_structure_ledger",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "evidence_schema": "schemas/unknown-structure-ledger.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_unknown_structure_ledger",
+      "schema_id": "urn:edis:schema:index:unknown-structures",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:index:usage-summary@1.0.0": {
+      "artifact_path": "indexes/usage-summary.json",
+      "artifact_type": "elementor_usage_summary",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/elementor_usage_summary",
+      "schema_id": "urn:edis:schema:index:usage-summary",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:validation:evidence-conservation@1.0.0": {
+      "artifact_path": "validation/evidence-conservation.json",
+      "artifact_type": "evidence_conservation",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "evidence_schema": "schemas/evidence-conservation.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/evidence_conservation",
+      "schema_id": "urn:edis:schema:validation:evidence-conservation",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:wordpress:environment@1.0.0": {
+      "artifact_path": "environment/wordpress.json",
+      "artifact_type": "environment",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/environment",
+      "schema_id": "urn:edis:schema:wordpress:environment",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:wordpress:plugins@1.0.0": {
+      "artifact_path": "environment/plugins.json",
+      "artifact_type": "plugin",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/plugin",
+      "schema_id": "urn:edis:schema:wordpress:plugins",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:wordpress:provenance@1.0.0": {
+      "artifact_path": "provenance/provenance.json",
+      "artifact_type": "source_provenance",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/source_provenance",
+      "schema_id": "urn:edis:schema:wordpress:provenance",
+      "schema_version": "1.0.0"
+    },
+    "urn:edis:schema:wordpress:theme@1.0.0": {
+      "artifact_path": "environment/theme.json",
+      "artifact_type": "theme",
+      "envelope_schema": "schemas/shared-artifact-envelope.schema.json",
+      "payload_schema": "schemas/component-payloads.schema.json#/$defs/theme",
+      "schema_id": "urn:edis:schema:wordpress:theme",
+      "schema_version": "1.0.0"
+    }
+  },
+  "schema_id": "urn:edis:schema:wordpress:schema-index",
+  "schema_version": "1.3.0"
+}

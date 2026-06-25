@@ -1,0 +1,139 @@
+{
+  "$id": "urn:edis:schema:wordpress:package-manifest:2.1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "artifact_type": {
+      "const": "wordpress_source_evidence_package_manifest"
+    },
+    "data": {
+      "properties": {
+        "bundle_schema_version": {
+          "const": "3.3.0"
+        },
+        "compression_method": {
+          "const": "STORE"
+        },
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^sha256:[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "size": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "size"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "hash_semantics": {
+          "type": "object"
+        },
+        "plugin_version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "semantic_identity": {
+          "additionalProperties": false,
+          "properties": {
+            "bundle_schema_version": {
+              "const": "3.3.0"
+            },
+            "canonicalization_profile": {
+              "const": "EDIS-CJ-2"
+            },
+            "compression_method": {
+              "const": "STORE"
+            },
+            "plugin_version": {
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+              "type": "string"
+            },
+            "privacy_mode": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "source_export_root_sha256": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "zip_profile": {
+              "const": "EDIS-ZIP-1"
+            }
+          },
+          "required": [
+            "source_export_root_sha256",
+            "privacy_mode",
+            "plugin_version",
+            "bundle_schema_version",
+            "zip_profile",
+            "compression_method",
+            "canonicalization_profile"
+          ],
+          "type": "object"
+        },
+        "zip_profile": {
+          "const": "EDIS-ZIP-1"
+        }
+      },
+      "required": [
+        "analysis_set_id",
+        "wordpress_bundle_id",
+        "semantic_identity",
+        "source_export_root_sha256",
+        "files",
+        "file_count",
+        "plugin_version",
+        "bundle_schema_version",
+        "zip_profile",
+        "compression_method",
+        "hash_semantics"
+      ],
+      "type": "object"
+    },
+    "producer": {
+      "additionalProperties": true,
+      "properties": {
+        "product": {
+          "const": "edis-evidence-exporter"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "product",
+        "version"
+      ],
+      "type": "object"
+    },
+    "schema_id": {
+      "const": "urn:edis:schema:wordpress:package-manifest"
+    },
+    "schema_version": {
+      "const": "2.1.0"
+    }
+  },
+  "required": [
+    "schema_id",
+    "schema_version",
+    "artifact_type",
+    "producer",
+    "data",
+    "diagnostics"
+  ],
+  "type": "object"
+}

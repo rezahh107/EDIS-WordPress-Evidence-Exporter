@@ -1,0 +1,111 @@
+{
+  "$id": "urn:edis:schema:wordpress:package-manifest:2.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "data": {
+      "properties": {
+        "bundle_schema_version": {
+          "const": "3.3.0"
+        },
+        "compression_method": {
+          "const": "STORE"
+        },
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^sha256:[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "size": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "size"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "hash_semantics": {
+          "type": "object"
+        },
+        "plugin_version": {
+          "const": "3.7.0"
+        },
+        "zip_profile": {
+          "const": "EDIS-ZIP-1"
+        },
+        "semantic_identity": {
+          "additionalProperties": false,
+          "properties": {
+            "source_export_root_sha256": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "privacy_mode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "plugin_version": {
+              "const": "3.7.0"
+            },
+            "bundle_schema_version": {
+              "const": "3.3.0"
+            },
+            "zip_profile": {
+              "const": "EDIS-ZIP-1"
+            },
+            "compression_method": {
+              "const": "STORE"
+            },
+            "canonicalization_profile": {
+              "const": "EDIS-CJ-2"
+            }
+          },
+          "required": [
+            "source_export_root_sha256",
+            "privacy_mode",
+            "plugin_version",
+            "bundle_schema_version",
+            "zip_profile",
+            "compression_method",
+            "canonicalization_profile"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "analysis_set_id",
+        "wordpress_bundle_id",
+        "semantic_identity",
+        "source_export_root_sha256",
+        "files",
+        "file_count",
+        "plugin_version",
+        "bundle_schema_version",
+        "zip_profile",
+        "compression_method",
+        "hash_semantics"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_id",
+    "schema_version",
+    "artifact_type",
+    "producer",
+    "data",
+    "diagnostics"
+  ],
+  "type": "object"
+}

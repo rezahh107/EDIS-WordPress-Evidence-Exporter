@@ -1,0 +1,5 @@
+{
+  "schema_version": "EDIS-GITHUB-ACTIONS-POLICY-1",
+  "policy": "All GitHub Actions references must use reviewed full 40-character commit SHAs. Rolling tags and branches are forbidden.",
+  "rolling_refs": []
+}

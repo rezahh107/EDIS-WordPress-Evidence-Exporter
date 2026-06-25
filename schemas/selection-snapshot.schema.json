@@ -1,0 +1,238 @@
+{
+  "$defs": {
+    "selectedElement": {
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "pattern": "^[0-9]+$",
+          "type": "string"
+        },
+        "elementor_element_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,128}$",
+          "type": "string"
+        },
+        "include_descendants": {
+          "type": "boolean"
+        },
+        "selection_reason": {
+          "const": "USER_SELECTED"
+        }
+      },
+      "required": [
+        "document_id",
+        "elementor_element_id",
+        "include_descendants",
+        "selection_reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:edis:schema:bundle:selection-snapshot-evidence:1.2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_inclusion_reasons": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "dependency_scope": {
+      "enum": [
+        "SOURCE_ONLY",
+        "REQUIRED_DEPENDENCIES",
+        "FULL_SITE_CONTEXT"
+      ],
+      "type": "string"
+    },
+    "editor_selection_source": {
+      "type": "string"
+    },
+    "editor_unsaved_changes_detected": {
+      "type": "boolean"
+    },
+    "editor_unsaved_changes_state": {
+      "enum": [
+        "TRUE",
+        "FALSE",
+        "UNAVAILABLE",
+        "ERROR"
+      ],
+      "type": "string"
+    },
+    "export_scope": {
+      "enum": [
+        "SINGLE_DOCUMENT",
+        "MULTIPLE_DOCUMENTS",
+        "METADATA_ONLY",
+        "ENTIRE_SITE"
+      ],
+      "type": "string"
+    },
+    "exported_state": {
+      "const": "LAST_SAVED_SOURCE"
+    },
+    "hash_kind": {
+      "const": "CANONICAL_SAVED_SOURCE"
+    },
+    "included_documents": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "inventory_document_ids": {
+      "items": {
+        "pattern": "^[0-9]+$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "operational_provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "editor_selection_source": {
+          "type": "string"
+        },
+        "editor_unsaved_changes_state": {
+          "enum": [
+            "TRUE",
+            "FALSE",
+            "UNAVAILABLE",
+            "ERROR"
+          ],
+          "type": "string"
+        },
+        "selected_at": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selected_at",
+        "editor_unsaved_changes_state",
+        "editor_selection_source"
+      ],
+      "type": "object"
+    },
+    "selected_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "selected_document_ids": {
+      "items": {
+        "pattern": "^[0-9]+$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "selected_elements": {
+      "items": {
+        "$ref": "#/$defs/selectedElement"
+      },
+      "maxItems": 50,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "selected_source_hashes": {
+      "additionalProperties": {
+        "pattern": "^sha256:[a-f0-9]{64}$",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": "object"
+    },
+    "selection_revision": {
+      "minimum": 4,
+      "type": "integer"
+    },
+    "selection_scope": {
+      "enum": [
+        "DOCUMENT",
+        "ELEMENT",
+        "SUBTREE",
+        "MULTI_SUBTREE"
+      ],
+      "type": "string"
+    },
+    "semantic_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "dependency_scope": {
+          "type": "string"
+        },
+        "export_scope": {
+          "type": "string"
+        },
+        "exported_state": {
+          "const": "LAST_SAVED_SOURCE"
+        },
+        "hash_kind": {
+          "const": "CANONICAL_SAVED_SOURCE"
+        },
+        "selected_document_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "selected_elements": {
+          "maxItems": 50,
+          "type": "array"
+        },
+        "selected_source_hashes": {
+          "type": "object"
+        },
+        "selection_revision": {
+          "minimum": 4,
+          "type": "integer"
+        },
+        "selection_scope": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "export_scope",
+        "dependency_scope",
+        "selection_revision",
+        "selected_document_ids",
+        "selected_source_hashes",
+        "hash_kind",
+        "selection_scope",
+        "selected_elements",
+        "exported_state"
+      ],
+      "type": "object"
+    },
+    "strict_single_document_isolation": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "export_scope",
+    "dependency_scope",
+    "selection_revision",
+    "selected_at",
+    "selected_document_ids",
+    "selected_source_hashes",
+    "hash_kind",
+    "included_documents",
+    "inventory_document_ids",
+    "strict_single_document_isolation",
+    "artifact_inclusion_reasons",
+    "selection_scope",
+    "selected_elements",
+    "editor_unsaved_changes_detected",
+    "editor_unsaved_changes_state",
+    "editor_selection_source",
+    "exported_state",
+    "semantic_identity",
+    "operational_provenance"
+  ],
+  "type": "object"
+}

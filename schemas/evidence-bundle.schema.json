@@ -1,0 +1,7 @@
+{
+  "$id": "urn:edis:schema:wordpress:evidence-bundle:3.3.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Bundle Schema 3.3.0 uses EDIS-CJ-2, separate semantic and instance hashes, lossless JSON source parsing, and deterministic EDIS-ZIP-1 packaging.",
+  "title": "EDIS WordPress Source Evidence Bundle Contract",
+  "type": "object"
+}

@@ -1,0 +1,146 @@
+{
+  "cases": [
+    {
+      "canonical": "{}",
+      "id": "empty_object",
+      "input": {},
+      "sha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "canonical": "{\"a\":2,\"z\":1}",
+      "id": "sorted_keys",
+      "input": {
+        "a": 2,
+        "z": 1
+      },
+      "sha256": "sha256:c2985c5ba6f7d2a55e768f92490ca09388e95bc4cccb9fdf11b15f4d42f93e73"
+    },
+    {
+      "canonical": "{\"a\":null,\"b\":[3,{\"a\":true,\"ی\":\"فارسی\"}]}",
+      "id": "nested",
+      "input": {
+        "a": null,
+        "b": [
+          3,
+          {
+            "a": true,
+            "ی": "فارسی"
+          }
+        ]
+      },
+      "sha256": "sha256:ff94192cbf2568039717d27d2a60074200b9679c8b3977edc0831aaa6234d7c8"
+    },
+    {
+      "canonical": "{\"direction\":\"rtl\",\"fa\":\"راهنمای جامع المنتور\"}",
+      "id": "rtl_unicode",
+      "input": {
+        "direction": "rtl",
+        "fa": "راهنمای جامع المنتور"
+      },
+      "sha256": "sha256:4d1e660fb8643fabdf88b3177e7bdb298c0163133f4c8f2f757f44c883b1682d"
+    },
+    {
+      "canonical": "{\"text\":\"line1\\nline2\\t\\\"quoted\\\"\\\\slash/\"}",
+      "id": "escapes",
+      "input": {
+        "text": "line1\nline2\t\"quoted\"\\slash/"
+      },
+      "sha256": "sha256:9cc8530a3665e912ae0bdf95402ebe3be8a0b142df689acf6cc8344a77d76608"
+    },
+    {
+      "canonical": "{\"value\":0}",
+      "id": "negative_zero",
+      "input": {
+        "value": -0.0
+      },
+      "sha256": "sha256:23d7b286bd429460b92a2a1c21b6afc34110446c5034c17363fda363aa0a7c5d"
+    },
+    {
+      "canonical": "{\"value\":9007199254740991}",
+      "id": "safe_integer",
+      "input": {
+        "value": 9007199254740991
+      },
+      "sha256": "sha256:16c63bddb910905c4ee8abf36273baa20dba53020dbaf265da5936013ded185d"
+    },
+    {
+      "canonical": "[3,2,1,null,false,true]",
+      "id": "arrays",
+      "input": [
+        3,
+        2,
+        1,
+        null,
+        false,
+        true
+      ],
+      "sha256": "sha256:d660003335c113f3e00f20192fc7831a38c1e0a26e02ba74e72e46b355a16442"
+    },
+    {
+      "canonical": "{\"value\":33.3333}",
+      "id": "fraction_short",
+      "input": {
+        "value": 33.3333
+      },
+      "sha256": "sha256:90d0f20623116b5338307f764eaf801b3ca5ea5e47102081202a172aa9334391"
+    },
+    {
+      "canonical": "{\"value\":1.25}",
+      "id": "fraction_trim",
+      "input": {
+        "value": 1.25
+      },
+      "sha256": "sha256:77ae6e7716d3c051fbb21bd7557d8ba449709cf17c197f0ace15b2b33c56dae0"
+    },
+    {
+      "canonical": "{\"value\":0.0000001}",
+      "id": "small_exponent_expanded",
+      "input": {
+        "value": 1e-07
+      },
+      "sha256": "sha256:a0235b61201207df642a57f8701756f7b885f379de78f79c3c02799ab008f528"
+    },
+    {
+      "canonical": "{\"value\":100000000000000000000}",
+      "id": "large_exponent_expanded",
+      "input": {
+        "value": 1e+20
+      },
+      "sha256": "sha256:2426a224e9c5d971eeb3c6c4455aa6ed3c4790765f05f5fa0d169a68e1317b3a"
+    },
+    {
+      "canonical": "{\"value\":0.000001}",
+      "id": "small_decimal",
+      "input": {
+        "value": 1e-06
+      },
+      "sha256": "sha256:bc1c982dd4e677d72ff5821cc67554e045e838a31ddc55fa0fdb1a32d5a1dce9"
+    }
+  ],
+  "encoding": "UTF-8",
+  "environment_independent_serialize_precision": true,
+  "final_newline": false,
+  "number_serialization": "SHORTEST_ROUND_TRIP_EXPANDED_TO_PLAIN_DECIMAL",
+  "profile": "EDIS-CJ-1",
+  "rejection_cases": [
+    {
+      "id": "nan",
+      "kind": "NON_FINITE_NUMBER"
+    },
+    {
+      "id": "positive_infinity",
+      "kind": "NON_FINITE_NUMBER"
+    },
+    {
+      "id": "negative_infinity",
+      "kind": "NON_FINITE_NUMBER"
+    },
+    {
+      "id": "unsafe_integer",
+      "kind": "OUTSIDE_INTEROPERABLE_INTEGER_RANGE"
+    }
+  ],
+  "schema_id": "urn:edis:contract:edis-cj-1-vectors",
+  "schema_version": "1.1.0",
+  "unicode_normalization": "PRESERVE_INPUT_CODE_POINTS"
+}

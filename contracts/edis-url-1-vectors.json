@@ -1,0 +1,160 @@
+{
+  "cases": [
+    {
+      "id": "default_https_port",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/path",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:7b00a02954c49488f80624ff516bb9c8766c9b6aaa0cd6fea46dfe390c738cfe",
+      "site_path_scope": "/",
+      "url": "https://Example.COM:443/path"
+    },
+    {
+      "id": "non_default_port",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/a",
+        "port": 8080,
+        "scheme": "http",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:e86c61f5a99250438ba28e7b0b9bde673d51c03522a486820897019333ad2af3",
+      "site_path_scope": "/",
+      "url": "http://example.com:8080/a"
+    },
+    {
+      "id": "empty_path",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:8c79625612e9795eb1435ef43d83fbb90b2f0103289d7c7bfa2baa80e78f9ece",
+      "site_path_scope": "/",
+      "url": "https://example.com"
+    },
+    {
+      "id": "dot_segments",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/a/c",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:fb284e21eed2f5771563c73e8026e5bd8e8a6904a95c745a3cc30ffa636f5f40",
+      "site_path_scope": "/",
+      "url": "https://example.com/a/./b/../c"
+    },
+    {
+      "id": "repeated_slashes",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/a//b",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:444b93ea1b32ac23eb402e97d56717f9a7772fe3ac5e91851914eefa55ab99b8",
+      "site_path_scope": "/",
+      "url": "https://example.com/a//b"
+    },
+    {
+      "id": "unreserved_percent",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/~user/A",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:300eb51969cb961129c72a01d5555a86ef56bd2fce7631da09b1f1b028ccc9e5",
+      "site_path_scope": "/",
+      "url": "https://example.com/%7euser/%41"
+    },
+    {
+      "id": "reserved_percent",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/a%2Fb",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:416252f7bc0303da43b4f7c5060682b87cc36a5f4c314f30bb5e23d62988a669",
+      "site_path_scope": "/",
+      "url": "https://example.com/a%2fb"
+    },
+    {
+      "id": "query_fragment_excluded",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/page",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:9341f064d81e652f1adee6a370d4f97d477ee60cf8d30807c12d2519a2954bcf",
+      "site_path_scope": "/",
+      "url": "https://example.com/page?token=secret#part"
+    },
+    {
+      "id": "subdirectory",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/wp/fa/page",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/wp/"
+      },
+      "page_locator_sha256": "sha256:70aa4391bee907ce8e3c0cc335730ca5eaef4948bb0ca25866a0e704faefe3ff",
+      "site_path_scope": "/wp/",
+      "url": "https://example.com/wp/fa/page"
+    },
+    {
+      "id": "email_redaction",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/{redacted}/profile",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:b5ebb953b790e91330a79f1ce260aa78a615a033a836a3716eb1286772ecb18f",
+      "site_path_scope": "/",
+      "url": "https://example.com/user@example.com/profile"
+    },
+    {
+      "id": "token_redaction",
+      "normalized": {
+        "host_ascii": "example.com",
+        "path": "/{redacted}/value",
+        "port": null,
+        "scheme": "https",
+        "site_path_scope": "/"
+      },
+      "page_locator_sha256": "sha256:0f1f5d1cfddcde238e41cb93fe26aa53cccf2bfd34c9f3ca2995e723d8e2a1db",
+      "site_path_scope": "/",
+      "url": "https://example.com/reset-token-123/value"
+    }
+  ],
+  "profile": "EDIS-URL-1",
+  "rejection_cases": [
+    {
+      "id": "credentials",
+      "url": "https://user:pass@example.com/"
+    },
+    {
+      "id": "unsupported_scheme",
+      "url": "ftp://example.com/"
+    }
+  ],
+  "schema_id": "urn:edis:contract:edis-url-1-vectors",
+  "schema_version": "1.0.0"
+}

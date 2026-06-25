@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:edis:schema:index:unknown-structures:1.0.0",
+  "title": "EDIS Unknown Structure Ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["unknown_paths", "count", "known_top_level_element_keys", "raw_source_preserved", "absence_of_ledger_entries_does_not_prove_full_schema_coverage"],
+  "properties": {
+    "unknown_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document_id", "elementor_element_id", "source_path", "unknown_key", "preserved_in_raw_source", "indexed"],
+        "properties": {
+          "document_id": {"type": "string"},
+          "elementor_element_id": {"type": ["string", "null"]},
+          "source_path": {"type": "string"},
+          "unknown_key": {"type": "string"},
+          "preserved_in_raw_source": {"type": "boolean"},
+          "indexed": {"type": "boolean"}
+        }
+      }
+    },
+    "count": {"type": "integer"},
+    "known_top_level_element_keys": {"type": "array", "items": {"type": "string"}},
+    "raw_source_preserved": {"type": "boolean"},
+    "absence_of_ledger_entries_does_not_prove_full_schema_coverage": {"type": "boolean"}
+  }
+}

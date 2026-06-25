@@ -1,0 +1,126 @@
+{
+  "fields": [
+    {
+      "consumers": [
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "raw_storage_bytes_sha256",
+      "meaning": "SHA-256 of the exact WordPress _elementor_data storage bytes.",
+      "producer": "WORDPRESS",
+      "scope": "DOCUMENT",
+      "semantic": false
+    },
+    {
+      "consumers": [
+        "BROWSER",
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "canonical_saved_source_sha256",
+      "meaning": "SHA-256 of the losslessly parsed saved source serialized with EDIS-CJ-2 using UTF-8 bytewise object-key order and no Unicode normalization.",
+      "producer": "WORDPRESS",
+      "scope": "DOCUMENT",
+      "semantic": true
+    },
+    {
+      "consumers": [
+        "BROWSER",
+        "PYTHON"
+      ],
+      "deprecated": true,
+      "field": "saved_source_sha256",
+      "meaning": "Compatibility alias for canonical_saved_source_sha256 retained by WordPress Bundle Schema 3.3.0.",
+      "producer": "WORDPRESS",
+      "scope": "DOCUMENT",
+      "semantic": true
+    },
+    {
+      "consumers": [
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "exported_source_artifact_sha256",
+      "meaning": "The source artifact file hash is stored externally in package-manifest.json files[].sha256 to avoid a self-hash cycle.",
+      "producer": "WORDPRESS",
+      "scope": "PACKAGE",
+      "semantic": false
+    },
+    {
+      "consumers": [
+        "BROWSER",
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "document_fingerprint",
+      "meaning": "Deterministic identity of the source document scope, not its saved bytes.",
+      "producer": "WORDPRESS",
+      "scope": "DOCUMENT",
+      "semantic": true
+    },
+    {
+      "consumers": [
+        "BROWSER",
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "source_element_key",
+      "meaning": "Deterministic key derived from exported document_fingerprint, source_path, element ID, document order, and architecture kind.",
+      "producer": "WORDPRESS",
+      "scope": "ELEMENT",
+      "semantic": true
+    },
+    {
+      "consumers": [
+        "BROWSER",
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "source_record_sha256",
+      "meaning": "Hash of the complete element structure record including ID occurrence and uniqueness facts.",
+      "producer": "WORDPRESS",
+      "scope": "ELEMENT",
+      "semantic": true
+    },
+    {
+      "consumers": [
+        "BROWSER",
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "semantic_payload_sha256",
+      "meaning": "Hash of schema identity, semantic evidence projection, semantic diagnostics, and the EDIS-CJ-2 descriptor. Operational IDs and capture/session fields are excluded by policy 1.0.0.",
+      "producer": "WORDPRESS",
+      "scope": "ARTIFACT",
+      "semantic": true
+    },
+    {
+      "consumers": [
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "artifact_instance_sha256",
+      "meaning": "Hash of the complete emitted artifact envelope except this self-referential field. It includes capture time, producer version, operational identifiers, and semantic_payload_sha256.",
+      "producer": "WORDPRESS",
+      "scope": "ARTIFACT",
+      "semantic": false
+    },
+    {
+      "consumers": [
+        "PYTHON"
+      ],
+      "deprecated": false,
+      "field": "json_evidence_profile",
+      "meaning": "Declares lossless parser, duplicate-key rejection, numeric-key object preservation, object/array shape preservation, and Unicode ordering used for saved JSON evidence.",
+      "producer": "WORDPRESS",
+      "scope": "DOCUMENT",
+      "semantic": true
+    }
+  ],
+  "producer": {
+    "product": "edis-evidence-exporter",
+    "version": "3.7.11"
+  },
+  "schema_id": "urn:edis:schema:wordpress:data-dictionary",
+  "schema_version": "1.1.0"
+}
