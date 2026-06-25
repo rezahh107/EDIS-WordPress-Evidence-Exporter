@@ -21,6 +21,7 @@ final class SupplyChainGateContractTest extends TestCase
         self::assertStringContainsString('actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5', $workflow);
         self::assertStringContainsString('shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240', $workflow);
         self::assertStringContainsString('test -f composer.lock', $workflow);
+        self::assertStringContainsString('composer validate --strict', $workflow);
         self::assertStringContainsString('composer audit --locked', $workflow);
         self::assertStringNotContainsString("if: hashFiles('composer.lock') != ''", $workflow);
         self::assertStringContainsString('EDIS_EVIDENCE_EXPORTER_VERSION', $workflow);
@@ -39,7 +40,7 @@ final class SupplyChainGateContractTest extends TestCase
         self::assertStringContainsString('--strict-sha', $package['scripts']['lint:workflows:strict'] ?? '');
     }
 
-    public function testPluginManifestListsEveryRepositoryFile(): void
+    public function testPluginManifestListsEveryManifestOwnedRepositoryFile(): void
     {
         $root = dirname(__DIR__, 2);
         $manifest = json_decode((string) file_get_contents($root . '/plugin.manifest.json'), true);
@@ -50,6 +51,12 @@ final class SupplyChainGateContractTest extends TestCase
                 $listed[$entry['path']] = true;
             }
         }
+
+        self::assertFileExists($root . '/composer.lock');
+        $sourceOnlyGeneratedFiles = [
+            'composer.lock' => true,
+        ];
+
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
         );
@@ -64,12 +71,11 @@ final class SupplyChainGateContractTest extends TestCase
                 || str_starts_with($relative, '.git/')) {
                 continue;
             }
-            if (!isset($listed[$relative])) {
+            if (!isset($listed[$relative]) && !isset($sourceOnlyGeneratedFiles[$relative])) {
                 $missing[] = $relative;
             }
         }
         sort($missing, SORT_STRING);
-        self::assertSame([], $missing, 'plugin.manifest.json omits repository files.');
+        self::assertSame([], $missing, 'plugin.manifest.json omits manifest-owned repository files.');
     }
-
 }
