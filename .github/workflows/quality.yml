@@ -24,7 +24,7 @@ jobs:
           tools: composer:v2
           extensions: json, iconv
       - run: test -f composer.lock
-      - run: composer validate --strict --no-check-publish
+      - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: composer audit --locked
       - run: find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
@@ -255,10 +255,14 @@ jobs:
           rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
           ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
           wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress
-      - name: Verify lifecycle, site isolation, Site Health and WP-CLI
+      - name: Create secondary site
         run: |
           SITE_TWO_ID=$(wp site create --path=/tmp/wordpress --slug=site-two --title='Site Two' --email=admin@example.test --porcelain)
           SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress)
+          printf 'SITE_TWO_ID=%s\n' "$SITE_TWO_ID" >> "$GITHUB_ENV"
+          printf 'SITE_TWO_URL=%s\n' "$SITE_TWO_URL" >> "$GITHUB_ENV"
+      - name: Verify lifecycle initialization on both sites
+        run: |
           wp eval '
             $stored = get_option("edis_evidence_installed_version");
             $expected = EDIS_EVIDENCE_EXPORTER_VERSION;
@@ -275,6 +279,8 @@ jobs:
                 exit(1);
             }
           ' --path=/tmp/wordpress --url="$SITE_TWO_URL"
+      - name: Verify per-site private storage isolation
+        run: |
           wp edis storage self-test --path=/tmp/wordpress --url=http://localhost
           wp edis storage self-test --path=/tmp/wordpress --url="$SITE_TWO_URL"
           ROOT_ONE=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url=http://localhost)
@@ -282,6 +288,8 @@ jobs:
           test "$ROOT_ONE" != "$ROOT_TWO"
           [[ "$ROOT_ONE" == *site-* ]]
           [[ "$ROOT_TWO" == *site-* ]]
+      - name: Verify multisite Site Health registration
+        run: |
           wp eval '
             $tests = apply_filters("site_status_tests", []);
             foreach (["edis_evidence_runtime", "edis_evidence_cron"] as $id) {
@@ -291,6 +299,8 @@ jobs:
                 }
             }
           ' --path=/tmp/wordpress
+      - name: Verify multisite WP-CLI commands
+        run: |
           wp edis worker status --path=/tmp/wordpress --url=http://localhost
           wp edis jobs repair --path=/tmp/wordpress --url=http://localhost
       - name: Verify network deactivation cleans scheduled hooks
