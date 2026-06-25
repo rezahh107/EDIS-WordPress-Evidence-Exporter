@@ -8,6 +8,26 @@ permissions:
   contents: read
 
 jobs:
+  composer-lock-bootstrap:
+    name: Generate composer.lock evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+          extensions: json, iconv
+      - name: Resolve Composer lock
+        run: composer update --no-interaction --prefer-dist --no-progress
+      - name: Emit Composer lock evidence
+        run: |
+          printf 'EDIS_COMPOSER_LOCK_SHA256=%s\n' "$(sha256sum composer.lock | cut -d' ' -f1)"
+          printf 'EDIS_COMPOSER_LOCK_BASE64_BEGIN\n'
+          base64 -w0 composer.lock
+          printf '\nEDIS_COMPOSER_LOCK_BASE64_END\n'
+
   php-matrix:
     name: PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
@@ -190,12 +210,12 @@ jobs:
                 fwrite(STDERR, "Elementor did not load.\n");
                 exit(1);
             }
-            $ready = EDIS\\EvidenceExporter\\Infrastructure\\Support\\CanonicalJson::environmentReady();
+            $ready = EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson::environmentReady();
             if (! $ready) {
                 fwrite(STDERR, "EDIS-CJ-2 runtime rejected.\n");
                 exit(1);
             }
-            $result = (new EDIS\\EvidenceExporter\\Infrastructure\\Support\\PrivateStorage())->selfTest();
+            $result = (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->selfTest();
             if (($result["state"] ?? null) !== "PASS") {
                 fwrite(STDERR, "Private storage self-test failed.\n");
                 exit(1);
@@ -319,4 +339,3 @@ jobs:
           if [ -f /tmp/wordpress/wp-content/debug.log ]; then
             ! grep -E 'EDIS|edis-evidence-exporter' /tmp/wordpress/wp-content/debug.log
           fi
-
