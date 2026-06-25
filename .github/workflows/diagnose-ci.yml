@@ -25,9 +25,13 @@ jobs:
         shell: bash
         run: |
           set +e
-          vendor/bin/phpcs --standard=phpcs.xml.dist --report=json > /tmp/phpcs.json
+          vendor/bin/phpcs --standard=phpcs.xml.dist --report=json > /tmp/phpcs.json 2> /tmp/phpcs.err
           status=$?
-          summary=$(php -r '$d=json_decode(file_get_contents("/tmp/phpcs.json"),true);$o=[];foreach(($d["files"]??[]) as $f=>$i){foreach(($i["messages"]??[]) as $m){$o[]=basename($f).":".($m["line"]??0).":".($m["source"]??"unknown");if(count($o)>=6){break 2;}}}echo $o?implode("|",$o):"PASS";' | cut -c1-240)
+          summary=$(php -r '$d=json_decode(file_get_contents("/tmp/phpcs.json"),true);$o=[];foreach(($d["files"]??[]) as $f=>$i){foreach(($i["messages"]??[]) as $m){$o[]=basename($f).":".($m["line"]??0).":".($m["source"]??"unknown");if(count($o)>=6){break 2;}}}echo $o?implode("|",$o):"";' | cut -c1-240)
+          if [ -z "$summary" ]; then
+            summary=$(tr '\n' ' ' < /tmp/phpcs.err | tr -cd '[:alnum:] _./:@=-' | cut -c1-240)
+          fi
+          [ -n "$summary" ] || summary=PASS
           printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
           printf 'summary=%s\n' "$summary" >> "$GITHUB_OUTPUT"
           exit 0
@@ -35,7 +39,7 @@ jobs:
         run: test '${{ steps.scan.outputs.status }}' -eq 0
 
   multisite-diagnostic:
-    name: Multisite create diagnostic
+    name: Multisite site URL diagnostic
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -74,15 +78,19 @@ jobs:
           wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306
           wp core install --path=/tmp/wordpress --url=http://localhost --title=EDIS --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
           wp core multisite-convert --path=/tmp/wordpress --title='EDIS Network' --base=/
-      - id: create
+      - id: lookup
         shell: bash
         run: |
           set +e
-          output=$(wp site create --path=/tmp/wordpress --url=http://localhost --slug=site-two --title='Site Two' --email=admin@example.test --porcelain 2>&1)
-          status=$?
-          summary=$(printf '%s' "$output" | tr '\n' ' ' | tr -cd '[:alnum:] _./:@=-' | cut -c1-220)
+          site_id=$(wp site create --path=/tmp/wordpress --url=http://localhost --slug=site-two --title='Site Two' --email=admin@example.test --porcelain 2>/tmp/site-create.err)
+          create_status=$?
+          site_url=$(wp site get "$site_id" --field=url --path=/tmp/wordpress --url=http://localhost 2>/tmp/site-get.err)
+          get_status=$?
+          status=$((create_status != 0 ? create_status : get_status))
+          summary="id=$site_id create=$create_status get=$get_status url=$site_url $(cat /tmp/site-create.err /tmp/site-get.err)"
+          summary=$(printf '%s' "$summary" | tr '\n' ' ' | tr -cd '[:alnum:] _./:@=-' | cut -c1-220)
           printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
           printf 'summary=%s\n' "$summary" >> "$GITHUB_OUTPUT"
           exit 0
-      - name: SITE CREATE ${{ steps.create.outputs.summary }}
-        run: test '${{ steps.create.outputs.status }}' -eq 0
+      - name: SITE LOOKUP ${{ steps.lookup.outputs.summary }}
+        run: test '${{ steps.lookup.outputs.status }}' -eq 0
