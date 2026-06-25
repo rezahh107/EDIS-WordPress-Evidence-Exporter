@@ -18,6 +18,8 @@ final class InspectorModule
         if (!$this->allowed()) { return; }
         $documentId = $this->currentDocumentId();
         if ($documentId !== null && !current_user_can('edit_post', $documentId)) { return; }
+        /* translators: %d: Number of Elementor elements currently selected for export. */
+        $selectionCount = __('EDIS selection: %d', 'edis-evidence-exporter');
         wp_enqueue_script('edis-elementor-inspector', EDIS_EVIDENCE_EXPORTER_URL . 'assets/js/elementor-inspector.js', [], EDIS_EVIDENCE_EXPORTER_VERSION, true);
         wp_localize_script('edis-elementor-inspector', 'EDISElementorInspector', [
             'selectionEndpoint' => esc_url_raw(rest_url('edis-evidence-exporter/v3/inspector-selections')),
@@ -44,7 +46,7 @@ final class InspectorModule
                 'removeSelection' => __('Remove from EDIS selection', 'edis-evidence-exporter'),
                 'openSelection' => __('Export selected elements', 'edis-evidence-exporter'),
                 'clearSelection' => __('Clear', 'edis-evidence-exporter'),
-                'selectionCount' => __('EDIS selection: %d', 'edis-evidence-exporter'),
+                'selectionCount' => $selectionCount,
                 'missingIdentity' => __('EDIS could not obtain a stable saved-source element identifier.', 'edis-evidence-exporter'),
                 'selectionLimit' => __('The EDIS selection limit has been reached.', 'edis-evidence-exporter'),
                 'documentChanged' => __('The Elementor document changed, so the previous EDIS selection was cleared.', 'edis-evidence-exporter'),
@@ -67,8 +69,14 @@ final class InspectorModule
 
     private function currentDocumentId(): ?int
     {
-        $raw = isset($_GET['post']) ? wp_unslash($_GET['post']) : (isset($_GET['post_id']) ? wp_unslash($_GET['post_id']) : '0');
-        $value = absint($raw);
+        $raw = filter_input(INPUT_GET, 'post', FILTER_UNSAFE_RAW, FILTER_REQUIRE_SCALAR);
+        if (!is_string($raw) || $raw === '') {
+            $raw = filter_input(INPUT_GET, 'post_id', FILTER_UNSAFE_RAW, FILTER_REQUIRE_SCALAR);
+        }
+        if (!is_string($raw)) {
+            return null;
+        }
+        $value = absint(sanitize_text_field(wp_unslash($raw)));
         return $value > 0 ? $value : null;
     }
 }

@@ -36,13 +36,16 @@ final class DiagnosticsService
         global $wp_version;
         $latest = function_exists('is_user_logged_in') && is_user_logged_in() ? $this->jobs->latestForUser(get_current_user_id()) : null;
         $cronDisabled = defined('DISABLE_WP_CRON') && DISABLE_WP_CRON;
+        $componentCount = count($this->registry->ids());
+        /* translators: %d: Number of registered evidence components. */
+        $componentDetail = sprintf(__('%d components registered', 'edis-evidence-exporter'), $componentCount);
         $checks = [
             $this->check('wordpress_version', version_compare((string) $wp_version, '6.5', '>='), __('WordPress compatibility', 'edis-evidence-exporter'), (string) $wp_version),
             $this->check('php_version', version_compare(PHP_VERSION, '8.2', '>=') && version_compare(PHP_VERSION, '8.6', '<'), __('PHP compatibility', 'edis-evidence-exporter'), PHP_VERSION . ' (verified range: 8.2–8.5)'),
             $this->check('php_64_bit', PHP_INT_SIZE >= 8, __('64-bit PHP runtime', 'edis-evidence-exporter'), PHP_INT_SIZE >= 8 ? __('Available', 'edis-evidence-exporter') : __('Unavailable', 'edis-evidence-exporter')),
             $this->check('canonical_json_environment', CanonicalJson::environmentReady(), __('Deterministic JSON environment', 'edis-evidence-exporter'), CanonicalJson::environmentReady() ? __('EDIS-CJ-2 ready', 'edis-evidence-exporter') : __('Unsupported PHP version, serialize_precision, fsync, or integer width', 'edis-evidence-exporter')),
             $this->check('manifest', $this->manifestValid(), __('Manifest loading', 'edis-evidence-exporter'), $this->manifestValid() ? __('Loaded', 'edis-evidence-exporter') : __('Invalid or unreadable', 'edis-evidence-exporter')),
-            $this->check('registry', count($this->registry->ids()) > 0, __('Component registry', 'edis-evidence-exporter'), sprintf(__('%d components registered', 'edis-evidence-exporter'), count($this->registry->ids()))),
+            $this->check('registry', $componentCount > 0, __('Component registry', 'edis-evidence-exporter'), $componentDetail),
             $this->check('jobs_writable', $this->jobs->rootWritable(), __('Job storage', 'edis-evidence-exporter'), $this->jobs->rootWritable() ? __('Writable', 'edis-evidence-exporter') : __('Not writable', 'edis-evidence-exporter')),
             $this->check('artifacts_writable', $this->artifacts->rootWritable(), __('Artifact storage', 'edis-evidence-exporter'), $this->artifacts->rootWritable() ? __('Writable', 'edis-evidence-exporter') : __('Not writable', 'edis-evidence-exporter')),
             $this->check('input_snapshots_writable', $this->inputs->rootWritable(), __('Immutable input snapshot storage', 'edis-evidence-exporter'), $this->inputs->rootWritable() ? __('Writable', 'edis-evidence-exporter') : __('Not writable', 'edis-evidence-exporter')),
