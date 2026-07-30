@@ -50,7 +50,7 @@ final class RootCompleteRepairTest extends TestCase
         } catch (ExportIntegrityException $exception) {
             self::assertSame('EDIS_PACKAGE_CONTRACT_VALIDATION_FAILED', $exception->diagnosticCode);
             self::assertSame('package_contract_validation', $exception->diagnosticContext['failure_phase'] ?? null);
-            self::assertArrayHasKey('failed_checks', $exception->diagnosticContext);
+            self::assertTrue(array_key_exists('failed_checks', $exception->diagnosticContext));
             self::assertStringNotContainsString($root, json_encode($exception->diagnosticContext, JSON_THROW_ON_ERROR));
         }
 
@@ -64,7 +64,7 @@ final class RootCompleteRepairTest extends TestCase
         $diagnostic = $this->lastDiagnostic($failed);
         self::assertSame('packaging', $diagnostic['context']['failure_phase'] ?? null);
         self::assertSame(ExportIntegrityException::class, $diagnostic['context']['exception_class'] ?? null);
-        self::assertArrayNotHasKey('message', $diagnostic['context']);
+        self::assertFalse(array_key_exists('message', $diagnostic['context']));
     }
 
     /** T-G1-01 */
@@ -129,7 +129,7 @@ final class RootCompleteRepairTest extends TestCase
         $diagnostic = $this->lastDiagnostic($failed);
         self::assertSame('packaging', $diagnostic['context']['failure_phase'] ?? null);
         self::assertSame(\RuntimeException::class, $diagnostic['context']['exception_class'] ?? null);
-        self::assertArrayNotHasKey('message', $diagnostic['context']);
+        self::assertFalse(array_key_exists('message', $diagnostic['context']));
     }
 
     /** T-G2-01 */
@@ -235,7 +235,7 @@ final class RootCompleteRepairTest extends TestCase
             if ($definition->componentType !== ComponentType::BUNDLE_PROCESSOR || !$definition->defaultEnabled) {
                 continue;
             }
-            self::assertArrayHasKey($definition->id, $positions);
+            self::assertTrue(array_key_exists($definition->id, $positions));
             $this->assertRequiredDependenciesPrecede($registry, $definition->id, $positions, []);
         }
     }
@@ -328,7 +328,7 @@ final class RootCompleteRepairTest extends TestCase
         $omitted = $this->metadataRequest(null);
         unset($omitted['collectors']);
         $normalizedDefault = $method->invoke($service, $omitted);
-        self::assertNotEmpty($normalizedDefault['collectors']);
+        self::assertTrue($normalizedDefault['collectors'] !== []);
 
         $normalizedExplicit = $method->invoke($service, $this->metadataRequest(['environment']));
         self::assertContains('environment', $normalizedExplicit['collectors']);
@@ -473,7 +473,7 @@ final class RootCompleteRepairTest extends TestCase
                 continue;
             }
             $dependencyId = (string) $dependency['id'];
-            self::assertArrayHasKey($dependencyId, $positions);
+            self::assertTrue(array_key_exists($dependencyId, $positions));
             self::assertLessThan($positions[$componentId], $positions[$dependencyId]);
             $this->assertRequiredDependenciesPrecede($registry, $dependencyId, $positions, $seen);
         }
