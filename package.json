@@ -1,6 +1,6 @@
 {
   "name": "edis-evidence-exporter",
-  "version": "3.7.11",
+  "version": "3.7.12",
   "private": true,
   "description": "Local lint gates for the EDIS WordPress Evidence Exporter admin assets.",
   "license": "GPL-2.0-or-later",
