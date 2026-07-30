@@ -71,7 +71,7 @@ final class CollectorRegistry
             $d=$this->definition($id);if(!$this->isExecutable($id)){throw new \InvalidArgumentException('Component is not executable: '.$id);}if(isset($selected[$id])){return;}$selected[$id]=true;
             foreach($d->dependencies as $dep){$depId=(string)$dep['id'];$kind=(string)$dep['kind'];if($kind==='REQUIRED'){$include($depId,true);}elseif($kind==='OPTIONAL'){if($dependencyScope==='FULL_SITE_CONTEXT'||isset($selected[$depId])){$include($depId,false);}}elseif($kind==='CONDITIONAL'&&$dependencyScope==='FULL_SITE_CONTEXT'){$include($depId,false);}}
         };
-        foreach($selectedIds as $id){$include($id,true);}foreach($this->definitions as $d){if($d->componentType===ComponentType::BUNDLE_PROCESSOR&&$d->defaultEnabled){$selected[$d->id]=true;}}
+        foreach($selectedIds as $id){$include($id,true);}foreach($this->definitions as $d){if($d->componentType===ComponentType::BUNDLE_PROCESSOR&&$d->defaultEnabled){$include($d->id,true);}}
         $ordered=[];$state=[];
         $visit=function(string $id)use(&$visit,&$ordered,&$state,&$selected):void{$current=$state[$id]??0;if($current===2){return;}if($current===1){throw new \LogicException('Component dependency cycle at: '.$id);}$state[$id]=1;foreach($this->definitions[$id]->dependencies as $dep){$depId=(string)$dep['id'];if(isset($selected[$depId])){$visit($depId);}}$state[$id]=2;$ordered[]=$id;};
         $ids=array_keys($selected);usort($ids,function(string $left,string $right):int{$rank=fn(string $id):int=>$this->definitions[$id]->componentType===ComponentType::BUNDLE_PROCESSOR?1:0;return [$rank($left),$left]<=>[$rank($right),$right];});foreach($ids as $id){$visit($id);}return $ordered;
