@@ -49,7 +49,7 @@ final class ExportJobIntegrityTest extends TestCase
         $job = [
             'job_id' => 'job-integrity',
             'job_format_version' => '2.1.0',
-            'implementation_version' => '3.7.11',
+            'implementation_version' => '3.7.12',
             'input_snapshot_format_version' => '2.0.0',
             'input_snapshot_id' => 'job-integrity',
             'input_snapshot_sha256' => $manifest['snapshot_sha256'],
@@ -65,7 +65,7 @@ final class ExportJobIntegrityTest extends TestCase
             'environment' => [
                 'component_id' => 'environment',
                 'component_schema_version' => '1.0.0',
-                'implementation_version' => '3.7.11',
+                'implementation_version' => '3.7.12',
                 'input_snapshot_sha256' => $manifest['snapshot_sha256'],
                 'step_input_sha256' => $stepInput,
                 'artifact_file_sha256' => $artifacts->fileSha256('job-integrity', 'environment'),
@@ -93,7 +93,7 @@ final class ExportJobIntegrityTest extends TestCase
         $store->create([
             'job_id' => 'resume-atomic',
             'job_format_version' => '2.1.0',
-            'implementation_version' => '3.7.11',
+            'implementation_version' => '3.7.12',
             'input_snapshot_format_version' => '2.0.0',
             'input_snapshot_id' => 'resume-atomic',
             'input_snapshot_sha256' => $manifest['snapshot_sha256'],
