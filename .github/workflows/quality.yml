@@ -228,6 +228,9 @@ jobs:
                 exit(1);
             }
           ' --path=/tmp/wordpress
+      - name: Run real EDIS export completion gate
+        if: matrix.php == '8.4'
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/real-export-completion.php" --path=/tmp/wordpress
       - name: Require zero EDIS-origin debug output
         run: |
           if [ -f /tmp/wordpress/wp-content/debug.log ]; then
