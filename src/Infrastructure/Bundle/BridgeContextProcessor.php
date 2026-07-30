@@ -18,8 +18,11 @@ final class BridgeContextProcessor implements EvidenceCollector
 
     public function collect(CollectionContext $context, array $artifacts = []): CollectionResult
     {
-        $environment = $artifacts['environment']['data'] ?? [];
-        $documents = $artifacts['elementor_document_index']['data']['documents'] ?? [];
+        $environmentArtifact = $artifacts['environment'] ?? null;
+        $documentIndexArtifact = $artifacts['elementor_document_index'] ?? null;
+        $environment = is_array($environmentArtifact) ? ($environmentArtifact['data'] ?? null) : null;
+        $documentIndexData = is_array($documentIndexArtifact) ? ($documentIndexArtifact['data'] ?? null) : null;
+        $documents = is_array($documentIndexData) ? ($documentIndexData['documents'] ?? null) : null;
         $elements = $artifacts['elementor_element_structure_index']['data']['elements'] ?? [];
         if (!is_array($environment) || !is_array($documents)) {
             return new CollectionResult(
