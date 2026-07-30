@@ -117,6 +117,7 @@
 - Separated deactivation from retention-aware uninstall and made network uninstall site-aware without following symlinks.
 - Expanded WordPress-Core, WordPress-Extra, WordPress-Docs, PHPCompatibilityWP, Plugin Check package, WordPress multisite and E_ALL quality gates.
 - Updated English and Persian operational, migration, privacy, troubleshooting and release documentation.
+- Regenerated the complete translation template from all 3.7.1 PHP UI strings and synchronized the Persian catalog without inventing missing translations.
 
 ## 3.7.0
 
@@ -129,3 +130,44 @@
 - Replaced production filesystem error suppression with deterministic exceptions, durable `fsync` writes, atomic replacement/rename and final SHA-256 verification.
 - Routed critical source, manifest, schema and ZIP reads through the same warning-to-exception deterministic filesystem boundary.
 - Added local-handle and independent-process locking self-tests.
+- Added PHP 8.2–8.5 CI, PHPUnit, PHPCompatibilityWP, security-focused WordPress Coding Standards, E_ALL smoke tests and WordPress Plugin Check workflows.
+- Updated English/Persian Help, README, architecture, workflow, privacy, troubleshooting, collector examples and migration documentation.
+- Jobs and input snapshots from older private formats are not resumed. Browser/Python Bundle 3.3.0 compatibility remains `insufficient_evidence` pending shared-vector execution.
+
+## 3.6.2
+
+- Captures selected Elementor document source into an immutable private per-job input snapshot before worker execution.
+- Detects source drift during snapshot capture and fails closed with `EDIS_SOURCE_CHANGED_DURING_SNAPSHOT`.
+- Prevents resume when the job format, input snapshot, completed-step order, step input hash, component implementation version, or artifact file checksum differs.
+- Rejects legacy jobs from silent resume and requires a new export under the current job contract.
+- Removes breakpoint direction and active-state inference when the public Elementor manager API does not provide those facts.
+- Restricts legacy responsive suffix detection to breakpoint IDs actually observed from the exported Elementor breakpoint registry.
+- Adds private input-snapshot diagnostics, retention cleanup, integrity tests, migration guidance, and synchronized English/Persian operational help.
+- Keeps WordPress Bundle Schema `3.2.0` and Selection Snapshot Schema `1.2.0` unchanged.
+
+## 3.6.1
+
+- Corrected Elementor Inspector context-menu adaptation so the documented generic hook is no longer mistaken for a View-bearing callback; retained guarded compatibility and explicit insufficient-evidence states for Container/Atomic fixtures.
+- Fixed the document REST route permission closure so it can safely read the controller capability.
+- Enforced owner and object-level `edit_post` authorization on every existing-job REST route.
+- Made Inspector selection-token consumption lock-protected, owner-bound and reliably one-time without allowing a different user to invalidate the token.
+- Added private-storage and private sub-store symlink rejection plus an activation-time atomic write/rename/cleanup self-test.
+- Made bundle metadata atomic and revalidated expected path, size and SHA-256 before download.
+- Clarified bundled JSON Schema `format` assertion policy, applied `$ref` siblings and counted UTF-8 code points without requiring mbstring.
+- Enforced execution-phase ordering so all selected source collectors and index builders complete before bundle processors.
+- Removed unit-test files from the installable archive manifest.
+
+## 3.6.0
+
+- Froze environment-independent EDIS-CJ-1 numeric serialization and expanded shared fraction/exponent vectors.
+- Split raw storage, canonical saved-source and exported artifact hash semantics.
+- Made source element keys and source record hashes independently reproducible from exported fields.
+- Added Atomic V4 responsive style-variant indexing and explicit Local/Global Class binding evidence.
+- Added Evidence Conservation checks that fail on silent loss between raw source and deterministic indexes.
+- Added three independent validation levels: package integrity, contract validation and analysis readiness.
+- Added Selection Snapshot, strict single/multiple-document isolation, inclusion reasons and source hash snapshots.
+- Added Unknown Structure Ledger for preserved but unmodeled Elementor/addon paths.
+- Added Bridge Readiness facts and secure standalone Browser Bridge Context download.
+- Added deterministic previous-export source comparison and optional controlled fixture-authoring metadata.
+- Added schema-indexed component payload contracts with typed critical nested records and a machine-readable data dictionary.
+- Preserved the WordPress/Browser/Python/LLM architectural boundary; no UX scoring or final correlation was added to the plugin.
