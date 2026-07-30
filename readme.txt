@@ -4,7 +4,7 @@ Tags: elementor, evidence, export, diagnostics, deterministic
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 3.7.11
+Stable tag: 3.7.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Exports saved WordPress and Elementor evidence for a deterministic Python analys
 
 EDIS exports saved source evidence, registries, references, provenance and lightweight source indexes. Browser runtime evidence and final Python resolution remain separate products.
 
-Version 3.7.11 preserves the public EDIS contracts while correcting validation-evidence semantics, large-process output capture, and atomic report persistence. It adds no user-facing feature.
+Version 3.7.12 preserves all frozen public evidence contracts while repairing packaging diagnostics, due failed-job recovery, required dependency closure, collector request validation and real export-completion verification. It adds no new public interface.
 
 Public evidence versions:
 
@@ -47,9 +47,18 @@ EDIS-ZIP-1 uses STORE with fixed headers so identical package inputs produce ide
 
 = Can old jobs resume after upgrading? =
 
-No. Jobs older than private Job Format 2.1.0 or Input Snapshot Format 2.0.0 must be recreated. Completed historical packages are not rewritten.
+No. A persisted job created by an older worker implementation version, including 3.7.11, must be recreated under 3.7.12. Completed historical packages are not rewritten.
 
 == Changelog ==
+
+= 3.7.12 =
+
+* Preserves package-specific contract and final-integrity failures as typed, privacy-safe diagnostics and clears collector attribution before packaging.
+* Recovers compatible failed jobs only when their existing retry deadline is due, through the existing Resume verification path.
+* Closes transitive REQUIRED dependencies for default bundle processors and fails Bridge Context closed on absent or malformed required inputs.
+* Rejects explicit unknown, non-selectable or non-executable collector IDs at the application/service boundary without default substitution.
+* Adds a production-service real Elementor export-completion gate on the representative PHP 8.4 smoke lane.
+* Preserves Bundle Schema 3.3.0, frozen evidence schemas, EDIS-CJ-2 and EDIS-ZIP-1.
 
 = 3.7.11 =
 
@@ -79,6 +88,7 @@ No. Jobs older than private Job Format 2.1.0 or Input Snapshot Format 2.0.0 must
 * Makes missing Composer dependency locking fail closed in CI; Composer execution remains an external release gate.
 
 = 3.7.2 =
+
 * Added final-artifact regression coverage for Elementor kit settings and site-settings index JSON types.
 * Added expected/actual JSON type details to schema diagnostics.
 * Added SHA-256 critical-file integrity checks for mixed installations.
@@ -98,7 +108,3 @@ No. Jobs older than private Job Format 2.1.0 or Input Snapshot Format 2.0.0 must
 * Added private Job Format 2.1.0 with explicit leases and stale-worker recovery.
 * Expanded WordPress-Core, WordPress-Extra, WordPress-Docs, PHPCompatibilityWP and Plugin Check gates.
 * Updated English and Persian help, migration, privacy, troubleshooting and operations documentation.
-
-= 3.6.2 =
-
-* Added immutable selected-document source snapshots and checksum-bound resume integrity.
