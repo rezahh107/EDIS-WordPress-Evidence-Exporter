@@ -81,10 +81,8 @@ Jobs are compatible by worker implementation identity, not merely plugin release
 = 3.7.10 =
 
 * Adds a source-only validation runner and explicit evidence states for external gates.
-* Adds a PowerShell wrapper for the same validation runner without changing installed WordPress runtime behavior.
-* Adds a machine-readable validation plan with explicit `BLOCKED_EXTERNAL`, `NOT_RUN` and `insufficient_evidence` states.
-* Adds fail-closed controlled real Elementor fixture intake for Legacy V3, Container and Atomic/Hybrid V4 Elementor evidence; no synthetic fixture is represented as real.
-* Keeps validation tooling and fixture intake out of the WordPress install ZIP.
+* Adds controlled real Elementor fixture intake without representing synthetic data as real evidence.
+* Keeps all validation tooling outside the WordPress installation ZIP.
 * Preserves frozen schemas, EDIS-CJ-2, EDIS-ZIP-1 and architectural boundaries.
 
 = 3.7.9 =
