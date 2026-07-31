@@ -44,6 +44,14 @@ replace(
     "$actual = $exception->getPrevious() ?? $exception;",
     "$actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);",
 )
+# The tamper test's pre-tamper fixture must itself be compatible with the active worker;
+# only the separate legacy/resume fixtures remain 3.7.12 by design.
+replace(
+    "tests/Unit/ExportJobIntegrityTest.php",
+    "'implementation_version' => '3.7.12',",
+    "'implementation_version' => '3.7.14',",
+    2,
+)
 
 # Current-release assertions must advance with the explicit 3.7.14 worker/product lock.
 replace("tests/Unit/InstallationIntegrityTest.php", "self::assertSame('3.7.13', $result['version']);", "self::assertSame('3.7.14', $result['version']);")
