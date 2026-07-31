@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.7.13
+
+- Restores a visible `EDIS Evidence` Diagnostics / Recovery admin surface for every existing fail-closed `DegradedModeIntegration` path.
+- Keeps degraded recovery self-contained under `manage_options` and does not initialize `AdminModule`, `DiagnosticsService`, export services, operational stores, worker services, or operational REST controllers.
+- Preserves all existing runtime, installation-integrity, configuration, private-storage and export fail-closed gates; the recovery shell exposes diagnostics and the existing storage retest only.
+- Preserves healthy `AdminModule` behavior and `edis_export_evidence` authorization; the degraded shell is request-scoped and disappears when normal startup gates pass on a later request.
+- Advances plugin/build release identity to `3.7.13` while deliberately preserving `ExportJobService::IMPLEMENTATION_VERSION` at `3.7.12` so compatible persisted 3.7.12 jobs are not invalidated by this admin-only repair.
+- Adds focused source-contract coverage and a real WordPress 7.0 admin integration check to prove degraded menu visibility, authorization and operational isolation.
+- Preserves Bundle Schema `3.3.0`, frozen evidence schemas, EDIS-CJ-2, EDIS-ZIP-1 and existing export semantics.
+
 ## 3.7.12
 
 - Preserves package contract and final-integrity failures as typed `ExportIntegrityException` diagnostics with stable codes and bounded privacy-safe context.
@@ -34,20 +44,17 @@
 
 ## 3.7.9
 
-- Filters document discovery by object-level `edit_post` authorization before calculating totals and pages, including fail-closed handling for unauthorized `include` selections.
-- Replaces the JobStore mtime/size parse cache signature with a SHA-256 content signature so same-size, same-timestamp external rewrites are not hidden.
-- Combines stale-lease repair and runnable-job discovery into one deterministic Cron recovery pass, reducing duplicate full-directory scans while preserving the file-backed JobStore contract.
-- Synchronizes parent-directory entries after atomic file and snapshot-directory commits on supported POSIX runtimes, while retaining explicit Windows external validation status.
-- Pins all GitHub Actions to verified full commit SHAs and verifies the fixed WP-CLI 2.12.0 download with the official SHA-512 checksum.
-- Removes the hard-coded 3.7.7 multisite workflow assertion and derives the expected installed version from the active plugin constant.
-- Makes Composer dependency locking and `composer audit --locked` fail-closed in CI; `composer.lock` generation remains an external gate until Composer dependency resolution is executed.
-- Adds regression coverage for authorization-aware totals, unauthorized includes, same-size/same-mtime JobStore tampering, parent-directory synchronization and supply-chain policy.
+- Applies object-level `edit_post` authorization before document-list items, totals and pages are calculated.
+- Prevents unauthorized `include` selections from falling back to an unrestricted listing.
+- Detects same-size, same-timestamp external JobStore rewrites using SHA-256 content signatures.
+- Combines stale-job repair and runnable-job discovery into one deterministic recovery scan.
+- Synchronizes parent-directory entries after atomic commits on supported POSIX runtimes.
+- Pins GitHub Actions to reviewed full commit SHAs and verifies the fixed WP-CLI 2.12.0 download checksum.
+- Replaces the stale multisite 3.7.7 assertion with the active plugin version constant.
+- Makes missing Composer dependency locking fail closed in CI; Composer execution remains an external release gate.
 
 ## 3.7.8
 
-- Enforces the frozen independent-process lock contract in every environment; local mode no longer accepts unavailable lock proof.
-- Adds integrity-protected storage self-test attestations so ordinary application requests avoid repeated process spawning while explicit diagnostics still force a live proof.
-- Fixes the document REST query method and `DocumentIdentity` namespace defects.
 - Adds signed, owner-bound, short-lived preflight proofs with saved-source drift validation to eliminate duplicate full preflight work.
 - Caches verified snapshots and committed artifacts within one request while retaining forced tamper verification at resume boundaries.
 - Streams deterministic EDIS-ZIP-1 output to disk and reads individual stored entries by seek instead of loading the full archive.
