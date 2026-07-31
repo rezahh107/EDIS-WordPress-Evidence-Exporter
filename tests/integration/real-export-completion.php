@@ -31,7 +31,7 @@ if (!current_user_can('manage_options')) {
 $postId = wp_insert_post([
     'post_type' => 'page',
     'post_status' => 'publish',
-    'post_title' => 'EDIS 3.7.12 Real Export Gate',
+    'post_title' => 'EDIS 3.7.13 Real Export Gate',
     'post_content' => '',
 ], true);
 if (is_wp_error($postId) || !is_int($postId) || $postId <= 0) {
@@ -143,10 +143,10 @@ try {
     }
     $manifest = json_decode($manifestBytes, true, 512, JSON_THROW_ON_ERROR);
     $validation = json_decode($validationBytes, true, 512, JSON_THROW_ON_ERROR);
-    if (($manifest['producer']['version'] ?? null) !== '3.7.12'
+    if (($manifest['producer']['version'] ?? null) !== '3.7.13'
         || ($manifest['data']['bundle_schema_version'] ?? null) !== '3.3.0'
         || ($validation['data']['evidence']['state'] ?? null) !== 'PASS') {
-        throw new RuntimeException('Completed ZIP metadata does not prove the 3.7.12/Schema 3.3.0 PASS contract.');
+        throw new RuntimeException('Completed ZIP metadata does not prove the 3.7.13/Schema 3.3.0 PASS contract with 3.7.12 worker compatibility.');
     }
 
     fwrite(STDOUT, "EDIS_REAL_EXPORT_COMPLETION_PASS job={$jobId}\n");
