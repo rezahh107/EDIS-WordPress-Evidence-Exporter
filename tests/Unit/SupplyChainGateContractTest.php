@@ -33,7 +33,7 @@ final class SupplyChainGateContractTest extends TestCase
     public function testPackageScriptsRunLocalQualityGates(): void
     {
         $package = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/package.json'), true);
-        self::assertSame('3.7.13', $package['version'] ?? null);
+        self::assertSame('3.7.14', $package['version'] ?? null);
         self::assertStringContainsString('check-js.mjs', $package['scripts']['lint:js'] ?? '');
         self::assertStringContainsString('check-css.mjs', $package['scripts']['lint:css'] ?? '');
         self::assertStringContainsString('github-actions-policy.json', $package['scripts']['lint:workflows'] ?? '');
@@ -68,7 +68,12 @@ final class SupplyChainGateContractTest extends TestCase
             $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
             if (str_starts_with($relative, 'vendor/')
                 || str_starts_with($relative, 'node_modules/')
-                || str_starts_with($relative, '.git/')) {
+                || str_starts_with($relative, '.git/')
+                || str_starts_with($relative, '.phpunit.cache/')
+                || str_starts_with($relative, 'release-build/')
+                || str_starts_with($relative, '.pytest_cache/')
+                || str_contains($relative, '/__pycache__/')
+                || str_ends_with($relative, '.pyc')) {
                 continue;
             }
             if (!isset($listed[$relative]) && !isset($sourceOnlyGeneratedFiles[$relative])) {

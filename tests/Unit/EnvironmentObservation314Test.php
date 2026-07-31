@@ -39,7 +39,7 @@ $context = new EDIS\EvidenceExporter\Domain\Contracts\CollectionContext(
     '2026-07-30T00:00:00Z',
 );
 $result = (new EDIS\EvidenceExporter\Infrastructure\WordPress\Collectors\EnvironmentCollector())->collect($context);
-$serialized = $result->jsonSerialize();
+$serialized = json_decode(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 $codes = [];
 foreach ((array) ($serialized['diagnostics'] ?? []) as $diagnostic) {
     if (is_array($diagnostic) && is_string($diagnostic['code'] ?? null)) {

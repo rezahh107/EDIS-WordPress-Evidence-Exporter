@@ -211,10 +211,10 @@ final class EdisValidationRunner
         }
         $expected = [];
         foreach ((array) ($manifest['collectors'] ?? []) as $collector) {
-            if (!is_array($collector) || !is_string($collector['technical_id'] ?? null) || !is_string($collector['schema_version'] ?? null)) {
+            if (!is_array($collector) || !is_string($collector['id'] ?? null) || !is_string($collector['schema_version'] ?? null)) {
                 continue;
             }
-            $expected[$collector['technical_id']] = $collector['schema_version'];
+            $expected[$collector['id']] = $collector['schema_version'];
         }
         ksort($expected, SORT_STRING);
         if ($expected === []) {
