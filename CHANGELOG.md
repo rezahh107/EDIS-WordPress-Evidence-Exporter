@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.7.12
+
+- Preserves package contract and final-integrity failures as typed `ExportIntegrityException` diagnostics with stable codes and bounded privacy-safe context.
+- Clears `current_component` before packaging so package failures cannot be misattributed to the final collector.
+- Recovers compatible failed jobs only when their existing `next_retry_at` is due, through the existing verified `resume()` path; non-retryable integrity failures remain terminal.
+- Routes default-enabled Bundle Processors through the same recursive REQUIRED dependency closure as explicit selections.
+- Fails `BridgeContextProcessor` closed when required `environment` or `elementor_document_index` input is absent or malformed.
+- Rejects explicit unknown, non-selectable and non-executable collector IDs at the application/service boundary without silent filtering or default substitution.
+- Adds focused regression coverage and a production-service real Elementor export-completion gate on the representative PHP 8.4 smoke lane.
+- Advances the private worker implementation contract to `3.7.12`; persisted `3.7.11` jobs must be recreated rather than migrated in place.
+- Preserves Bundle Schema `3.3.0`, frozen evidence schemas, EDIS-CJ-2, EDIS-ZIP-1 and existing authorization architecture.
+
 ## 3.7.11
 
 - Corrects validation evidence so skipped or unavailable required local gates produce `INCOMPLETE` rather than a false `PASS`.

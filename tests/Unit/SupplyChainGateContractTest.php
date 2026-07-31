@@ -33,7 +33,7 @@ final class SupplyChainGateContractTest extends TestCase
     public function testPackageScriptsRunLocalQualityGates(): void
     {
         $package = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/package.json'), true);
-        self::assertSame('3.7.11', $package['version'] ?? null);
+        self::assertSame('3.7.12', $package['version'] ?? null);
         self::assertStringContainsString('check-js.mjs', $package['scripts']['lint:js'] ?? '');
         self::assertStringContainsString('check-css.mjs', $package['scripts']['lint:css'] ?? '');
         self::assertStringContainsString('github-actions-policy.json', $package['scripts']['lint:workflows'] ?? '');

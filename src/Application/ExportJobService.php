@@ -25,6 +25,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\Uuid;
 final class ExportJobService
 {
     private const TERMINAL = ['completed', 'failed', 'cancelled'];
+    private const IMPLEMENTATION_VERSION = '3.7.12';
     private ?PreflightProof $preflightProof;
     /** @var array<string,array<string,array<string,mixed>>> */
     private array $committedArtifacts = [];
@@ -94,7 +95,7 @@ final class ExportJobService
             $job = $this->jobs->create([
                 'job_id' => $jobId,
                 'job_format_version' => '2.1.0',
-                'implementation_version' => '3.7.11',
+                'implementation_version' => self::IMPLEMENTATION_VERSION,
                 'input_snapshot_format_version' => (string) ($inputSnapshot['snapshot_format_version'] ?? '2.0.0'),
                 'input_snapshot_id' => $jobId,
                 'input_snapshot_sha256' => (string) ($inputSnapshot['snapshot_sha256'] ?? ''),
@@ -223,9 +224,13 @@ final class ExportJobService
         } catch (\Throwable $exception) {
             $job = $this->jobs->get($jobId);
             if (is_array($job) && !in_array((string) ($job['status'] ?? ''), ['cancelled', 'completed'], true)) {
+                $failurePhase = (string) ($job['phase'] ?? 'unknown');
                 $errorCode = $exception instanceof ExportIntegrityException
                     ? $exception->diagnosticCode
                     : 'EDIS_EXPORT_ADVANCE_FAILED';
+                $diagnosticContext = $exception instanceof ExportIntegrityException ? $exception->diagnosticContext : [];
+                $diagnosticContext['failure_phase'] = $failurePhase;
+                $diagnosticContext['exception_class'] = get_class($exception);
                 $job['status'] = 'failed';
                 $job['phase'] = 'failed';
                 $job['last_error_code'] = $errorCode;
@@ -234,7 +239,13 @@ final class ExportJobService
                 $job['lease_owner'] = null;
                 $job['lease_acquired_at'] = null;
                 $job['lease_expires_at'] = null;
-                $job['diagnostics'][] = ['code' => $errorCode, 'severity' => 'ERROR', 'scope' => 'OPERATIONAL', 'message_key' => 'diagnostic.export.advance_failed', 'context' => ['exception_class' => get_class($exception)]];
+                $job['diagnostics'][] = [
+                    'code' => $errorCode,
+                    'severity' => 'ERROR',
+                    'scope' => $exception instanceof ExportIntegrityException ? 'SEMANTIC' : 'OPERATIONAL',
+                    'message_key' => 'diagnostic.export.advance_failed',
+                    'context' => $diagnosticContext,
+                ];
                 $this->jobs->save($job);
             }
             throw $exception;
@@ -300,13 +311,25 @@ final class ExportJobService
     public function process(string $jobId): void
     {
         $job = $this->jobs->get($jobId);
-        if (!is_array($job) || in_array((string) ($job['status'] ?? ''), self::TERMINAL, true)) {
+        if (!is_array($job)) {
+            return;
+        }
+        $status = (string) ($job['status'] ?? '');
+        if ($status === 'completed' || $status === 'cancelled') {
             return;
         }
         try {
+            if ($status === 'failed') {
+                $nextRetryAt = (int) ($job['next_retry_at'] ?? 0);
+                if ($nextRetryAt <= 0 || $nextRetryAt > time()) {
+                    return;
+                }
+                $this->resume($jobId, (int) ($job['owner_id'] ?? 0));
+                return;
+            }
             $this->advance($jobId, (int) ($job['owner_id'] ?? 0), null, 8000);
         } catch (\Throwable) {
-            // Failure is persisted by advance(). Cron remains a recovery path only.
+            // Failure is persisted by advance()/resume(). Cron remains a recovery path only.
         }
     }
 
@@ -335,6 +358,7 @@ final class ExportJobService
             if ($cursor >= count($plan)) {
                 $job['phase'] = 'packaging';
                 $job['progress'] = 88;
+                $job['current_component'] = null;
                 return false;
             }
             $componentId = $plan[$cursor];
@@ -368,7 +392,7 @@ final class ExportJobService
             $records[$componentId] = [
                 'component_id' => $componentId,
                 'component_schema_version' => $definition->schemaVersion,
-                'implementation_version' => '3.7.11',
+                'implementation_version' => self::IMPLEMENTATION_VERSION,
                 'input_snapshot_sha256' => (string) ($job['input_snapshot_sha256'] ?? ''),
                 'step_input_sha256' => $stepInputSha256,
                 'artifact_file_sha256' => $artifactSha256,
@@ -421,7 +445,7 @@ final class ExportJobService
     {
         if (($job['job_format_version'] ?? null) !== '2.1.0'
             || ($job['input_snapshot_format_version'] ?? null) !== '2.0.0'
-            || ($job['implementation_version'] ?? null) !== '3.7.11') {
+            || ($job['implementation_version'] ?? null) !== self::IMPLEMENTATION_VERSION) {
             throw new ExportIntegrityException('EDIS_JOB_FORMAT_INCOMPATIBLE', 'This job was created by an older worker contract and cannot be resumed. Create a new export job.');
         }
         $snapshotId = is_string($job['input_snapshot_id'] ?? null) ? $job['input_snapshot_id'] : '';
@@ -498,7 +522,7 @@ final class ExportJobService
             $artifactSha256 = is_string($record['artifact_file_sha256'] ?? null) ? $record['artifact_file_sha256'] : '';
             $valid = ($record['component_id'] ?? null) === $componentId
                 && ($record['component_schema_version'] ?? null) === $definition->schemaVersion
-                && ($record['implementation_version'] ?? null) === '3.7.11'
+                && ($record['implementation_version'] ?? null) === self::IMPLEMENTATION_VERSION
                 && ($record['input_snapshot_sha256'] ?? null) === ($job['input_snapshot_sha256'] ?? null)
                 && $this->artifacts->verifyFileSha256((string) $job['job_id'], $componentId, $artifactSha256)
                 && ($record['step_input_sha256'] ?? null) === $this->stepInputSha256($componentId, $job, $verifiedRecords);
@@ -524,7 +548,7 @@ final class ExportJobService
             'job_format_version' => '2.1.0',
             'component_id' => $componentId,
             'component_schema_version' => $definition->schemaVersion,
-            'implementation_version' => '3.7.11',
+            'implementation_version' => self::IMPLEMENTATION_VERSION,
             'analysis_set_id' => (string) ($job['analysis_set_id'] ?? ''),
             'wordpress_bundle_id' => (string) ($job['wordpress_bundle_id'] ?? ''),
             'input_snapshot_sha256' => (string) ($job['input_snapshot_sha256'] ?? ''),
@@ -612,7 +636,6 @@ final class ExportJobService
         $this->jobs->save($job);
     }
 
-
     private function clearRecoverySchedule(string $jobId): void
     {
         if ($jobId !== '' && function_exists('wp_clear_scheduled_hook')) {
@@ -640,19 +663,33 @@ final class ExportJobService
     }
 
     /** @return list<string> */
-    private function componentIds(mixed $value): array
+    private function componentIds(mixed $value, bool $explicit = false): array
     {
         if (!is_array($value)) {
             throw new \InvalidArgumentException('Components must be an array.');
         }
+        if ($explicit && $value === []) {
+            throw new \InvalidArgumentException('Explicit collector selection must not be empty.');
+        }
         $ids = [];
         foreach ($value as $id) {
-            if (!is_string($id) || !$this->registry->isExecutable($id) || !$this->registry->definition($id)->selectable) {
-                continue;
+            if (!is_string($id) || $id === '') {
+                throw new \InvalidArgumentException('Collector selection contains an invalid component identifier.');
+            }
+            try {
+                $definition = $this->registry->definition($id);
+            } catch (\OutOfBoundsException) {
+                throw new \InvalidArgumentException('Collector selection contains an unknown component identifier.');
+            }
+            if (!$definition->selectable || !$this->registry->isExecutable($id)) {
+                throw new \InvalidArgumentException('Collector selection contains a non-selectable or non-executable component.');
             }
             $ids[$id] = true;
         }
         if ($ids === []) {
+            if ($explicit) {
+                throw new \InvalidArgumentException('Explicit collector selection must contain at least one valid component.');
+            }
             $ids = array_fill_keys($this->registry->defaultSelectableIds(), true);
         }
         return array_keys($ids);
@@ -794,7 +831,7 @@ final class ExportJobService
         if($scope==='SINGLE_DOCUMENT'&&count($documents)!==1){throw new \InvalidArgumentException('Single Document scope requires exactly one selected document.');}if($scope==='MULTIPLE_DOCUMENTS'&&$documents===[]){throw new \InvalidArgumentException('Multiple Documents scope requires at least one selected document.');}
         $documentStrings=array_map('strval',$documents);foreach((array)($options['element_selection']??[]) as $selection){if(!in_array((string)($selection['document_id']??''),$documentStrings,true)){throw new \InvalidArgumentException('Element selections must belong to a selected document.');}}
         if(($options['element_selection']??[])!==[]&&!in_array($scope,['SINGLE_DOCUMENT','MULTIPLE_DOCUMENTS'],true)){throw new \InvalidArgumentException('Element selection requires Single or Multiple Documents scope.');}
-        $collectors=$this->componentIds($request['collectors']??$this->settings->defaultCollectors());$collectors=$this->applyDependencyScope($collectors,$scope,$dependency);
+        $explicitCollectors=array_key_exists('collectors',$request);$collectorInput=$explicitCollectors?$request['collectors']:$this->settings->defaultCollectors();$collectors=$this->componentIds($collectorInput,$explicitCollectors);$collectors=$this->applyDependencyScope($collectors,$scope,$dependency);
         return ['privacy_mode'=>$privacy,'collectors'=>$collectors,'document_ids'=>$documents,'options'=>$options,'inventory'=>$inventory];
     }
 
@@ -886,7 +923,6 @@ final class ExportJobService
         if(!is_array($value)){return 0;}$count=0;$stack=[$value];while($stack!==[]){$node=array_pop($stack);if(!is_array($node)){continue;}if(isset($node['id'])&&(isset($node['elType'])||isset($node['widgetType']))){$count++;}foreach($node as $child){if(is_array($child)){$stack[]=$child;}}}return $count;
     }
 
-
     /** @param list<string> $collectors @return list<string> */
     private function applyDependencyScope(array $collectors,string $exportScope,string $dependencyScope):array
     {
@@ -912,7 +948,7 @@ final class ExportJobService
             'exported_at'=>gmdate('Y-m-d\TH:i:s\Z'),'bundle_sha256'=>$job['bundle_sha256']??null,'validation_state'=>$job['validation_state']??'NOT_RUN',
             'canonical_saved_source_sha256'=>$hashes[(string)$id]??null,'saved_source_sha256'=>$hashes[(string)$id]??null,'raw_storage_bytes_sha256'=>$rawHashes[(string)$id]??null,
             'source_summary'=>$summaryByDocument[(string)$id]??$this->emptySourceSummary(),'analysis_set_id'=>$job['analysis_set_id']??null,
-            'wordpress_bundle_id'=>$job['wordpress_bundle_id']??null,'producer_version'=>'3.7.11']);}
+            'wordpress_bundle_id'=>$job['wordpress_bundle_id']??null,'producer_version'=>self::IMPLEMENTATION_VERSION]);}
     }
 
     /** @return array<string,array<string,int>> */ private function completedSourceSummaries(string $jobId):array

@@ -1,4 +1,4 @@
-# EDIS 3.7.11 Quality Gates
+# EDIS 3.7.12 Quality Gates
 
 A release claim is valid only for commands that actually ran and passed. A workflow definition is not itself verification evidence.
 
@@ -15,7 +15,7 @@ php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php
 
 ## Required PHP matrix
 
-Run the full suite on 64-bit PHP 8.2, 8.3, 8.4 and 8.5. `serialize_precision`, locale, timezone, collector registration order and independent selection order permutations must not change semantic output. PHP 8.0, 8.1 and 8.6 or later are outside the 3.7.11 deterministic runtime contract.
+Run the full suite on 64-bit PHP 8.2, 8.3, 8.4 and 8.5. `serialize_precision`, locale, timezone, collector registration order and independent selection order permutations must not change semantic output. PHP 8.0, 8.1 and 8.6 or later are outside the 3.7.12 deterministic runtime contract.
 
 ## WordPress Plugin Check
 
@@ -30,11 +30,13 @@ wp plugin check edis-evidence-exporter --require=wp-content/plugins/plugin-check
 
 Both checks are release gates. Enable `WP_DEBUG`, `WP_DEBUG_LOG`, `SCRIPT_DEBUG` and `ELEMENTOR_DEBUG` in non-production test environments and require zero EDIS-origin warnings or deprecations.
 
-## Elementor activation smoke
+## Elementor activation and real export smoke
 
-The repository workflow pins WordPress `7.0` and Elementor `4.1.3`, activates both plugins on PHP 8.2 through 8.5, verifies the Elementor load hook, executes the EDIS-CJ-2 runtime gate and requires the private-storage self-test to pass. This is an activation/integration smoke test, not an Elementor Editor end-to-end test.
+The repository workflow pins WordPress `7.0` and Elementor `4.1.3`, activates both plugins on PHP 8.2 through 8.5, verifies the Elementor load hook, executes the EDIS-CJ-2 runtime gate and requires the private-storage self-test to pass.
 
-A release still requires a browser-driven matrix covering Legacy sections/columns/widgets, Flexbox Containers, nested Containers, Atomic elements, Hybrid V3/V4 documents, third-party addon elements, context-menu selection and real export completion.
+On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.12`.
+
+This is a real application-path export-completion integration gate, not an Elementor Editor browser automation matrix. Legacy/editor-interaction, Windows/LocalWP, third-party addon and other browser-observed behaviors remain separate environment gates.
 
 ## Storage gate
 
@@ -51,7 +53,6 @@ PHP, Browser JavaScript and Python must pass `contracts/edis-cj-2-vectors.json`,
 ```text
 cross_product_status: insufficient_evidence
 ```
-
 
 ## WordPress-facing coding standards
 
@@ -86,33 +87,33 @@ wp edis storage self-test
 
 `jobs repair` must be dry-run by default. Worker commands must respect the same locks, leases, version checks and hashes as REST/Cron execution.
 
+## 3.7.12 regression gates
 
-## 3.7.11 regression gates
-
-A 3.7.11 release must execute and retain evidence for:
+A 3.7.12 release must retain all earlier storage, concurrency, REST-hardening and validation-evidence gates and additionally verify:
 
 ```text
-active-path child process reports BLOCKED while parent holds lock
-logical path inside ABSPATH via ancestor symlink is rejected
-nested evidence.settings.created_at changes semantic_payload_sha256
-cleanup cannot permit a second lock while the first handle is held
-Resume lock conflict leaves job bytes/revision/diagnostics unchanged
+package contract/integrity failures retain stable typed diagnostics without raw error disclosure
+packaging sets current_component=null before package execution
+retryable operational failures retain bounded phase/class context and a future next_retry_at
+due compatible failed jobs recover through Resume; future/null retries do not advance
+default Bundle Processor REQUIRED dependencies are transitively closed and precede consumers
+Bridge Context fails closed on missing or malformed required input
+explicit invalid collector requests fail closed without default substitution
+fresh PHP 8.4 WordPress+Elementor export completes and produces a verified deterministic ZIP
+persisted 3.7.11 jobs fail the 3.7.12 worker compatibility boundary and must be recreated
 ```
 
-Each gate must fail on the corresponding unmodified 3.7.2 behavior and pass on 3.7.11. Windows junction/UNC, multi-host shared filesystems, real WordPress/Multisite and Elementor Editor remain separate environment gates.
+## WordPress-hardening gates
 
-## 3.7.11 WordPress-hardening gates
+The release must retain:
 
-A 3.7.11 release must retain all 3.7.3 storage/concurrency regression gates and additionally verify:
+- REST routes with bounded argument schemas for job IDs, revisions, document search, included document IDs and Inspector selections.
+- REST failure responses that do not expose raw exception messages, filesystem paths or state-machine internals.
+- Locked local JavaScript/CSS syntax and safety gates.
+- WordPress-boundary and deterministic-core PHPCS rulesets where WPCS/PHPCompatibilityWP are installed.
+- PHPStan configuration; full PHPStan execution remains an environment gate until the dependency set is available.
+- GitHub Actions pinned to verified full commit SHAs; `npm run lint:workflows:strict` remains required.
 
-- REST routes declare bounded argument schemas for job IDs, revisions, document search, included document IDs and Inspector selections.
-- REST failure responses do not expose raw exception messages, filesystem paths or state-machine internals.
-- JavaScript assets pass the locked local syntax/safety gate and CSS assets pass the locked local structural gate.
-- The WordPress boundary and deterministic core PHPCS rulesets remain present and executable when WPCS/PHPCompatibilityWP are installed.
-- PHPStan configuration remains present; full PHPStan execution is a CI/environment gate until the dependency set is locked with Composer.
-- GitHub Actions are pinned to verified full commit SHAs. The strict SHA-only checker is a required local and CI gate.
+## Version 3.7.12 gate status
 
-
-## Version 3.7.11 gate status
-
-The local gate set includes PHP lint, `tests/run-local.php`, runtime smoke, JavaScript lint, CSS lint, structured UTF-8/JSON/YAML validation, install ZIP lint, install ZIP integrity and the workflow-reference policy gate. The workflow-reference gate requires immutable full commit SHAs and must pass `npm run lint:workflows:strict`. Composer validation, install and audit require a committed `composer.lock`; absence of that file is a fail-closed release condition.
+The local gate set includes PHP lint, `tests/run-local.php`, runtime smoke, JavaScript lint, CSS lint, structured UTF-8/JSON/YAML validation, install ZIP lint, install ZIP integrity and the workflow-reference policy gate. Composer validation, install, audit, official PHPUnit and PHPCS must be treated as unexecuted unless their commands actually run successfully. The real export-completion check is STANDARD_CI evidence and does not replace required local validation.

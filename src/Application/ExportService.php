@@ -9,17 +9,21 @@ use EDIS\EvidenceExporter\Infrastructure\Support\ArtifactStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson;
 use EDIS\EvidenceExporter\Infrastructure\Support\DeterministicFilesystem;
 use EDIS\EvidenceExporter\Infrastructure\Support\ExportFileStore;
+use EDIS\EvidenceExporter\Infrastructure\Support\ExportIntegrityException;
 use EDIS\EvidenceExporter\Infrastructure\Support\JsonSchemaValidator;
 
 final class ExportService
 {
+    private const PRODUCER_VERSION = '3.7.12';
     private DeterministicFilesystem $filesystem;
+    private readonly string $pluginRoot;
 
     public function __construct(
         private readonly CollectorRegistry $registry,
-        private readonly string $pluginRoot,
+        string $pluginRoot,
         ?DeterministicFilesystem $filesystem = null,
     ) {
+        $this->pluginRoot = rtrim($pluginRoot, '/\\') . DIRECTORY_SEPARATOR;
         $this->filesystem = $filesystem ?? new DeterministicFilesystem();
     }
 
@@ -45,7 +49,12 @@ final class ExportService
         foreach ($executionPlan as $componentId) {
             $artifact = $artifactStore->get($jobId, $componentId);
             if (!is_array($artifact)) {
-                throw new \RuntimeException('Missing committed component artifact: ' . $componentId);
+                throw new ExportIntegrityException(
+                    'EDIS_PACKAGE_ARTIFACT_MISSING',
+                    'A committed component artifact required for packaging is missing.',
+                    null,
+                    ['failure_phase' => 'package_assembly', 'component_id' => $componentId],
+                );
             }
             $definition = $this->registry->definition($componentId);
             $envelope = $this->envelope(
@@ -136,14 +145,11 @@ final class ExportService
         $validation['analysis_readiness'] = $this->analysisReadiness($files, $context);
         $validation['state'] = $validation['contract_validation'];
         if ($validation['contract_validation'] !== 'PASS') {
-            throw new \RuntimeException(
-                'Package contract validation failed: '
-                . implode(', ', array_keys(array_filter((array) ($validation['checks'] ?? []), static fn (bool $passed): bool => !$passed)))
-                . '; semantic_paths=' . implode('|', (array) ($validation['semantic_hash_failure_paths'] ?? []))
-                . '; instance_paths=' . implode('|', (array) ($validation['instance_hash_failure_paths'] ?? []))
-                . '; schema_failures=' . json_encode($validation['schema_failure_details'] ?? [], JSON_UNESCAPED_SLASHES)
-                . '; producer_version=' . (defined('EDIS_EVIDENCE_EXPORTER_VERSION') ? (string) constant('EDIS_EVIDENCE_EXPORTER_VERSION') : '3.7.11')
-                . '; bundle_schema_version=' . (defined('EDIS_EVIDENCE_BUNDLE_SCHEMA_VERSION') ? (string) constant('EDIS_EVIDENCE_BUNDLE_SCHEMA_VERSION') : '3.3.0')
+            throw new ExportIntegrityException(
+                'EDIS_PACKAGE_CONTRACT_VALIDATION_FAILED',
+                'Package contract validation failed.',
+                null,
+                $this->packageValidationDiagnosticContext($validation),
             );
         }
 
@@ -152,7 +158,12 @@ final class ExportService
 
         [$files, $manifest] = $this->buildManifestAndChecksums($files, $context, $sourceRoot);
         if (!$this->validateFinalPackage($files, $manifest)) {
-            throw new \RuntimeException('Final package integrity validation failed.');
+            throw new ExportIntegrityException(
+                'EDIS_PACKAGE_FINAL_INTEGRITY_FAILED',
+                'Final package integrity validation failed.',
+                null,
+                ['failure_phase' => 'package_final_integrity', 'validation_stage' => 'pre_validation_report_finalization'],
+            );
         }
 
         // Report the final gate, then rebuild manifest/checksums once and validate again.
@@ -165,17 +176,86 @@ final class ExportService
         unset($files['package-manifest.json'], $files['checksums.sha256']);
         [$files, $manifest] = $this->buildManifestAndChecksums($files, $context, $sourceRoot);
         if (!$this->validateFinalPackage($files, $manifest)) {
-            throw new \RuntimeException('Final package integrity validation failed after validation report finalization.');
+            throw new ExportIntegrityException(
+                'EDIS_PACKAGE_FINAL_INTEGRITY_FAILED',
+                'Final package integrity validation failed after validation report finalization.',
+                null,
+                ['failure_phase' => 'package_final_integrity', 'validation_stage' => 'post_validation_report_finalization'],
+            );
         }
 
         $bundle = $fileStore->createBundle($jobId, $files, $expiresAt);
         return $bundle + ['validation_state' => 'PASS', 'source_export_root_sha256' => $sourceRoot];
     }
 
+    /** @param array<string,mixed> $validation @return array<string,mixed> */
+    private function packageValidationDiagnosticContext(array $validation): array
+    {
+        $failedChecks = array_keys(array_filter(
+            (array) ($validation['checks'] ?? []),
+            static fn (mixed $passed): bool => $passed === false,
+        ));
+        sort($failedChecks, SORT_STRING);
+        $failedChecks = array_slice(array_values(array_filter($failedChecks, 'is_string')), 0, 32);
+
+        $semanticPaths = $this->boundedDiagnosticStrings((array) ($validation['semantic_hash_failure_paths'] ?? []), 24, 256);
+        $instancePaths = $this->boundedDiagnosticStrings((array) ($validation['instance_hash_failure_paths'] ?? []), 24, 256);
+        $schemaDetails = [];
+        foreach (array_slice((array) ($validation['schema_failure_details'] ?? []), 0, 16, true) as $artifactPath => $errors) {
+            if (!is_string($artifactPath)) {
+                continue;
+            }
+            $safeErrors = [];
+            foreach (array_slice(is_array($errors) ? $errors : [], 0, 8) as $error) {
+                if (!is_array($error)) {
+                    continue;
+                }
+                $safeError = [];
+                foreach (['path', 'keyword', 'exception_class'] as $key) {
+                    if (is_string($error[$key] ?? null)) {
+                        $safeError[$key] = substr($error[$key], 0, 256);
+                    }
+                }
+                if ($safeError !== []) {
+                    $safeErrors[] = $safeError;
+                }
+            }
+            if ($safeErrors !== []) {
+                $schemaDetails[substr($artifactPath, 0, 256)] = $safeErrors;
+            }
+        }
+        ksort($schemaDetails, SORT_STRING);
+
+        return [
+            'failure_phase' => 'package_contract_validation',
+            'failed_checks' => $failedChecks,
+            'semantic_failure_paths' => $semanticPaths,
+            'instance_failure_paths' => $instancePaths,
+            'schema_failure_details' => $schemaDetails,
+        ];
+    }
+
+    /** @return list<string> */
+    private function boundedDiagnosticStrings(array $values, int $limit, int $maxLength): array
+    {
+        $result = [];
+        foreach ($values as $value) {
+            if (!is_string($value)) {
+                continue;
+            }
+            $result[] = substr($value, 0, $maxLength);
+            if (count($result) >= $limit) {
+                break;
+            }
+        }
+        sort($result, SORT_STRING);
+        return array_values(array_unique($result));
+    }
 
     /** @param array<string,mixed> $validation @return array<string,mixed> */
     private function validationEnvelope(array $validation, CollectionContext $context): array
     {
+        $validation['schema_failure_details'] = (object) ($validation['schema_failure_details'] ?? []);
         return $this->envelope(
             'urn:edis:schema:wordpress:package-validation',
             '1.3.0',
@@ -209,7 +289,7 @@ final class ExportService
             'schema_id' => 'urn:edis:schema:wordpress:package-manifest',
             'schema_version' => '2.1.0',
             'artifact_type' => 'wordpress_source_evidence_package_manifest',
-            'producer' => ['product' => 'edis-evidence-exporter', 'version' => '3.7.11'],
+            'producer' => ['product' => 'edis-evidence-exporter', 'version' => self::PRODUCER_VERSION],
             'captured_at' => $context->capturedAt,
             'canonicalization' => CanonicalJson::canonicalizationDescriptor(),
             'data' => [
@@ -218,7 +298,7 @@ final class ExportService
                 'semantic_identity' => [
                     'source_export_root_sha256' => $sourceRoot,
                     'privacy_mode' => $context->privacyMode,
-                    'plugin_version' => '3.7.11',
+                    'plugin_version' => self::PRODUCER_VERSION,
                     'bundle_schema_version' => '3.3.0',
                     'zip_profile' => 'EDIS-ZIP-1',
                     'compression_method' => 'STORE',
@@ -228,7 +308,7 @@ final class ExportService
                 'files' => $manifestEntries,
                 'file_count' => count($manifestEntries),
                 'privacy_mode' => $context->privacyMode,
-                'plugin_version' => '3.7.11',
+                'plugin_version' => self::PRODUCER_VERSION,
                 'bundle_schema_version' => '3.3.0',
                 'zip_profile' => 'EDIS-ZIP-1',
                 'compression_method' => 'STORE',
@@ -383,7 +463,6 @@ final class ExportService
         return true;
     }
 
-
     /**
      * Validate the finalized in-memory package after manifest and checksum creation.
      *
@@ -521,7 +600,7 @@ final class ExportService
             'schema_id' => $schemaId,
             'schema_version' => $schemaVersion,
             'artifact_type' => $artifactType,
-            'producer' => ['product' => 'edis-evidence-exporter', 'version' => '3.7.11'],
+            'producer' => ['product' => 'edis-evidence-exporter', 'version' => self::PRODUCER_VERSION],
             'captured_at' => $context->capturedAt,
             'canonicalization' => CanonicalJson::canonicalizationDescriptor(),
             'data' => [
@@ -649,7 +728,7 @@ final class ExportService
         }
         if ($checks['schema_routes_resolve']) {
             $validator=new JsonSchemaValidator($this->pluginRoot);
-            foreach($executionPlan as $id){$definition=$this->registry->definition($id);$route=$routes[$definition->schemaId.'@'.$definition->schemaVersion]??null;$bytes=$files[$definition->artifactPath]??null;if(!is_array($route)||!is_string($bytes)){$checks['json_schema_validation']=false;continue;}try{$object=json_decode($bytes,false,512,JSON_THROW_ON_ERROR);$errors=$validator->validate($object,(string)$route['envelope_schema']);if(is_object($object)&&property_exists($object,'data')){$errors=array_merge($errors,$validator->validate($object->data,(string)$route['payload_schema']));if(isset($route['evidence_schema'])&&is_string($route['evidence_schema'])&&is_object($object->data)&&property_exists($object->data,'evidence')){$errors=array_merge($errors,$validator->validate($object->data->evidence,$route['evidence_schema']));}}if($errors!==[]){$checks['json_schema_validation']=false;$schemaFailureDetails[$definition->artifactPath]=$errors;}}catch(\Throwable $exception){$checks['json_schema_validation']=false;$schemaFailureDetails[$definition->artifactPath]=[['path'=>'$','keyword'=>'validator','message'=>get_class($exception).': '.$exception->getMessage()]];}}
+            foreach($executionPlan as $id){$definition=$this->registry->definition($id);$route=$routes[$definition->schemaId.'@'.$definition->schemaVersion]??null;$bytes=$files[$definition->artifactPath]??null;if(!is_array($route)||!is_string($bytes)){$checks['json_schema_validation']=false;continue;}try{$object=json_decode($bytes,false,512,JSON_THROW_ON_ERROR);$errors=$validator->validate($object,(string)$route['envelope_schema']);if(is_object($object)&&property_exists($object,'data')){$errors=array_merge($errors,$validator->validate($object->data,(string)$route['payload_schema']));if(isset($route['evidence_schema'])&&is_string($route['evidence_schema'])&&is_object($object->data)&&property_exists($object->data,'evidence')){$errors=array_merge($errors,$validator->validate($object->data->evidence,$route['evidence_schema']));}}if($errors!==[]){$checks['json_schema_validation']=false;$schemaFailureDetails[$definition->artifactPath]=$errors;}}catch(\Throwable $exception){$checks['json_schema_validation']=false;$schemaFailureDetails[$definition->artifactPath]=[['path'=>'$','keyword'=>'validator','exception_class'=>get_class($exception)]];}}
         }
         $bridgePath = $this->registry->definition('bridge_source_context')->artifactPath;
         if (isset($files[$bridgePath])) { $bridge = json_decode($files[$bridgePath], true); $evidence = $bridge['data']['evidence'] ?? null; if (!is_array($evidence) || ($evidence['wordpress_bundle_id'] ?? null) !== $context->wordpressBundleId || ($evidence['analysis_set_id'] ?? null) !== $context->analysisSetId) { $checks['bridge_context_consistent'] = false; } }

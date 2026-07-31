@@ -1,7 +1,7 @@
 {
   "schema_version": "EDIS-VALIDATION-PLAN-2",
   "evidence_schema_version": "EDIS-VALIDATION-EVIDENCE-2",
-  "plugin_version": "3.7.11",
+  "plugin_version": "3.7.12",
   "scope": "validation_evidence_corrective_only",
   "runtime_feature_change": false,
   "frozen_contract_change": false,
