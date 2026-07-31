@@ -31,7 +31,7 @@ final class RootCompleteRepairTest extends TestCase
         }
     }
 
-    /** T-G1-01 + T-G1-02 */
+    /** T-G1-01 + T-G1-02 + T28 */
     public function testPackageContractFailureIsTypedBoundedNonRetryableAndAttributedToPackaging(): void
     {
         $root = $this->tempRoot();
@@ -61,6 +61,8 @@ final class RootCompleteRepairTest extends TestCase
         self::assertNull($failed['current_component']);
         self::assertSame('EDIS_PACKAGE_CONTRACT_VALIDATION_FAILED', $failed['last_error_code']);
         self::assertNull($failed['next_retry_at']);
+        self::assertSame('NOT_SCHEDULED', $failed['schedule_state']);
+        self::assertSame('NON_RETRYABLE_INTEGRITY_FAILURE', $failed['schedule_error']);
         $diagnostic = $this->lastDiagnostic($failed);
         self::assertSame('packaging', $diagnostic['context']['failure_phase'] ?? null);
         self::assertSame(ExportIntegrityException::class, $diagnostic['context']['exception_class'] ?? null);
@@ -90,6 +92,7 @@ final class RootCompleteRepairTest extends TestCase
                 new ArtifactStore($root . '/artifacts-final'),
                 new ExportFileStore(new SettingsRepository(), $root . '/bundles-final'),
                 (int) $job['expires_at'],
+                '2026-07-30T00:00:01Z',
             );
             self::fail('Expected final package integrity validation to fail.');
         } catch (ExportIntegrityException $exception) {
@@ -103,8 +106,8 @@ final class RootCompleteRepairTest extends TestCase
         }
     }
 
-    /** T-G1-03 */
-    public function testGenericPackagingIoFailureRemainsRetryableWithBoundedPhaseAndClass(): void
+    /** T-G1-03 + T26 + T27 */
+    public function testGenericPackagingIoFailureRemainsRetryableAndSchedulesExistingRecoveryPath(): void
     {
         $root = $this->tempRoot();
         $blocked = $root . '/blocked-root';
@@ -124,15 +127,23 @@ final class RootCompleteRepairTest extends TestCase
 
         $failed = $jobs->get((string) $job['job_id']);
         self::assertIsArray($failed);
+        self::assertSame('failed', $failed['status']);
+        self::assertSame('failed', $failed['phase']);
+        self::assertNull($failed['lease_owner']);
+        self::assertNull($failed['lease_acquired_at']);
+        self::assertNull($failed['lease_expires_at']);
         self::assertSame('EDIS_EXPORT_ADVANCE_FAILED', $failed['last_error_code']);
         self::assertGreaterThan($before, (int) $failed['next_retry_at']);
+        self::assertSame('UNAVAILABLE', $failed['schedule_state']);
+        self::assertSame('WP_CRON_API_UNAVAILABLE', $failed['schedule_error']);
+        self::assertNotSame('REST_ADVANCE_ACTIVE', $failed['schedule_state']);
         $diagnostic = $this->lastDiagnostic($failed);
         self::assertSame('packaging', $diagnostic['context']['failure_phase'] ?? null);
         self::assertSame(\RuntimeException::class, $diagnostic['context']['exception_class'] ?? null);
         self::assertFalse(array_key_exists('message', $diagnostic['context']));
     }
 
-    /** T-G2-01 */
+    /** T-G2-01 + T29 */
     public function testDueFailedJobRecoversThroughResumeAndCompletes(): void
     {
         $root = $this->tempRoot();
@@ -156,7 +167,7 @@ final class RootCompleteRepairTest extends TestCase
         self::assertContains('EDIS_EXPORT_RESUMED', array_column((array) $completed['diagnostics'], 'code'));
     }
 
-    /** T-G2-02 */
+    /** T-G2-02 + T29 */
     public function testFutureRetryDoesNotAdvanceOrMutate(): void
     {
         $root = $this->tempRoot();
@@ -173,7 +184,7 @@ final class RootCompleteRepairTest extends TestCase
         self::assertSame($before, $jobs->get((string) $job['job_id']));
     }
 
-    /** T-G2-03 */
+    /** T-G2-03 + T29 */
     public function testNonRetryableFailedJobDoesNotAdvanceOrMutate(): void
     {
         $root = $this->tempRoot();
@@ -191,7 +202,7 @@ final class RootCompleteRepairTest extends TestCase
         self::assertSame($before, $jobs->get((string) $job['job_id']));
     }
 
-    /** T-G2-04 */
+    /** T-G2-04 + T29 */
     public function testQueuedAndStaleLeaseRecoveryRemainsValid(): void
     {
         $root = $this->tempRoot();
@@ -334,8 +345,8 @@ final class RootCompleteRepairTest extends TestCase
         self::assertContains('environment', $normalizedExplicit['collectors']);
     }
 
-    /** C-10 */
-    public function testPersisted3711JobIsRejectedBy372CompatibilityBoundary(): void
+    /** T14 */
+    public function testPersisted3712JobIsRejectedBy3714CompatibilityBoundary(): void
     {
         [$service] = $this->service($this->tempRoot());
         $method = new \ReflectionMethod($service, 'assertJobCompatible');
@@ -343,9 +354,9 @@ final class RootCompleteRepairTest extends TestCase
             $method->invoke($service, [
                 'job_format_version' => '2.1.0',
                 'input_snapshot_format_version' => '2.0.0',
-                'implementation_version' => '3.7.11',
+                'implementation_version' => '3.7.12',
             ]);
-            self::fail('Expected 3.7.11 persisted job to be rejected.');
+            self::fail('Expected 3.7.12 persisted job to be rejected.');
         } catch (\Throwable $exception) {
             $actual = $exception->getPrevious() ?? $exception;
             self::assertInstanceOf(ExportIntegrityException::class, $actual);
@@ -383,7 +394,7 @@ final class RootCompleteRepairTest extends TestCase
         $job = [
             'job_id' => $jobId,
             'job_format_version' => '2.1.0',
-            'implementation_version' => '3.7.12',
+            'implementation_version' => '3.7.14',
             'input_snapshot_format_version' => '2.0.0',
             'input_snapshot_id' => $jobId,
             'input_snapshot_sha256' => $snapshot['snapshot_sha256'],
@@ -403,6 +414,7 @@ final class RootCompleteRepairTest extends TestCase
             'last_error_code' => null,
             'last_error_at' => null,
             'next_retry_at' => null,
+            'packaging_started_at' => null,
             'stale_after' => 120,
             'lease_owner' => null,
             'lease_acquired_at' => null,
