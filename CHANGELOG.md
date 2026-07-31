@@ -44,25 +44,27 @@
 
 ## 3.7.9
 
-- Applies object-level `edit_post` authorization before document-list items, totals and pages are calculated.
-- Prevents unauthorized `include` selections from falling back to an unrestricted listing.
-- Detects same-size, same-timestamp external JobStore rewrites using SHA-256 content signatures.
-- Combines stale-job repair and runnable-job discovery into one deterministic recovery scan.
-- Synchronizes parent-directory entries after atomic commits on supported POSIX runtimes.
-- Pins GitHub Actions to reviewed full commit SHAs and verifies the fixed WP-CLI 2.12.0 download checksum.
-- Replaces the stale multisite 3.7.7 assertion with the active plugin version constant.
-- Makes missing Composer dependency locking fail closed in CI; Composer execution remains an external release gate.
+- Filters document discovery by object-level `edit_post` authorization before calculating totals and pages, including fail-closed handling for unauthorized `include` selections.
+- Replaces the JobStore mtime/size parse cache signature with a SHA-256 content signature so same-size, same-timestamp external rewrites are not hidden.
+- Combines stale-lease repair and runnable-job discovery into one deterministic Cron recovery pass, reducing duplicate full-directory scans while preserving the file-backed JobStore contract.
+- Synchronizes parent-directory entries after atomic file and snapshot-directory commits on supported POSIX runtimes, while retaining explicit Windows external validation status.
+- Pins all GitHub Actions to verified full commit SHAs and verifies the fixed WP-CLI 2.12.0 download with the official SHA-512 checksum.
+- Removes the hard-coded 3.7.7 multisite workflow assertion and derives the expected installed version from the active plugin constant.
+- Makes Composer dependency locking and `composer audit --locked` fail-closed in CI; `composer.lock` generation remains an external gate until Composer dependency resolution is executed.
+- Adds regression coverage for authorization-aware totals, unauthorized includes, same-size/same-mtime JobStore tampering, parent-directory synchronization and supply-chain policy.
 
 ## 3.7.8
 
-- Preflight now emits a signed, owner-bound proof whose normalized request, raw source hashes, owner, expiry and storage-attestation hash must still match when a job is created.
-- Job creation reuses the proof instead of performing a second full preflight, while failing closed on source or request drift.
-- `InputSnapshotStore`, `ArtifactStore` and completed package-artifact retrieval now use request-scoped caches with explicit revalidation controls; Resume still forces disk verification.
-- The production deterministic ZIP writer streams STORE-only archives directly to a temp file, and the reader validates/reads stored entries by seek instead of loading the complete ZIP into PHP memory.
-- Final bundle packaging processes committed artifacts once in topological order, and package validation avoids a redundant full final-package validation pass.
-- ENTIRE_SITE preflight fails closed when the configured document-inventory cap would truncate eligible source documents.
-- Admin document rows use bounded raw-source hashing as a low-cost freshness check, with canonical collector fallback for legacy rows without raw evidence.
-- The local test harness now auto-discovers every `tests/Unit/*Test.php`, restores the previously orphaned LocalWP tests, and adds aggregate preflight fast-path, cache-tamper, corruption and bounded-input regressions.
+- Enforces the frozen independent-process lock contract in every environment; local mode no longer accepts unavailable lock proof.
+- Adds integrity-protected storage self-test attestations so ordinary application requests avoid repeated process spawning while explicit diagnostics still force a live proof.
+- Fixes the document REST query method and `DocumentIdentity` namespace defects.
+- Adds signed, owner-bound, short-lived preflight proofs with saved-source drift validation to eliminate duplicate full preflight work.
+- Caches verified snapshots and committed artifacts within one request while retaining forced tamper verification at resume boundaries.
+- Streams deterministic EDIS-ZIP-1 output to disk and reads individual stored entries by seek instead of loading the full archive.
+- Reduces package assembly duplication by processing committed artifacts once in topological order.
+- Blocks `ENTIRE_SITE` preflight when the configured inventory bound would truncate eligible documents.
+- Uses raw saved-source hashes for low-cost admin row freshness checks with canonical fallback for older records.
+- Makes the local test harness fail on undiscovered test files and restores the previously skipped tests.
 
 ## 3.7.7
 
@@ -124,7 +126,7 @@
 - Removed production process spawning from storage self-tests; independent-process lock exclusion remains an executed source/CI test gate and is absent from installable code.
 - Separated deactivation from retention-aware uninstall and made network uninstall site-aware without following symlinks.
 - Expanded WordPress-Core, WordPress-Extra, WordPress-Docs, PHPCompatibilityWP, Plugin Check package, WordPress multisite and E_ALL quality gates.
-- Updated English/Persian operational, migration, privacy, troubleshooting and release documentation.
+- Updated English and Persian operational, migration, privacy, troubleshooting and release documentation.
 - Regenerated the complete translation template from all 3.7.1 PHP UI strings and synchronized the Persian catalog without inventing missing translations.
 
 ## 3.7.0
