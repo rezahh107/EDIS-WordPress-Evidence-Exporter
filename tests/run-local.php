@@ -70,6 +70,16 @@ namespace PHPUnit\Framework {
             if (!is_string($actual)) { self::fail($message !== '' ? $message : 'Expected string.'); }
         }
 
+        public static function assertIsResource(mixed $actual, string $message = ''): void
+        {
+            if (!is_resource($actual)) { self::fail($message !== '' ? $message : 'Expected resource.'); }
+        }
+
+        public static function assertArrayNotHasKey(int|string $key, array $array, string $message = ''): void
+        {
+            if (array_key_exists($key, $array)) { self::fail($message !== '' ? $message : 'Array unexpectedly contains key: ' . (string) $key); }
+        }
+
         public static function assertInstanceOf(string $expected, mixed $actual, string $message = ''): void
         {
             if (!$actual instanceof $expected) { self::fail($message !== '' ? $message : 'Object is not an instance of ' . $expected); }
@@ -91,6 +101,11 @@ namespace PHPUnit\Framework {
         public static function assertGreaterThan(int|float $expected, int|float $actual, string $message = ''): void
         {
             if (!($actual > $expected)) { self::fail($message !== '' ? $message : 'Value is not greater than expected.'); }
+        }
+
+        public static function assertGreaterThanOrEqual(int|float $expected, int|float $actual, string $message = ''): void
+        {
+            if (!($actual >= $expected)) { self::fail($message !== '' ? $message : 'Value is less than expected.'); }
         }
 
         public static function assertLessThan(int|float $expected, int|float $actual, string $message = ''): void
@@ -147,10 +162,7 @@ namespace {
     }
     $undiscovered = array_keys(array_filter($testFiles, static fn (bool $discovered): bool => !$discovered));
     if ($undiscovered !== []) {
-        fwrite(STDERR, "Undiscovered test files:
-" . implode("
-", $undiscovered) . "
-");
+        fwrite(STDERR, "Undiscovered test files:\n" . implode("\n", $undiscovered) . "\n");
         exit(1);
     }
     sort($classes, SORT_STRING);
