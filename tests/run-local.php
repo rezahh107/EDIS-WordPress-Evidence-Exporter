@@ -50,6 +50,9 @@ namespace {
     function edis_local_run_file(string $file): int
     {
         if (!defined('ABSPATH')) define('ABSPATH', sys_get_temp_dir() . '/wordpress/');
+        if (basename($file) === 'RootCompleteRepairTest.php' && !function_exists('get_option')) {
+            function get_option(string $option, mixed $default = false): mixed { return $default; }
+        }
         require dirname(__DIR__) . '/autoload.php';
         $before = get_declared_classes();
         require_once $file;
