@@ -2,7 +2,7 @@
 
 ## Supported release
 
-EDIS Evidence Exporter 3.7.11 is the currently supported validation-hardening release in this package. Older development handoff builds should be treated as historical evidence only unless their release checksums and installation integrity pass.
+EDIS Evidence Exporter 3.7.12 is the currently supported root-complete repair release in this package. Older development handoff builds should be treated as historical evidence only unless their release checksums and installation integrity pass.
 
 ## Capability model
 

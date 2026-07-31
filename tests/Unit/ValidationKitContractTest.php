@@ -14,7 +14,7 @@ final class ValidationKitContractTest extends TestCase
         self::assertIsArray($plan);
         self::assertSame('EDIS-VALIDATION-PLAN-2', $plan['schema_version'] ?? null);
         self::assertSame('EDIS-VALIDATION-EVIDENCE-2', $plan['evidence_schema_version'] ?? null);
-        self::assertSame('3.7.11', $plan['plugin_version'] ?? null);
+        self::assertSame('3.7.12', $plan['plugin_version'] ?? null);
         self::assertFalse($plan['runtime_feature_change'] ?? true);
         self::assertFalse($plan['frozen_contract_change'] ?? true);
         self::assertSame('all_required_local_gates_must_pass', $plan['local_completion_policy'] ?? null);
