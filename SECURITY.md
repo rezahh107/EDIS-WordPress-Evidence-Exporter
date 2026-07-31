@@ -2,13 +2,13 @@
 
 ## Supported release
 
-EDIS Evidence Exporter 3.7.12 is the currently supported root-complete repair release in this package. Older development handoff builds should be treated as historical evidence only unless their release checksums and installation integrity pass.
+EDIS Evidence Exporter 3.7.13 is the currently supported degraded-admin recovery release in this package. Older development handoff builds should be treated as historical evidence only unless their release checksums and installation integrity pass.
 
 ## Capability model
 
 The plugin uses the custom WordPress capability `edis_export_evidence` for its admin screens, REST endpoints, diagnostics and download controllers. Document-scoped export actions additionally require `edit_post` for every selected WordPress/Elementor document. Existing jobs are owner-bound and are rechecked against document permissions before status, resume, retry, cancel or download operations.
 
-`manage_options` may be used by WordPress administrators to grant or manage the custom capability, but it is not the direct authorization rule for normal EDIS REST and admin operations.
+`manage_options` may be used by WordPress administrators to grant or manage the custom capability, but it is not the direct authorization rule for normal EDIS REST and admin operations. In fail-closed degraded mode, the minimal recovery-only Diagnostics / Recovery surface and storage retest are intentionally restricted to `manage_options`; this does not grant access to normal EDIS export or operational controls.
 
 ## Nonce policy
 

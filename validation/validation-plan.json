@@ -1,9 +1,9 @@
 {
   "schema_version": "EDIS-VALIDATION-PLAN-2",
   "evidence_schema_version": "EDIS-VALIDATION-EVIDENCE-2",
-  "plugin_version": "3.7.12",
-  "scope": "validation_evidence_corrective_only",
-  "runtime_feature_change": false,
+  "plugin_version": "3.7.13",
+  "scope": "degraded_admin_recovery_patch",
+  "runtime_feature_change": true,
   "frozen_contract_change": false,
   "local_completion_policy": "all_required_local_gates_must_pass",
   "strict_external_policy": "all_required_external_gates_must_pass",

@@ -40,14 +40,29 @@ final class InstallationIntegrityTest extends TestCase
         self::assertSame('src/Bootstrap.php', $result['failures'][0]['path']);
     }
 
-
     public function testBundledCriticalFileManifestPasses(): void
     {
         $root = dirname(__DIR__, 2) . '/';
         $result = InstallationIntegrity::verify($root);
         self::assertSame('PASS', $result['state']);
         self::assertSame('EDIS_INSTALLATION_INTEGRITY_PASS', $result['code']);
-        self::assertSame('3.7.12', $result['version']);
+        self::assertSame('3.7.13', $result['version']);
+    }
+
+    public function testReportsReleaseCriticalHashesForIntegrityRegeneration(): void
+    {
+        $root = dirname(__DIR__, 2) . '/';
+        foreach ([
+            'edis-evidence-exporter.php',
+            'plugin.manifest.json',
+            'src/Application/ExportService.php',
+            'src/Infrastructure/Support/PrivateStorage.php',
+            'src/WordPress/DegradedModeIntegration.php',
+        ] as $relative) {
+            $digest = hash_file('sha256', $root . $relative);
+            self::assertIsString($digest);
+            fwrite(STDERR, "EDIS_CRITICAL_SHA256 {$relative} {$digest}\n");
+        }
     }
 
     private function remove(string $path): void

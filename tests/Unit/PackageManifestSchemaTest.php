@@ -12,7 +12,7 @@ final class PackageManifestSchemaTest extends TestCase
     {
         $root = dirname(__DIR__, 2) . '/';
         $validator = new JsonSchemaValidator($root);
-        $current = $this->manifest('2.1.0', '3.7.12');
+        $current = $this->manifest('2.1.0', '3.7.13');
         $historical = $this->manifest('2.0.0', '3.7.0');
 
         $currentObject = json_decode(json_encode($current, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);

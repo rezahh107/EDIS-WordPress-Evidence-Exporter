@@ -14,7 +14,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\JsonSchemaValidator;
 
 final class ExportService
 {
-    private const PRODUCER_VERSION = '3.7.12';
+    private const PRODUCER_VERSION = '3.7.13';
     private DeterministicFilesystem $filesystem;
     private readonly string $pluginRoot;
 
@@ -823,7 +823,7 @@ final class ExportService
                 $diagnostics[] = ['code' => 'EDIS_PACKAGE_' . strtoupper($id), 'severity' => 'ERROR', 'scope' => 'SEMANTIC', 'message_key' => 'diagnostic.package.' . $id, 'context' => (object) []];
             }
         }
-        return ['state' => in_array(false, $checks, true) ? 'FAIL' : 'PASS', 'checks' => $checks, 'diagnostics' => $diagnostics, 'source_export_root_sha256' => $sourceRoot, 'semantic_hash_failure_paths'=>$semanticFailurePaths, 'instance_hash_failure_paths'=>$instanceFailurePaths, 'schema_failure_details'=>$schemaFailureDetails];
+        return ['state' => in_array(false, $checks, true) ? 'FAIL' : 'PASS', 'checks' => $checks, 'diagnostics' => $diagnostics, 'source_export_root_sha256'=>$sourceRoot, 'semantic_hash_failure_paths'=>$semanticFailurePaths, 'instance_hash_failure_paths'=>$instanceFailurePaths, 'schema_failure_details'=>$schemaFailureDetails];
     }
 
     /** @return array<string,mixed> */

@@ -310,7 +310,7 @@ final class PrivateStorage
     {
         return [
             'root' => $this->comparisonPath($this->root()),
-            'plugin_version' => defined('EDIS_EVIDENCE_EXPORTER_VERSION') ? (string) constant('EDIS_EVIDENCE_EXPORTER_VERSION') : '3.7.12',
+            'plugin_version' => defined('EDIS_EVIDENCE_EXPORTER_VERSION') ? (string) constant('EDIS_EVIDENCE_EXPORTER_VERSION') : '3.7.13',
             'php_version' => PHP_VERSION,
             'php_sapi' => PHP_SAPI,
             'php_binary' => PHP_BINARY,

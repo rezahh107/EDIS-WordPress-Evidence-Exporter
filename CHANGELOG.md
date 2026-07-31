@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.7.13
+
+- Restores a visible `EDIS Evidence` Diagnostics / Recovery admin surface for every existing fail-closed `DegradedModeIntegration` path.
+- Keeps degraded recovery self-contained under `manage_options` and does not initialize `AdminModule`, `DiagnosticsService`, export services, operational stores, worker services, or operational REST controllers.
+- Preserves all existing runtime, installation-integrity, configuration, private-storage and export fail-closed gates; the recovery shell exposes diagnostics and the existing storage retest only.
+- Preserves healthy `AdminModule` behavior and `edis_export_evidence` authorization; the degraded shell is request-scoped and disappears when normal startup gates pass on a later request.
+- Advances plugin/build release identity to `3.7.13` while deliberately preserving `ExportJobService::IMPLEMENTATION_VERSION` at `3.7.12` so compatible persisted 3.7.12 jobs are not invalidated by this admin-only repair.
+- Adds focused source-contract coverage and a real WordPress 7.0 admin integration check to prove degraded menu visibility, authorization and operational isolation.
+- Preserves Bundle Schema `3.3.0`, frozen evidence schemas, EDIS-CJ-2, EDIS-ZIP-1 and existing export semantics.
+
 ## 3.7.12
 
 - Preserves package contract and final-integrity failures as typed `ExportIntegrityException` diagnostics with stable codes and bounded privacy-safe context.
