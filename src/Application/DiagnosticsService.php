@@ -54,17 +54,28 @@ final class DiagnosticsService
             $this->check('json', function_exists('json_encode'), __('JSON support', 'edis-evidence-exporter'), function_exists('json_encode') ? __('Available', 'edis-evidence-exporter') : __('Unavailable', 'edis-evidence-exporter')),
             $this->check('rest', function_exists('register_rest_route'), __('REST API', 'edis-evidence-exporter'), function_exists('register_rest_route') ? __('Available', 'edis-evidence-exporter') : __('Unavailable', 'edis-evidence-exporter')),
             $this->check('executor', true, __('Job executor mode', 'edis-evidence-exporter'), __('Hybrid REST worker with WP-Cron recovery', 'edis-evidence-exporter')),
-            $this->check('cron', !$cronDisabled, __('WP-Cron recovery', 'edis-evidence-exporter'), $cronDisabled ? __('Disabled; REST worker remains available', 'edis-evidence-exporter') : __('Enabled as recovery', 'edis-evidence-exporter'), $cronDisabled ? 'warning' : 'pass'),
+            $this->check(
+                'cron',
+                !$cronDisabled,
+                __('WP-Cron recovery', 'edis-evidence-exporter'),
+                $cronDisabled
+                    ? __('WordPress internal cron trigger is disabled; automatic recovery requires a configured external trigger. Manual Retry remains available.', 'edis-evidence-exporter')
+                    : __('Enabled as recovery', 'edis-evidence-exporter'),
+                $cronDisabled ? 'warning' : 'pass',
+            ),
             $this->check('stale_queued', count($this->jobs->staleJobs('queued')) === 0, __('Stale queued jobs', 'edis-evidence-exporter'), (string) count($this->jobs->staleJobs('queued')), count($this->jobs->staleJobs('queued')) === 0 ? 'pass' : 'warning'),
             $this->check('stale_running', count($this->jobs->staleJobs('running')) === 0, __('Stale running jobs', 'edis-evidence-exporter'), (string) count($this->jobs->staleJobs('running')), count($this->jobs->staleJobs('running')) === 0 ? 'pass' : 'warning'),
             $this->check('cleanup', $this->settings->cleanupEnabled(), __('Automatic cleanup', 'edis-evidence-exporter'), $this->settings->cleanupEnabled() ? __('Enabled', 'edis-evidence-exporter') : __('Disabled by setting', 'edis-evidence-exporter'), $this->settings->cleanupEnabled() ? 'pass' : 'warning'),
         ];
         $counts = ['pass' => 0, 'warning' => 0, 'error' => 0];
-        foreach ($checks as $check) { $counts[$check['state']] = ($counts[$check['state']] ?? 0) + 1; }
+        foreach ($checks as $check) {
+            $counts[$check['state']] = ($counts[$check['state']] ?? 0) + 1;
+        }
         return [
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
             'plugin_version' => EDIS_EVIDENCE_EXPORTER_VERSION,
             'platform_version' => EDIS_EVIDENCE_BUILD_PLATFORM_VERSION,
+            'build_identity' => $this->buildIdentity(),
             'checks' => $checks,
             'summary' => $counts,
             'latest_job' => $latest,
@@ -81,10 +92,16 @@ final class DiagnosticsService
     }
 
     /** @return array<string, int> */
-    public function summary(): array { return $this->report()['summary']; }
+    public function summary(): array
+    {
+        return $this->report()['summary'];
+    }
 
     /** @return array<string, mixed> */
-    public function workerTest(int $ownerId): array { return $this->worker->safeWorkerTest($ownerId); }
+    public function workerTest(int $ownerId): array
+    {
+        return $this->worker->safeWorkerTest($ownerId);
+    }
 
     /** @return array<string, mixed> */
     private function check(string $id, bool $passed, string $label, string $detail, ?string $state = null): array
@@ -92,10 +109,79 @@ final class DiagnosticsService
         return ['id' => $id, 'label' => $label, 'state' => $state ?? ($passed ? 'pass' : 'error'), 'detail' => $detail];
     }
 
+    /** @return array<string,string|null> */
+    private function buildIdentity(): array
+    {
+        return [
+            'plugin_version' => defined('EDIS_EVIDENCE_EXPORTER_VERSION') ? EDIS_EVIDENCE_EXPORTER_VERSION : null,
+            'worker_implementation_version' => $this->workerImplementationVersion(),
+            'plugin_manifest_sha256' => $this->boundedFileSha256('plugin.manifest.json'),
+            'critical_files_manifest_sha256' => $this->boundedFileSha256('config/critical-files.json'),
+            'source_inventory_sha256' => $this->sourceInventorySha256(),
+        ];
+    }
+
+    private function workerImplementationVersion(): ?string
+    {
+        try {
+            $reflection = new \ReflectionClass(ExportJobService::class);
+            $value = $reflection->getConstant('IMPLEMENTATION_VERSION');
+            return is_string($value) && $value !== '' ? $value : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function boundedFileSha256(string $relativePath): ?string
+    {
+        $path = rtrim($this->pluginRoot, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        if (!is_file($path) || is_link($path)) {
+            return null;
+        }
+        $digest = hash_file('sha256', $path);
+        return is_string($digest) ? $digest : null;
+    }
+
+    private function sourceInventorySha256(): ?string
+    {
+        $path = rtrim($this->pluginRoot, '/\\') . DIRECTORY_SEPARATOR . 'plugin.manifest.json';
+        if (!is_file($path)) {
+            return null;
+        }
+        try {
+            $decoded = json_decode($this->filesystem->read($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return null;
+        }
+        if (!is_array($decoded) || !is_array($decoded['files'] ?? null)) {
+            return null;
+        }
+        $paths = [];
+        foreach ($decoded['files'] as $entry) {
+            if (!is_array($entry) || !is_string($entry['path'] ?? null) || $entry['path'] === '') {
+                return null;
+            }
+            $paths[] = str_replace('\\', '/', $entry['path']);
+        }
+        $paths[] = 'composer.lock';
+        sort($paths, SORT_STRING);
+        if (count($paths) !== count(array_unique($paths))) {
+            return null;
+        }
+        try {
+            $encoded = json_encode(array_values($paths), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+        return hash('sha256', $encoded);
+    }
+
     private function manifestValid(): bool
     {
         $path = $this->pluginRoot . 'plugin.manifest.json';
-        if (!is_file($path)) { return false; }
+        if (!is_file($path)) {
+            return false;
+        }
         try {
             $raw = $this->filesystem->read($path);
             $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
