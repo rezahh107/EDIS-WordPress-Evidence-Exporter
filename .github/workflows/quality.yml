@@ -398,6 +398,7 @@ jobs:
           ROOT_TWO=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url="$SITE_TWO_URL")
           test "$ROOT_ONE" != "$ROOT_TWO"
           [[ "$ROOT_ONE" == *site-* ]]
+          [[ "$ROOT_TWO" == *site-* ]]
       - name: Verify multisite Site Health registration
         run: |
           wp eval '
