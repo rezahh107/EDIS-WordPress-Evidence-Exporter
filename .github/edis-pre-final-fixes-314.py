@@ -26,6 +26,25 @@ replace(
     "if (!is_array($collector) || !is_string($collector['id'] ?? null) || !is_string($collector['schema_version'] ?? null)) {\n                continue;\n            }\n            $expected[$collector['id']] = $collector['schema_version'];",
 )
 
+# T09 must inspect the actual serialized/exported contract, where diagnostics are arrays.
+replace(
+    "tests/Unit/EnvironmentObservation314Test.php",
+    "$serialized = $result->jsonSerialize();",
+    "$serialized = json_decode(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);",
+)
+
+# Existing integrity tests must not unwrap a correctly typed ExportIntegrityException to its causal previous exception.
+replace(
+    "tests/Unit/ExportJobIntegrityTest.php",
+    "$actual = $exception instanceof \\ReflectionException ? $exception : ($exception->getPrevious() ?? $exception);",
+    "$actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);",
+)
+replace(
+    "tests/Unit/ExportJobIntegrityTest.php",
+    "$actual = $exception->getPrevious() ?? $exception;",
+    "$actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);",
+)
+
 # Current-release assertions must advance with the explicit 3.7.14 worker/product lock.
 replace("tests/Unit/InstallationIntegrityTest.php", "self::assertSame('3.7.13', $result['version']);", "self::assertSame('3.7.14', $result['version']);")
 replace("tests/Unit/SupplyChainGateContractTest.php", "self::assertSame('3.7.13', $package['version'] ?? null);", "self::assertSame('3.7.14', $package['version'] ?? null);")
@@ -47,3 +66,12 @@ replace(
 # Translation catalogs are current-release authority for their own version header.
 for catalog in ["languages/edis-evidence-exporter.pot", "languages/edis-evidence-exporter-fa_IR.po"]:
     replace(catalog, "Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.13\\n", "Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.14\\n")
+
+# Preserve the degraded-recovery boundary explicitly in current 3.7.14 release documentation.
+old_intro = 'new_intro = "Version 3.7.14 is the bounded correctness-closure release for exported-source privacy projection, truthful failed-observation semantics, per-artifact temporal provenance, manifest-authoritative release inventory, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build qualification. Frozen public evidence contracts remain unchanged; worker implementation compatibility advances to `3.7.14`, so incomplete jobs created under 3.7.12 must be recreated."'
+new_intro = 'new_intro = "Version 3.7.14 is the bounded correctness-closure release for exported-source privacy projection, truthful failed-observation semantics, per-artifact temporal provenance, manifest-authoritative release inventory, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build qualification. Unsupported deterministic PHP runtime is still handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice`. Once a supported runtime reaches Bootstrap, installation-integrity failure, invalid configuration, and private-storage failure continue to route through `DegradedModeIntegration`; Create Export, job operations, downloads, worker tests, and operational REST controllers remain unavailable while degraded. Frozen public evidence contracts remain unchanged; worker implementation compatibility advances to `3.7.14`, so incomplete jobs created under 3.7.12 must be recreated."'
+replace(".github/edis-finalize-314.py", old_intro, new_intro)
+
+old_desc = 'new_desc = "Version 3.7.14 closes eight bounded correctness defects without changing frozen public evidence schemas: shared pre-commit privacy projection, failure-vs-empty observation truth, orchestrator-stamped provenance, manifest-authoritative release inventory and build fingerprinting, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build runtime qualification. Worker implementation compatibility advances to 3.7.14."'
+new_desc = 'new_desc = "Version 3.7.14 closes eight bounded correctness defects without changing frozen public evidence schemas: shared pre-commit privacy projection, failure-vs-empty observation truth, orchestrator-stamped provenance, manifest-authoritative release inventory and build fingerprinting, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build runtime qualification. Unsupported deterministic PHP runtime is still handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice`. After a supported runtime reaches Bootstrap, installation-integrity failure, invalid configuration, and private-storage failure continue through `DegradedModeIntegration`; export, worker, download, and operational REST controls remain unavailable while degraded. Worker implementation compatibility advances to 3.7.14."'
+replace(".github/edis-finalize-314.py", old_desc, new_desc)
