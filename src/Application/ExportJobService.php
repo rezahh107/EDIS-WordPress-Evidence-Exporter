@@ -25,7 +25,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\Uuid;
 final class ExportJobService
 {
     private const TERMINAL = ['completed', 'failed', 'cancelled'];
-    private const IMPLEMENTATION_VERSION = '3.7.12';
+    private const IMPLEMENTATION_VERSION = '3.7.14';
     private ?PreflightProof $preflightProof;
     /** @var array<string,array<string,array<string,mixed>>> */
     private array $committedArtifacts = [];
@@ -117,6 +117,7 @@ final class ExportJobService
                 'last_error_code' => null,
                 'last_error_at' => null,
                 'next_retry_at' => null,
+                'packaging_started_at' => null,
                 'stale_after' => 120,
                 'lease_owner' => null,
                 'lease_acquired_at' => null,
@@ -231,22 +232,43 @@ final class ExportJobService
                 $diagnosticContext = $exception instanceof ExportIntegrityException ? $exception->diagnosticContext : [];
                 $diagnosticContext['failure_phase'] = $failurePhase;
                 $diagnosticContext['exception_class'] = get_class($exception);
+                $nonRetryable = $exception instanceof ExportIntegrityException;
                 $job['status'] = 'failed';
                 $job['phase'] = 'failed';
                 $job['last_error_code'] = $errorCode;
                 $job['last_error_at'] = time();
-                $job['next_retry_at'] = $exception instanceof ExportIntegrityException ? null : time() + 5;
+                $job['next_retry_at'] = $nonRetryable ? null : time() + 5;
                 $job['lease_owner'] = null;
                 $job['lease_acquired_at'] = null;
                 $job['lease_expires_at'] = null;
+                $job['schedule_state'] = 'NOT_SCHEDULED';
+                $job['schedule_error'] = $nonRetryable ? 'NON_RETRYABLE_INTEGRITY_FAILURE' : null;
                 $job['diagnostics'][] = [
                     'code' => $errorCode,
                     'severity' => 'ERROR',
-                    'scope' => $exception instanceof ExportIntegrityException ? 'SEMANTIC' : 'OPERATIONAL',
+                    'scope' => $nonRetryable ? 'SEMANTIC' : 'OPERATIONAL',
                     'message_key' => 'diagnostic.export.advance_failed',
                     'context' => $diagnosticContext,
                 ];
                 $this->jobs->save($job);
+                if ($nonRetryable) {
+                    $this->clearRecoverySchedule((string) ($job['job_id'] ?? ''));
+                } else {
+                    try {
+                        $this->scheduleRecovery($job);
+                    } catch (\Throwable $scheduleException) {
+                        $job['schedule_state'] = 'ERROR';
+                        $job['schedule_error'] = 'RECOVERY_SCHEDULING_EXCEPTION';
+                        $job['diagnostics'][] = [
+                            'code' => 'EDIS_RECOVERY_SCHEDULING_FAILED',
+                            'severity' => 'WARNING',
+                            'scope' => 'OPERATIONAL',
+                            'message_key' => 'diagnostic.export.recovery_scheduling_failed',
+                            'context' => ['exception_class' => get_class($scheduleException)],
+                        ];
+                        $this->jobs->save($job);
+                    }
+                }
             }
             throw $exception;
         }
@@ -359,6 +381,9 @@ final class ExportJobService
                 $job['phase'] = 'packaging';
                 $job['progress'] = 88;
                 $job['current_component'] = null;
+                if (!is_string($job['packaging_started_at'] ?? null) || $job['packaging_started_at'] === '') {
+                    $job['packaging_started_at'] = gmdate('Y-m-d\TH:i:s\Z');
+                }
                 return false;
             }
             $componentId = $plan[$cursor];
@@ -368,6 +393,7 @@ final class ExportJobService
             $committed = $this->componentInputs($componentId, $availableArtifacts);
             $records = is_array($job['completed_step_records'] ?? null) ? $job['completed_step_records'] : [];
             $stepInputSha256 = $this->stepInputSha256($componentId, $job, $records);
+            $executionStartedAt = gmdate('Y-m-d\TH:i:s\Z');
             try {
                 $result = $this->registry->execute($componentId, $context, $committed);
             } catch (\Throwable $exception) {
@@ -382,6 +408,10 @@ final class ExportJobService
                 );
             }
             $artifact = $result->jsonSerialize();
+            $config = is_array($job['config'] ?? null) ? $job['config'] : [];
+            $artifact['observed_at'] = $componentId === 'elementor_document_source'
+                ? (string) ($config['captured_at'] ?? $executionStartedAt)
+                : $executionStartedAt;
             $this->artifacts->put((string) $job['job_id'], $componentId, $artifact);
             $this->committedArtifacts[(string) $job['job_id']][$componentId] = $artifact;
             $artifactSha256 = $this->artifacts->fileSha256((string) $job['job_id'], $componentId);
@@ -396,6 +426,7 @@ final class ExportJobService
                 'input_snapshot_sha256' => (string) ($job['input_snapshot_sha256'] ?? ''),
                 'step_input_sha256' => $stepInputSha256,
                 'artifact_file_sha256' => $artifactSha256,
+                'observed_at' => (string) $artifact['observed_at'],
             ];
             ksort($records, SORT_STRING);
             $job['completed_step_records'] = $records;
@@ -420,8 +451,12 @@ final class ExportJobService
         }
         if ($phase === 'packaging') {
             $plan = array_values(array_filter((array) ($job['selected_components'] ?? []), 'is_string'));
+            if (!is_string($job['packaging_started_at'] ?? null) || $job['packaging_started_at'] === '') {
+                $job['packaging_started_at'] = gmdate('Y-m-d\TH:i:s\Z');
+                $this->jobs->save($job);
+            }
             $context = $this->context($job);
-            $bundle = $this->exporter->package((string) $job['job_id'], $context, $plan, $this->artifacts, $this->files, (int) $job['expires_at']);
+            $bundle = $this->exporter->package((string) $job['job_id'], $context, $plan, $this->artifacts, $this->files, (int) $job['expires_at'], (string) $job['packaging_started_at']);
             $job['bundle_sha256'] = $bundle['sha256'];
             $job['bundle_size'] = $bundle['size'];
             $job['download_token'] = $bundle['token'];
@@ -524,6 +559,8 @@ final class ExportJobService
                 && ($record['component_schema_version'] ?? null) === $definition->schemaVersion
                 && ($record['implementation_version'] ?? null) === self::IMPLEMENTATION_VERSION
                 && ($record['input_snapshot_sha256'] ?? null) === ($job['input_snapshot_sha256'] ?? null)
+                && is_string($record['observed_at'] ?? null)
+                && $record['observed_at'] !== ''
                 && $this->artifacts->verifyFileSha256((string) $job['job_id'], $componentId, $artifactSha256)
                 && ($record['step_input_sha256'] ?? null) === $this->stepInputSha256($componentId, $job, $verifiedRecords);
             if (!$valid) {
@@ -609,6 +646,7 @@ final class ExportJobService
     /** @param array<string, mixed> $job */
     private function scheduleRecovery(array &$job): void
     {
+        $this->recordCronTriggerTruth($job);
         if (!function_exists('wp_schedule_single_event')) {
             $job['schedule_state'] = 'UNAVAILABLE';
             $job['schedule_error'] = 'WP_CRON_API_UNAVAILABLE';
@@ -622,7 +660,9 @@ final class ExportJobService
             $this->jobs->save($job);
             return;
         }
-        $result = wp_schedule_single_event(time() + 15, 'edis_process_export_job', $args, true);
+        $retryEligibility = (int) ($job['next_retry_at'] ?? 0);
+        $scheduledAt = max(time() + 15, $retryEligibility);
+        $result = wp_schedule_single_event($scheduledAt, 'edis_process_export_job', $args, true);
         if (function_exists('is_wp_error') && is_wp_error($result)) {
             $job['schedule_state'] = 'ERROR';
             $job['schedule_error'] = method_exists($result, 'get_error_code') ? (string) $result->get_error_code() : 'WP_CRON_SCHEDULE_ERROR';
@@ -634,6 +674,29 @@ final class ExportJobService
             $job['schedule_error'] = null;
         }
         $this->jobs->save($job);
+    }
+
+    /** @param array<string,mixed> $job */
+    private function recordCronTriggerTruth(array &$job): void
+    {
+        if (!defined('DISABLE_WP_CRON') || constant('DISABLE_WP_CRON') !== true) {
+            return;
+        }
+        foreach ((array) ($job['diagnostics'] ?? []) as $diagnostic) {
+            if (is_array($diagnostic) && ($diagnostic['code'] ?? null) === 'EDIS_WP_CRON_INTERNAL_TRIGGER_DISABLED') {
+                return;
+            }
+        }
+        $job['diagnostics'][] = [
+            'code' => 'EDIS_WP_CRON_INTERNAL_TRIGGER_DISABLED',
+            'severity' => 'WARNING',
+            'scope' => 'OPERATIONAL',
+            'message_key' => 'diagnostic.export.wp_cron_internal_trigger_disabled',
+            'context' => [
+                'external_trigger_required' => true,
+                'manual_retry_available' => true,
+            ],
+        ];
     }
 
     private function clearRecoverySchedule(string $jobId): void
