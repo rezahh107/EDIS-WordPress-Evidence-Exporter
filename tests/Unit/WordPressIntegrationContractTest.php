@@ -142,7 +142,7 @@ final class WordPressIntegrationContractTest extends TestCase
         $bootstrap = $this->read('src/Bootstrap.php');
 
         self::assertSame(3, substr_count($bootstrap, 'new DegradedModeIntegration'));
-        self::assertSame(3, substr_count($bootstrap, ')->register();'));
+        self::assertSame(3, preg_match_all('/new DegradedModeIntegration[^;]+->register\(\);\s*return;/', $bootstrap));
         self::assertSame(1, substr_count($bootstrap, 'new AdminModule('));
         self::assertStringContainsString("'EDIS_INSTALLATION_INTEGRITY_FAILED'", $bootstrap);
         self::assertStringContainsString("'EDIS_CONFIGURATION_INVALID'", $bootstrap);
