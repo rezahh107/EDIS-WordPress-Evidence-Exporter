@@ -7,6 +7,7 @@ use EDIS\EvidenceExporter\Domain\CollectionResult;
 use EDIS\EvidenceExporter\Domain\ComponentType;
 use EDIS\EvidenceExporter\Domain\Contracts\CollectionContext;
 use EDIS\EvidenceExporter\Domain\Contracts\EvidenceCollector;
+use EDIS\EvidenceExporter\Domain\Diagnostic;
 use EDIS\EvidenceExporter\Domain\EvidenceAvailability;
 use EDIS\EvidenceExporter\Domain\TruthState;
 use EDIS\EvidenceExporter\Infrastructure\Support\UrlNormalizer;
@@ -23,6 +24,7 @@ final class EnvironmentCollector implements EvidenceCollector
         $homeUrl = function_exists('get_home_url') ? (string) get_home_url() : '';
         $sitePathScope = function_exists('wp_parse_url') ? (string) (wp_parse_url($homeUrl, PHP_URL_PATH) ?: '/') : '/';
         $locatorCandidates = [];
+        $diagnostics = [];
         foreach ([['HOME_URL', $homeUrl], ['SITE_URL', $siteUrl]] as [$kind, $url]) {
             if ($url === '') { continue; }
             try {
@@ -30,8 +32,14 @@ final class EnvironmentCollector implements EvidenceCollector
                     'locator_kind' => $kind,
                     'page_locator_sha256' => UrlNormalizer::hash($url, $sitePathScope),
                 ];
-            } catch (\Throwable) {
-                // Absence is represented by the missing candidate; no inferred value is emitted.
+            } catch (\Throwable $exception) {
+                $diagnostics[] = new Diagnostic(
+                    'EDIS_URL_NORMALIZATION_FAILED',
+                    'WARNING',
+                    'SEMANTIC',
+                    'diagnostic.environment.url_normalization_failed',
+                    ['locator_kind' => $kind, 'exception_class' => get_class($exception)],
+                );
             }
         }
         usort($locatorCandidates, static fn(array $a, array $b): int => strcmp((string) $a['locator_kind'], (string) $b['locator_kind']));
@@ -49,16 +57,25 @@ final class EnvironmentCollector implements EvidenceCollector
             'debug' => defined('WP_DEBUG') && WP_DEBUG,
             'memory_limit' => function_exists('wp_convert_hr_to_bytes') ? wp_convert_hr_to_bytes((string) ini_get('memory_limit')) : null,
         ];
-        return new CollectionResult($this->id(), TruthState::VERIFIED, EvidenceAvailability::AVAILABLE, ComponentType::SOURCE_COLLECTOR, $data, [], [], $this->provenance());
+        $partial = $diagnostics !== [];
+        return new CollectionResult(
+            $this->id(),
+            $partial ? TruthState::PARTIAL : TruthState::VERIFIED,
+            $partial ? EvidenceAvailability::PARTIAL : EvidenceAvailability::AVAILABLE,
+            ComponentType::SOURCE_COLLECTOR,
+            $data,
+            $diagnostics,
+            [],
+            $this->provenance(),
+        );
     }
 
-    /** @return array<string,string> */
     private function provenance(): array
     {
         return [
             'collector_id' => $this->id(),
             'adapter_id' => 'wordpress.core',
-            'adapter_version' => '1.1.0',
+            'adapter_version' => '1.2.0',
             'source_kind' => 'WORDPRESS_RUNTIME',
             'retrieval_strategy' => 'public_wordpress_apis_and_edis_url_1',
         ];
