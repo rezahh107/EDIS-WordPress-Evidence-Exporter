@@ -14,7 +14,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\JsonSchemaValidator;
 
 final class ExportService
 {
-    private const PRODUCER_VERSION = '3.7.13';
+    private const PRODUCER_VERSION = '3.7.14';
     private DeterministicFilesystem $filesystem;
     private readonly string $pluginRoot;
 
@@ -38,7 +38,11 @@ final class ExportService
         ArtifactStore $artifactStore,
         ExportFileStore $fileStore,
         int $expiresAt,
+        ?string $packagingStartedAt = null,
     ): array {
+        $packageCapturedAt = is_string($packagingStartedAt) && $packagingStartedAt !== ''
+            ? $packagingStartedAt
+            : $context->capturedAt;
         $files = [];
         $provenance = [];
         /** @var array<string,array{artifact_path:string,semantic_payload_sha256:?string}> $exportedIdentities */
@@ -121,6 +125,7 @@ final class ExportService
                 'provenance' => ['producer' => 'edis-evidence-exporter'],
             ],
             $context,
+            $packageCapturedAt,
         );
         $files['provenance/provenance.json'] = CanonicalJson::encode($provenanceEnvelope);
 
@@ -153,10 +158,10 @@ final class ExportService
             );
         }
 
-        $validationEnvelope = $this->validationEnvelope($validation, $context);
+        $validationEnvelope = $this->validationEnvelope($validation, $context, $packageCapturedAt);
         $files['validation/package-validation.json'] = CanonicalJson::encode($validationEnvelope);
 
-        [$files, $manifest] = $this->buildManifestAndChecksums($files, $context, $sourceRoot);
+        [$files, $manifest] = $this->buildManifestAndChecksums($files, $context, $sourceRoot, $packageCapturedAt);
         if (!$this->validateFinalPackage($files, $manifest)) {
             throw new ExportIntegrityException(
                 'EDIS_PACKAGE_FINAL_INTEGRITY_FAILED',
@@ -172,9 +177,9 @@ final class ExportService
         $validation['checks']['final_checksums_cover_files'] = true;
         $validation['checks']['final_file_hashes_and_sizes_match'] = true;
         $validation['state'] = 'PASS';
-        $files['validation/package-validation.json'] = CanonicalJson::encode($this->validationEnvelope($validation, $context));
+        $files['validation/package-validation.json'] = CanonicalJson::encode($this->validationEnvelope($validation, $context, $packageCapturedAt));
         unset($files['package-manifest.json'], $files['checksums.sha256']);
-        [$files, $manifest] = $this->buildManifestAndChecksums($files, $context, $sourceRoot);
+        [$files, $manifest] = $this->buildManifestAndChecksums($files, $context, $sourceRoot, $packageCapturedAt);
         if (!$this->validateFinalPackage($files, $manifest)) {
             throw new ExportIntegrityException(
                 'EDIS_PACKAGE_FINAL_INTEGRITY_FAILED',
@@ -253,7 +258,7 @@ final class ExportService
     }
 
     /** @param array<string,mixed> $validation @return array<string,mixed> */
-    private function validationEnvelope(array $validation, CollectionContext $context): array
+    private function validationEnvelope(array $validation, CollectionContext $context, string $capturedAt): array
     {
         $validation['schema_failure_details'] = (object) ($validation['schema_failure_details'] ?? []);
         return $this->envelope(
@@ -270,6 +275,7 @@ final class ExportService
                 'provenance' => ['validator_version' => '1.3.0'],
             ],
             $context,
+            $capturedAt,
         );
     }
 
@@ -277,7 +283,7 @@ final class ExportService
      * @param array<string,string> $files
      * @return array{0:array<string,string>,1:array<string,mixed>}
      */
-    private function buildManifestAndChecksums(array $files, CollectionContext $context, string $sourceRoot): array
+    private function buildManifestAndChecksums(array $files, CollectionContext $context, string $sourceRoot, string $capturedAt): array
     {
         unset($files['package-manifest.json'], $files['checksums.sha256']);
         ksort($files, SORT_STRING);
@@ -290,7 +296,7 @@ final class ExportService
             'schema_version' => '2.1.0',
             'artifact_type' => 'wordpress_source_evidence_package_manifest',
             'producer' => ['product' => 'edis-evidence-exporter', 'version' => self::PRODUCER_VERSION],
-            'captured_at' => $context->capturedAt,
+            'captured_at' => $capturedAt,
             'canonicalization' => CanonicalJson::canonicalizationDescriptor(),
             'data' => [
                 'analysis_set_id' => $context->analysisSetId,
@@ -584,8 +590,14 @@ final class ExportService
     }
 
     /** @param array<string, mixed> $artifact @return array<string, mixed> */
-    private function envelope(string $schemaId, string $schemaVersion, string $artifactType, array $artifact, CollectionContext $context): array
-    {
+    private function envelope(
+        string $schemaId,
+        string $schemaVersion,
+        string $artifactType,
+        array $artifact,
+        CollectionContext $context,
+        ?string $capturedAt = null,
+    ): array {
         $diagnostics = [];
         foreach (($artifact['diagnostics'] ?? []) as $diagnostic) {
             if ($diagnostic instanceof \JsonSerializable) {
@@ -596,12 +608,15 @@ final class ExportService
                 $diagnostics[] = $diagnostic;
             }
         }
+        $artifactObservedAt = is_string($artifact['observed_at'] ?? null) && $artifact['observed_at'] !== ''
+            ? $artifact['observed_at']
+            : null;
         $envelope = [
             'schema_id' => $schemaId,
             'schema_version' => $schemaVersion,
             'artifact_type' => $artifactType,
             'producer' => ['product' => 'edis-evidence-exporter', 'version' => self::PRODUCER_VERSION],
-            'captured_at' => $context->capturedAt,
+            'captured_at' => $capturedAt ?? $artifactObservedAt ?? $context->capturedAt,
             'canonicalization' => CanonicalJson::canonicalizationDescriptor(),
             'data' => [
                 'component_id' => $artifact['component_id'] ?? $artifactType,
