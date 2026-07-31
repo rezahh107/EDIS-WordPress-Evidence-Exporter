@@ -15,6 +15,7 @@ final class EnvironmentObservation314Test extends TestCase
 <?php
 declare(strict_types=1);
 
+$GLOBALS['wp_version'] = '6.8-test';
 function get_site_url(): string { return 'https://example.test/%ZZ'; }
 function get_home_url(): string { return 'https://example.test/'; }
 function wp_parse_url(string $url, int $component = -1): mixed
@@ -58,7 +59,7 @@ foreach ((array) ($serialized['diagnostics'] ?? []) as $diagnostic) {
     if (!is_array($diagnostic)) { continue; }
     $encoded = json_encode($diagnostic, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if (is_string($encoded) && str_contains($encoded, '%ZZ')) {
-        fwrite(STDERR, "removed/failed URL leaked into bounded diagnostic\n");
+        fwrite(STDERR, "failed URL leaked into bounded diagnostic\n");
         exit(1);
     }
 }
