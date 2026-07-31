@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
 use EDIS\EvidenceExporter\Application\DiagnosticsService;
