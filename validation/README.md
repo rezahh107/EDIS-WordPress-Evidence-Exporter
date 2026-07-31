@@ -1,4 +1,4 @@
-# EDIS 3.7.11 validation kit
+# EDIS 3.7.12 validation kit
 
 This source-only kit records validation scope and evidence states. It is excluded from the WordPress installation ZIP.
 

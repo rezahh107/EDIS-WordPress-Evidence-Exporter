@@ -47,7 +47,7 @@ final class InstallationIntegrityTest extends TestCase
         $result = InstallationIntegrity::verify($root);
         self::assertSame('PASS', $result['state']);
         self::assertSame('EDIS_INSTALLATION_INTEGRITY_PASS', $result['code']);
-        self::assertSame('3.7.11', $result['version']);
+        self::assertSame('3.7.12', $result['version']);
     }
 
     private function remove(string $path): void

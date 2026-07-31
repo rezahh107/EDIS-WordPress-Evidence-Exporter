@@ -678,8 +678,8 @@ final class ExportJobService
             }
             try {
                 $definition = $this->registry->definition($id);
-            } catch (\OutOfBoundsException $exception) {
-                throw new \InvalidArgumentException('Collector selection contains an unknown component identifier.', 0, $exception);
+            } catch (\OutOfBoundsException) {
+                throw new \InvalidArgumentException('Collector selection contains an unknown component identifier.');
             }
             if (!$definition->selectable || !$this->registry->isExecutable($id)) {
                 throw new \InvalidArgumentException('Collector selection contains a non-selectable or non-executable component.');

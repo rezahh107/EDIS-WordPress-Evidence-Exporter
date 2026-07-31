@@ -16,12 +16,14 @@ final class ExportService
 {
     private const PRODUCER_VERSION = '3.7.12';
     private DeterministicFilesystem $filesystem;
+    private readonly string $pluginRoot;
 
     public function __construct(
         private readonly CollectorRegistry $registry,
-        private readonly string $pluginRoot,
+        string $pluginRoot,
         ?DeterministicFilesystem $filesystem = null,
     ) {
+        $this->pluginRoot = rtrim($pluginRoot, '/\\') . DIRECTORY_SEPARATOR;
         $this->filesystem = $filesystem ?? new DeterministicFilesystem();
     }
 
@@ -253,6 +255,7 @@ final class ExportService
     /** @param array<string,mixed> $validation @return array<string,mixed> */
     private function validationEnvelope(array $validation, CollectionContext $context): array
     {
+        $validation['schema_failure_details'] = (object) ($validation['schema_failure_details'] ?? []);
         return $this->envelope(
             'urn:edis:schema:wordpress:package-validation',
             '1.3.0',

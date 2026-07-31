@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
 use EDIS\EvidenceExporter\Application\ExportJobService;
@@ -75,9 +74,7 @@ try {
     if ($defaultCollectors === []) {
         throw new RuntimeException('Default selectable collector set is empty.');
     }
-    $expectedPlan = $registry->executionPlan($defaultCollectors, 'REQUIRED_DEPENDENCIES');
-
-    $created = $service->create($ownerId, [
+    $request = [
         'privacy_mode' => 'Strict',
         'collectors' => $defaultCollectors,
         'document_ids' => [$postId],
@@ -87,7 +84,20 @@ try {
             'dependency_scope' => 'REQUIRED_DEPENDENCIES',
             'compare_previous_export' => false,
         ],
-    ]);
+    ];
+    $normalizeRequest = new ReflectionMethod($service, 'normalizeRequest');
+    $normalized = $normalizeRequest->invoke($service, $request);
+    if (!is_array($normalized)
+        || !is_array($normalized['collectors'] ?? null)
+        || !is_string($normalized['options']['dependency_scope'] ?? null)) {
+        throw new RuntimeException('Production request normalization did not return the expected collector contract.');
+    }
+    $expectedPlan = $registry->executionPlan(
+        $normalized['collectors'],
+        $normalized['options']['dependency_scope'],
+    );
+
+    $created = $service->create($ownerId, $request);
     $jobId = (string) ($created['job_id'] ?? '');
     if ($jobId === '') {
         throw new RuntimeException('Production service did not return a job ID.');
