@@ -2,11 +2,9 @@ name: EDIS 3.7.14 exact final qualification
 
 'on':
   push:
-    branches:
-      - agent/edis-wp-correctness-closure-v3.7.14
+    branches: [agent/edis-wp-correctness-closure-v3.7.14]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: write
@@ -28,13 +26,10 @@ jobs:
           MYSQL_USER: wordpress
           MYSQL_PASSWORD: wordpress
           MYSQL_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
+        ports: ['3306:3306']
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
+          --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -52,16 +47,13 @@ jobs:
         run: |
           curl -fsSLo /tmp/wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar
           printf '%s  %s\n' "$WP_CLI_SHA512" /tmp/wp-cli.phar | sha512sum --check --strict
-          chmod +x /tmp/wp-cli.phar
-          sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
+          chmod +x /tmp/wp-cli.phar && sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
           wp --version | grep -Fx 'WP-CLI 2.12.0'
       - name: Create exact final source tree
         run: |
           cp .github/edis-final-qualification.php /tmp/edis-final-qualification.php
           python3 .github/edis-finalize-314.py
-          rm .github/edis-finalize-314.py
-          rm .github/edis-final-qualification.php
-          rm .github/workflows/edis-finalize-3.7.14.yml
+          rm .github/edis-finalize-314.py .github/edis-final-qualification.php .github/workflows/edis-finalize-3.7.14.yml
           git config user.name 'EDIS Final Qualification'
           git config user.email 'actions@users.noreply.github.com'
           git add -A
@@ -90,26 +82,34 @@ jobs:
           python3 - <<'PY' > /tmp/source-before.sha
           from pathlib import Path
           import hashlib
-          root=Path('.')
           excluded={'.git','vendor','node_modules','release-build','.phpunit.cache'}
           h=hashlib.sha256()
-          for p in sorted((p for p in root.rglob('*') if p.is_file() and not any(part in excluded for part in p.parts)), key=lambda p:p.as_posix().encode()):
-              rel=p.as_posix().encode(); data=p.read_bytes()
-              h.update(len(rel).to_bytes(8,'big')); h.update(rel); h.update(len(data).to_bytes(8,'big')); h.update(data)
+          for p in sorted((p for p in Path('.').rglob('*') if p.is_file() and not any(part in excluded for part in p.parts)), key=lambda p:p.as_posix().encode()):
+              rel=p.as_posix().encode(); data=p.read_bytes(); h.update(len(rel).to_bytes(8,'big')); h.update(rel); h.update(len(data).to_bytes(8,'big')); h.update(data)
           print(h.hexdigest())
           PY
           mkdir -p release-build/validation-evidence
+          set +e
           php tools/validation/run-local-validation.php --report=release-build/validation-evidence/local-validation.json > /tmp/local-validation-1.json
+          validation_status=$?
+          set -e
+          if [ "$validation_status" -ne 0 ]; then
+            echo '--- local validation JSON ---'
+            cat /tmp/local-validation-1.json
+            echo '--- direct release builder diagnostic ---'
+            python3 tools/release/build-release.py --root "$GITHUB_WORKSPACE" --output /tmp/edis-build-diagnostic || true
+            echo '--- direct local harness diagnostic ---'
+            php tests/run-local.php || true
+            exit "$validation_status"
+          fi
           php tools/validation/run-local-validation.php --report=release-build/validation-evidence/local-validation.json > /tmp/local-validation-2.json
           python3 - <<'PY' > /tmp/source-after.sha
           from pathlib import Path
           import hashlib
-          root=Path('.')
           excluded={'.git','vendor','node_modules','release-build','.phpunit.cache'}
           h=hashlib.sha256()
-          for p in sorted((p for p in root.rglob('*') if p.is_file() and not any(part in excluded for part in p.parts)), key=lambda p:p.as_posix().encode()):
-              rel=p.as_posix().encode(); data=p.read_bytes()
-              h.update(len(rel).to_bytes(8,'big')); h.update(rel); h.update(len(data).to_bytes(8,'big')); h.update(data)
+          for p in sorted((p for p in Path('.').rglob('*') if p.is_file() and not any(part in excluded for part in p.parts)), key=lambda p:p.as_posix().encode()):
+              rel=p.as_posix().encode(); data=p.read_bytes(); h.update(len(rel).to_bytes(8,'big')); h.update(rel); h.update(len(data).to_bytes(8,'big')); h.update(data)
           print(h.hexdigest())
           PY
           cmp /tmp/source-before.sha /tmp/source-after.sha
@@ -124,8 +124,7 @@ jobs:
           cmp release-build/final-a/SHA256SUMS release-build/final-b/SHA256SUMS
       - name: Install exact final ZIP with WordPress 7.0 and Elementor 4.1.3
         run: |
-          rm -rf /tmp/wordpress /tmp/edis-final-private
-          mkdir -p /tmp/wordpress
+          rm -rf /tmp/wordpress /tmp/edis-final-private && mkdir -p /tmp/wordpress
           wp core download --path=/tmp/wordpress --version=7.0 --force
           wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306
           wp config set EDIS_EVIDENCE_PRIVATE_STORAGE_DIR /tmp/edis-final-private --path=/tmp/wordpress --type=constant
