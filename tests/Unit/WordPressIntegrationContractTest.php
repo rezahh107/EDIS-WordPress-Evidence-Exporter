@@ -111,7 +111,6 @@ final class WordPressIntegrationContractTest extends TestCase
         self::assertStringContainsString('get_current_blog_id', $source);
     }
 
-
     public function testRecoverySchedulingAvoidsDuplicatesAndClearsTerminalHooks(): void
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/src/Application/ExportJobService.php');
@@ -125,7 +124,6 @@ final class WordPressIntegrationContractTest extends TestCase
         self::assertStringNotContainsString('repairStaleJobs( true )', $recovery);
     }
 
-
     public function testStorageFailureEntersDegradedModeInsteadOfThrowingFromBootstrap(): void
     {
         $bootstrap = $this->read('src/Bootstrap.php');
@@ -136,7 +134,64 @@ final class WordPressIntegrationContractTest extends TestCase
         self::assertStringContainsString("'EDIS_PRIVATE_STORAGE_UNAVAILABLE'", $bootstrap);
         self::assertStringNotContainsString('EDIS requires protected storage outside the public WordPress web root', $bootstrap);
         self::assertStringContainsString('Exports are disabled, but WordPress remains available', $degraded);
-        self::assertStringContainsString('catch ( \Throwable )', $plugin);
+        self::assertStringContainsString('catch ( \\Throwable )', $plugin);
+    }
+
+    public function testDegradedBootstrapBranchesShareOneRecoveryIntegrationAndReturnBeforeAdminModule(): void
+    {
+        $bootstrap = $this->read('src/Bootstrap.php');
+
+        self::assertSame(3, substr_count($bootstrap, 'new DegradedModeIntegration'));
+        self::assertSame(3, substr_count($bootstrap, ')->register();'));
+        self::assertSame(1, substr_count($bootstrap, 'new AdminModule('));
+        self::assertStringContainsString("'EDIS_INSTALLATION_INTEGRITY_FAILED'", $bootstrap);
+        self::assertStringContainsString("'EDIS_CONFIGURATION_INVALID'", $bootstrap);
+        self::assertStringContainsString("'EDIS_PRIVATE_STORAGE_UNAVAILABLE'", $bootstrap);
+        self::assertLessThan(
+            strpos($bootstrap, 'new AdminModule('),
+            strpos($bootstrap, 'new DegradedModeIntegration')
+        );
+    }
+
+    public function testDegradedRecoveryShellUsesManageOptionsAndHasNoOperationalGraph(): void
+    {
+        $degraded = $this->read('src/WordPress/DegradedModeIntegration.php');
+        $healthyAdmin = $this->read('config/admin.php');
+
+        self::assertStringContainsString("private const CAPABILITY = 'manage_options';", $degraded);
+        self::assertStringContainsString("private const MENU_SLUG = 'edis-evidence';", $degraded);
+        self::assertStringContainsString("private const DIAGNOSTICS_SLUG = 'edis-evidence-diagnostics';", $degraded);
+        self::assertStringContainsString("add_action( 'admin_menu'", $degraded);
+        self::assertStringContainsString('renderRecoveryPage', $degraded);
+        self::assertStringContainsString('admin_post_edis_storage_retest', $degraded);
+        self::assertStringContainsString("'capability' => 'edis_export_evidence'", $healthyAdmin);
+
+        foreach ([
+            'AdminModule',
+            'DiagnosticsService',
+            'ExportJobService',
+            'JobStore',
+            'ArtifactStore',
+            'ExportFileStore',
+            'InputSnapshotStore',
+            'SettingsRegistrar',
+            'ExportJobController',
+        ] as $forbidden) {
+            self::assertStringNotContainsString($forbidden, $degraded);
+        }
+        self::assertStringNotContainsString("add_action( 'rest_api_init'", $degraded);
+        self::assertStringNotContainsString('edis_process_export_job', $degraded);
+    }
+
+    public function testPluginPatchVersionDoesNotAdvanceWorkerImplementationCompatibility(): void
+    {
+        $plugin = $this->read('edis-evidence-exporter.php');
+        $worker = $this->read('src/Application/ExportJobService.php');
+
+        self::assertStringContainsString("Version: 3.7.13", $plugin);
+        self::assertStringContainsString("EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.13'", $plugin);
+        self::assertStringContainsString("private const IMPLEMENTATION_VERSION = '3.7.12';", $worker);
+        self::assertStringNotContainsString("private const IMPLEMENTATION_VERSION = '3.7.13';", $worker);
     }
 
     public function testAtomicCommitsSynchronizeParentDirectoriesOnPosix(): void
@@ -149,5 +204,4 @@ final class WordPressIntegrationContractTest extends TestCase
         self::assertStringContainsString('$this->filesystem->synchronizeDirectory(dirname($finalDirectory));', $snapshots);
         self::assertStringContainsString("DIRECTORY_SEPARATOR === '\\\\'", $filesystem);
     }
-
 }
