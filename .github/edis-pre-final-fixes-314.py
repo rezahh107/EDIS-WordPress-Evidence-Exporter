@@ -44,13 +44,18 @@ replace(
     "$actual = $exception->getPrevious() ?? $exception;",
     "$actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);",
 )
-# The tamper test's pre-tamper fixture must itself be compatible with the active worker;
-# only the separate legacy/resume fixtures remain 3.7.12 by design.
+
+# The tamper test's pre-tamper fixture must itself satisfy the active 3.7.14 resume contract.
+# Keep the separate resume-atomic legacy fixture at 3.7.12 so compatibility rejection remains covered.
 replace(
     "tests/Unit/ExportJobIntegrityTest.php",
-    "'implementation_version' => '3.7.12',",
-    "'implementation_version' => '3.7.14',",
-    2,
+    "            'job_id' => 'job-integrity',\n            'job_format_version' => '2.1.0',\n            'implementation_version' => '3.7.12',",
+    "            'job_id' => 'job-integrity',\n            'job_format_version' => '2.1.0',\n            'implementation_version' => '3.7.14',",
+)
+replace(
+    "tests/Unit/ExportJobIntegrityTest.php",
+    "                'component_id' => 'environment',\n                'component_schema_version' => '1.0.0',\n                'implementation_version' => '3.7.12',\n                'input_snapshot_sha256' => $manifest['snapshot_sha256'],",
+    "                'component_id' => 'environment',\n                'component_schema_version' => '1.0.0',\n                'implementation_version' => '3.7.14',\n                'observed_at' => '2026-07-30T00:00:00Z',\n                'input_snapshot_sha256' => $manifest['snapshot_sha256'],",
 )
 
 # Current-release assertions must advance with the explicit 3.7.14 worker/product lock.
