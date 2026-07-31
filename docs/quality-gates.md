@@ -1,4 +1,4 @@
-# EDIS 3.7.12 Quality Gates
+# EDIS 3.7.13 Quality Gates
 
 A release claim is valid only for commands that actually ran and passed. A workflow definition is not itself verification evidence.
 
@@ -15,7 +15,7 @@ php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php
 
 ## Required PHP matrix
 
-Run the full suite on 64-bit PHP 8.2, 8.3, 8.4 and 8.5. `serialize_precision`, locale, timezone, collector registration order and independent selection order permutations must not change semantic output. PHP 8.0, 8.1 and 8.6 or later are outside the 3.7.12 deterministic runtime contract.
+Run the full suite on 64-bit PHP 8.2, 8.3, 8.4 and 8.5. `serialize_precision`, locale, timezone, collector registration order and independent selection order permutations must not change semantic output. PHP 8.0, 8.1 and 8.6 or later remain outside the verified deterministic runtime range.
 
 ## WordPress Plugin Check
 
@@ -34,9 +34,24 @@ Both checks are release gates. Enable `WP_DEBUG`, `WP_DEBUG_LOG`, `SCRIPT_DEBUG`
 
 The repository workflow pins WordPress `7.0` and Elementor `4.1.3`, activates both plugins on PHP 8.2 through 8.5, verifies the Elementor load hook, executes the EDIS-CJ-2 runtime gate and requires the private-storage self-test to pass.
 
-On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.12`.
+On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.13`. Worker compatibility remains independently pinned to `ExportJobService::IMPLEMENTATION_VERSION = 3.7.12`.
 
 This is a real application-path export-completion integration gate, not an Elementor Editor browser automation matrix. Legacy/editor-interaction, Windows/LocalWP, third-party addon and other browser-observed behaviors remain separate environment gates.
+
+## Degraded admin recovery gate
+
+The WordPress 7.0 integration lane must instantiate the production `DegradedModeIntegration` in an isolated admin-menu fixture and prove:
+
+```text
+one EDIS Evidence top-level menu exists
+Diagnostics / Recovery is visible to manage_options administrators
+normal operational menu slugs are absent
+no operational REST or worker hook is added by degraded recovery registration
+recovery content exposes bounded diagnostics and no Create Export/worker-test controls
+an unauthorized user cannot render the recovery page
+```
+
+This gate must not weaken production storage checks or instantiate the normal Admin/Application graph merely to make the degraded UI visible.
 
 ## Storage gate
 
@@ -87,9 +102,25 @@ wp edis storage self-test
 
 `jobs repair` must be dry-run by default. Worker commands must respect the same locks, leases, version checks and hashes as REST/Cron execution.
 
-## 3.7.12 regression gates
+## 3.7.13 regression gates
 
-A 3.7.12 release must retain all earlier storage, concurrency, REST-hardening and validation-evidence gates and additionally verify:
+A 3.7.13 release must retain all 3.7.12 storage, concurrency, REST-hardening, export-completion and validation-evidence gates and additionally verify:
+
+```text
+all three current Bootstrap degraded causes share DegradedModeIntegration and return before AdminModule
+degraded recovery uses manage_options while healthy admin remains edis_export_evidence
+degraded recovery does not construct the operational Admin/Application graph
+degraded recovery does not expose export, worker, download, operational REST, or scheduled-export controls
+healthy AdminModule behavior remains unchanged
+plugin/build/package release identity is 3.7.13
+ExportJobService::IMPLEMENTATION_VERSION remains exactly 3.7.12
+critical-file integrity hashes match final bytes
+the real WordPress degraded-admin integration check passes
+```
+
+## Preserved 3.7.12 regression gates
+
+The 3.7.12 worker/runtime repair remains covered by these historical compatibility gates:
 
 ```text
 package contract/integrity failures retain stable typed diagnostics without raw error disclosure
@@ -114,6 +145,6 @@ The release must retain:
 - PHPStan configuration; full PHPStan execution remains an environment gate until the dependency set is available.
 - GitHub Actions pinned to verified full commit SHAs; `npm run lint:workflows:strict` remains required.
 
-## Version 3.7.12 gate status
+## Version 3.7.13 gate status
 
-The local gate set includes PHP lint, `tests/run-local.php`, runtime smoke, JavaScript lint, CSS lint, structured UTF-8/JSON/YAML validation, install ZIP lint, install ZIP integrity and the workflow-reference policy gate. Composer validation, install, audit, official PHPUnit and PHPCS must be treated as unexecuted unless their commands actually run successfully. The real export-completion check is STANDARD_CI evidence and does not replace required local validation.
+The local gate set includes PHP lint, `tests/run-local.php`, runtime smoke, JavaScript lint, CSS lint, structured UTF-8/JSON/YAML validation, install ZIP lint, install ZIP integrity and the workflow-reference policy gate. Composer validation, install, audit, official PHPUnit and PHPCS must be treated as unexecuted unless their commands actually run successfully. The real export-completion and degraded-admin checks are STANDARD_CI evidence and do not replace required local validation.
