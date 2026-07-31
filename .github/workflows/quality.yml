@@ -422,24 +422,40 @@ jobs:
           wp config set WP_DEBUG true --raw --path=/tmp/wordpress --type=constant
           wp config set WP_DEBUG_LOG true --raw --path=/tmp/wordpress --type=constant
           wp config set SCRIPT_DEBUG true --raw --path=/tmp/wordpress --type=constant
-          wp core multisite-install --path=/tmp/wordpress --url=http://localhost --title=EDIS --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email --subdomains
-          mkdir -p /tmp/plugin-build/edis-evidence-exporter
+          wp core install --path=/tmp/wordpress --url=http://localhost --title=EDIS --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
+          wp core multisite-convert --path=/tmp/wordpress --title='EDIS Network' --base=/
           rsync -a --delete --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/" /tmp/plugin-build/edis-evidence-exporter/
           ln -s /tmp/plugin-build/edis-evidence-exporter /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
-          wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress
+          wp plugin activate edis-evidence-exporter --network --path=/tmp/wordpress --url=http://localhost
       - name: Create secondary site
-        run: wp site create --slug=secondary --title=Secondary --email=admin@example.test --path=/tmp/wordpress
+        run: |
+          SITE_TWO_ID=$(wp site create --path=/tmp/wordpress --url=http://localhost --slug=site-two --title='Site Two' --email=admin@example.test --porcelain)
+          SITE_TWO_URL=$(EDIS_SITE_ID="$SITE_TWO_ID" wp eval 'echo get_site_url((int) getenv("EDIS_SITE_ID"));' --path=/tmp/wordpress --url=http://localhost)
+          printf 'SITE_TWO_ID=%s\n' "$SITE_TWO_ID" >> "$GITHUB_ENV"
+          printf 'SITE_TWO_URL=%s\n' "$SITE_TWO_URL" >> "$GITHUB_ENV"
       - name: Verify lifecycle initialization on both sites
         run: |
-          SITE_TWO_ID=$(wp site list --field=blog_id --path=/tmp/wordpress | tail -n1)
-          SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress)
-          wp option get edis_evidence_installed_version --path=/tmp/wordpress | grep -Fx '3.7.13'
-          wp option get edis_evidence_installed_version --path=/tmp/wordpress --url="$SITE_TWO_URL" | grep -Fx '3.7.13'
+          wp eval '
+            $stored = get_option("edis_evidence_installed_version");
+            $expected = EDIS_EVIDENCE_EXPORTER_VERSION;
+            if ($stored !== $expected) {
+                fwrite(STDERR, "Installed version mismatch: {$stored} != {$expected}.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url=http://localhost
+          wp eval '
+            $stored = get_option("edis_evidence_installed_version");
+            $expected = EDIS_EVIDENCE_EXPORTER_VERSION;
+            if ($stored !== $expected) {
+                fwrite(STDERR, "Installed version mismatch: {$stored} != {$expected}.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url="$SITE_TWO_URL"
       - name: Verify per-site private storage isolation
         run: |
-          SITE_TWO_ID=$(wp site list --field=blog_id --path=/tmp/wordpress | tail -n1)
-          SITE_TWO_URL=$(wp site get "$SITE_TWO_ID" --field=url --path=/tmp/wordpress)
-          ROOT_ONE=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress)
+          wp edis storage self-test --path=/tmp/wordpress --url=http://localhost
+          wp edis storage self-test --path=/tmp/wordpress --url="$SITE_TWO_URL"
+          ROOT_ONE=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url=http://localhost)
           ROOT_TWO=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url="$SITE_TWO_URL")
           test "$ROOT_ONE" != "$ROOT_TWO"
           [[ "$ROOT_ONE" == *site-* ]]
@@ -448,21 +464,38 @@ jobs:
         run: |
           wp eval '
             $tests = apply_filters("site_status_tests", []);
-            if (! isset($tests["direct"]["edis_evidence_runtime"], $tests["direct"]["edis_evidence_cron"], $tests["async"]["edis_evidence_storage"])) {
-                fwrite(STDERR, "EDIS multisite Site Health registration is incomplete.\n");
-                exit(1);
+            foreach (["edis_evidence_runtime", "edis_evidence_cron"] as $id) {
+                if (! isset($tests["direct"][$id])) {
+                    fwrite(STDERR, "Missing Site Health test: {$id}.\n");
+                    exit(1);
+                }
             }
-          ' --path=/tmp/wordpress
+          ' --path=/tmp/wordpress --url=http://localhost
       - name: Verify multisite WP-CLI commands
         run: |
-          wp edis status --path=/tmp/wordpress
-          wp edis worker status --path=/tmp/wordpress
-          wp edis jobs repair --path=/tmp/wordpress
-          wp edis storage self-test --path=/tmp/wordpress
+          wp edis worker status --path=/tmp/wordpress --url=http://localhost
+          wp edis jobs repair --path=/tmp/wordpress --url=http://localhost
       - name: Verify network deactivation cleans scheduled hooks
         run: |
-          wp plugin deactivate edis-evidence-exporter --network --path=/tmp/wordpress
-          test "$(wp cron event list --hook=edis_cleanup_export_files --field=hook --path=/tmp/wordpress | wc -l)" -eq 0
+          wp plugin deactivate edis-evidence-exporter --network --path=/tmp/wordpress --url=http://localhost
+          wp eval '
+            if (false !== wp_next_scheduled("edis_cleanup_export_files")) {
+                fwrite(STDERR, "Cleanup hook remains scheduled after deactivation.\n");
+                exit(1);
+            }
+            $role = get_role("administrator");
+            if ($role instanceof WP_Role && $role->has_cap("edis_export_evidence")) {
+                fwrite(STDERR, "EDIS capability remains after network deactivation.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url=http://localhost
+          wp eval '
+            $role = get_role("administrator");
+            if ($role instanceof WP_Role && $role->has_cap("edis_export_evidence")) {
+                fwrite(STDERR, "EDIS capability remains on secondary site.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress --url="$SITE_TWO_URL"
       - name: Require zero EDIS-origin debug output
         run: |
           if [ -f /tmp/wordpress/wp-content/debug.log ]; then
