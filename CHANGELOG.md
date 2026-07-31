@@ -55,13 +55,14 @@
 
 ## 3.7.8
 
-- Adds signed, owner-bound, short-lived preflight proofs with saved-source drift validation to eliminate duplicate full preflight work.
-- Caches verified snapshots and committed artifacts within one request while retaining forced tamper verification at resume boundaries.
-- Streams deterministic EDIS-ZIP-1 output to disk and reads individual stored entries by seek instead of loading the full archive.
-- Reduces package assembly duplication by processing committed artifacts once in topological order.
-- Blocks `ENTIRE_SITE` preflight when the configured inventory bound would truncate eligible documents.
-- Uses raw saved-source hashes for low-cost admin row freshness checks with canonical fallback for older records.
-- Makes the local test harness fail on undiscovered test files and restores the previously skipped tests.
+- Preflight now emits a signed, owner-bound proof whose normalized request, raw source hashes, owner, expiry and storage-attestation hash must still match when a job is created.
+- Job creation reuses the proof instead of performing a second full preflight, while failing closed on source or request drift.
+- `InputSnapshotStore`, `ArtifactStore` and completed package-artifact retrieval now use request-scoped caches with explicit revalidation controls; Resume still forces disk verification.
+- The production deterministic ZIP writer streams STORE-only archives directly to a temp file, and the reader validates/reads stored entries by seek instead of loading the complete ZIP into PHP memory.
+- Final bundle packaging processes committed artifacts once in topological order, and package validation avoids a redundant full final-package validation pass.
+- ENTIRE_SITE preflight fails closed when the configured document-inventory cap would truncate eligible source documents.
+- Admin document rows use bounded raw-source hashing as a low-cost freshness check, with canonical collector fallback for legacy rows without raw evidence.
+- The local test harness now auto-discovers every `tests/Unit/*Test.php`, restores the previously orphaned LocalWP tests, and adds aggregate preflight fast-path, cache-tamper, corruption and bounded-input regressions.
 
 ## 3.7.7
 
@@ -123,7 +124,7 @@
 - Removed production process spawning from storage self-tests; independent-process lock exclusion remains an executed source/CI test gate and is absent from installable code.
 - Separated deactivation from retention-aware uninstall and made network uninstall site-aware without following symlinks.
 - Expanded WordPress-Core, WordPress-Extra, WordPress-Docs, PHPCompatibilityWP, Plugin Check package, WordPress multisite and E_ALL quality gates.
-- Updated English and Persian operational, migration, privacy, troubleshooting and release documentation.
+- Updated English/Persian operational, migration, privacy, troubleshooting and release documentation.
 - Regenerated the complete translation template from all 3.7.1 PHP UI strings and synchronized the Persian catalog without inventing missing translations.
 
 ## 3.7.0
