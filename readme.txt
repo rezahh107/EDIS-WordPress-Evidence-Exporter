@@ -4,7 +4,7 @@ Tags: elementor, evidence, export, diagnostics, deterministic
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 3.7.12
+Stable tag: 3.7.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Exports saved WordPress and Elementor evidence for a deterministic Python analys
 
 EDIS exports saved source evidence, registries, references, provenance and lightweight source indexes. Browser runtime evidence and final Python resolution remain separate products.
 
-Version 3.7.12 preserves all frozen public evidence contracts while repairing packaging diagnostics, due failed-job recovery, required dependency closure, collector request validation and real export-completion verification. It adds no new public interface.
+Version 3.7.13 is a bounded degraded-admin recovery patch. When runtime, installation-integrity, configuration, or private-storage gates fail closed, administrators retain a minimal EDIS Evidence Diagnostics / Recovery surface without initializing export services. Healthy-mode behavior and frozen public evidence contracts are unchanged, and worker implementation compatibility remains 3.7.12.
 
 Public evidence versions:
 
@@ -33,7 +33,7 @@ Browser and Python must explicitly route the new schema and pass the shared EDIS
 4. Open EDIS Evidence → Diagnostics.
 5. Run the Safe worker test before creating evidence exports.
 
-Activation and export preflight fail closed unless durable writes, atomic replacement/rename, local-handle locking and separate-PHP-process lock exclusion all pass on the exact active private-storage path. `proc_open` and the current PHP binary must therefore be available in the deployment context. Diagnostics remain available in degraded mode.
+Activation and export preflight fail closed unless durable writes, atomic replacement/rename, local-handle locking and separate-PHP-process lock exclusion all pass on the exact active private-storage path. `proc_open` and the current PHP binary must therefore be available in the deployment context. Diagnostics remain available in degraded mode through a recovery-only admin surface; export and worker controls remain unavailable until the normal startup gates pass.
 
 == Frequently Asked Questions ==
 
@@ -47,9 +47,18 @@ EDIS-ZIP-1 uses STORE with fixed headers so identical package inputs produce ide
 
 = Can old jobs resume after upgrading? =
 
-No. A persisted job created by an older worker implementation version, including 3.7.11, must be recreated under 3.7.12. Completed historical packages are not rewritten.
+Jobs are compatible by worker implementation identity, not merely plugin release number. A persisted job created by worker implementation 3.7.11 must be recreated under 3.7.12. Release 3.7.13 intentionally keeps worker implementation compatibility at 3.7.12, so otherwise-compatible persisted 3.7.12 jobs are not invalidated by this admin-only patch.
 
 == Changelog ==
+
+= 3.7.13 =
+
+* Restores a visible EDIS Evidence Diagnostics / Recovery admin surface in every existing fail-closed degraded Bootstrap path.
+* Keeps degraded recovery self-contained and protected by `manage_options`; normal healthy EDIS authorization remains `edis_export_evidence`.
+* Keeps export creation, workers, operational REST controls, downloads and scheduled exports unavailable while degraded.
+* Preserves the healthy AdminModule and automatically removes the degraded shell on the next request once existing startup gates pass.
+* Advances plugin/build release identity to 3.7.13 while preserving `ExportJobService` worker implementation compatibility at 3.7.12.
+* Preserves Bundle Schema 3.3.0, frozen evidence schemas, EDIS-CJ-2 and EDIS-ZIP-1.
 
 = 3.7.12 =
 
@@ -72,8 +81,10 @@ No. A persisted job created by an older worker implementation version, including
 = 3.7.10 =
 
 * Adds a source-only validation runner and explicit evidence states for external gates.
-* Adds controlled real Elementor fixture intake without representing synthetic data as real evidence.
-* Keeps all validation tooling outside the WordPress installation ZIP.
+* Adds a PowerShell wrapper for the same validation runner without changing installed WordPress runtime behavior.
+* Adds a machine-readable validation plan with explicit `BLOCKED_EXTERNAL`, `NOT_RUN` and `insufficient_evidence` states.
+* Adds fail-closed controlled real Elementor fixture intake for Legacy V3, Container and Atomic/Hybrid V4 Elementor evidence; no synthetic fixture is represented as real.
+* Keeps validation tooling and fixture intake out of the WordPress install ZIP.
 * Preserves frozen schemas, EDIS-CJ-2, EDIS-ZIP-1 and architectural boundaries.
 
 = 3.7.9 =
