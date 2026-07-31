@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.12\n"
+"Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.13\n"
 "Language: fa_IR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -755,3 +755,49 @@ msgstr "خروجی‌های پس‌زمینه مسدود شده‌اند. کد �
 #, php-format
 msgid "EDIS Evidence Exporter is in fail-closed diagnostic mode. Exports are disabled, but WordPress remains available. Diagnostic: %1$s. Define %2$s in wp-config.php to a writable directory outside the public WordPress root, then run the EDIS storage test again."
 msgstr "EDIS Evidence Exporter در حالت عیب‌یابی fail-closed قرار دارد. خروجی‌ها غیرفعال‌اند، اما وردپرس در دسترس می‌ماند. عیب‌یابی: %1$s. مقدار %2$s را در wp-config.php روی یک پوشه قابل‌نوشتن خارج از ریشه عمومی وردپرس تعریف کنید و سپس آزمون ذخیره‌سازی EDIS را دوباره اجرا کنید."
+
+msgid "Diagnostics / Recovery"
+msgstr ""
+
+msgid "Open EDIS Diagnostics / Recovery"
+msgstr ""
+
+msgid "EDIS Evidence — Diagnostics / Recovery"
+msgstr ""
+
+msgid "EDIS is in fail-closed recovery mode. Export creation, worker execution, operational REST controls, downloads, and scheduled export execution remain unavailable until the existing runtime, integrity, configuration, and storage gates pass."
+msgstr ""
+
+msgid "Active diagnostic:"
+msgstr ""
+
+msgid "The storage retest passed. Reload the next WordPress request so EDIS can re-evaluate all normal startup gates."
+msgstr ""
+
+msgid "The storage retest still fails. Review the bounded checks below and correct the storage/runtime condition before retrying."
+msgstr ""
+
+msgid "Recovery action"
+msgstr ""
+
+msgid "Command-line diagnostics"
+msgstr ""
+
+msgid "This recovery page intentionally provides diagnostics only. Normal EDIS export and operational controls return automatically on a later request only after the existing startup gates pass."
+msgstr ""
+
+msgid "You are not allowed to run the EDIS storage test."
+msgstr ""
+
+#, php-format
+msgid "EDIS Evidence Exporter is active in fail-closed diagnostic mode. Exports are disabled, but WordPress remains available. Diagnostic: %1$s. In Local, EDIS derives a private directory from the documented <site>/app/public layout; otherwise define %2$s to a writable directory outside the public WordPress root."
+msgstr ""
+
+msgid "Preferred private-storage path:"
+msgstr ""
+
+msgid "Failed checks:"
+msgstr ""
+
+msgid "Run EDIS storage test again"
+msgstr ""
