@@ -1,0 +1,22 @@
+name: EDIS critical hash report
+
+'on':
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Report final critical SHA-256 digests
+        run: |
+          sha256sum \
+            edis-evidence-exporter.php \
+            plugin.manifest.json \
+            src/Application/ExportService.php \
+            src/Infrastructure/Support/PrivateStorage.php \
+            src/WordPress/DegradedModeIntegration.php
