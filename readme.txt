@@ -14,7 +14,7 @@ Exports saved WordPress and Elementor evidence for a deterministic Python analys
 
 EDIS exports saved source evidence, registries, references, provenance and lightweight source indexes. Browser runtime evidence and final Python resolution remain separate products.
 
-Version 3.7.13 is a bounded degraded-admin recovery patch. When runtime, installation-integrity, configuration, or private-storage gates fail closed, administrators retain a minimal EDIS Evidence Diagnostics / Recovery surface without initializing export services. Healthy-mode behavior and frozen public evidence contracts are unchanged, and worker implementation compatibility remains 3.7.12.
+Version 3.7.13 is a bounded degraded-admin recovery patch. Unsupported deterministic PHP runtime is handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice` and does not register the recovery shell. After a supported runtime reaches Bootstrap, the three current degraded causes—installation-integrity failure, invalid configuration, and private-storage failure—use `DegradedModeIntegration` to retain a minimal EDIS Evidence Diagnostics / Recovery surface without initializing export services. Healthy-mode behavior and frozen public evidence contracts are unchanged, and worker implementation compatibility remains 3.7.12.
 
 Public evidence versions:
 
@@ -33,7 +33,7 @@ Browser and Python must explicitly route the new schema and pass the shared EDIS
 4. Open EDIS Evidence → Diagnostics.
 5. Run the Safe worker test before creating evidence exports.
 
-Activation and export preflight fail closed unless durable writes, atomic replacement/rename, local-handle locking and separate-PHP-process lock exclusion all pass on the exact active private-storage path. `proc_open` and the current PHP binary must therefore be available in the deployment context. Diagnostics remain available in degraded mode through a recovery-only admin surface; export and worker controls remain unavailable until the normal startup gates pass.
+Activation and export preflight fail closed unless durable writes, atomic replacement/rename, local-handle locking and separate-PHP-process lock exclusion all pass on the exact active private-storage path. `proc_open` and the current PHP binary must therefore be available in the deployment context. For the three Bootstrap degraded causes—installation-integrity failure, invalid configuration, and private-storage failure—Diagnostics remain available through the recovery-only admin surface while export, worker, download, and operational REST controls remain unavailable. Unsupported deterministic runtime is handled separately before Bootstrap by the runtime notice and does not expose that recovery shell.
 
 == Frequently Asked Questions ==
 
