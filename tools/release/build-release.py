@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Build deterministic EDIS install/source ZIPs and a machine-readable report."""
+"""Build deterministic EDIS install/source ZIPs from authoritative release inventory."""
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -15,6 +14,22 @@ import zipfile
 
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 SLUG = "edis-evidence-exporter"
+GENERATED_OR_DEPENDENCY_ROOTS = {
+    ".git",
+    ".idea",
+    ".mypy_cache",
+    ".phpunit.cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".vscode",
+    "coverage",
+    "htmlcov",
+    "node_modules",
+    "release-build",
+    "vendor",
+}
+GENERATED_OR_DEPENDENCY_FILES = {".coverage", ".phpunit.result.cache"}
+SOURCE_ONLY_FILES = ("composer.lock",)
 
 
 def sha256(path: Path) -> str:
@@ -25,41 +40,149 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def version(root: Path) -> str:
-    text = (root / "edis-evidence-exporter.php").read_text(encoding="utf-8")
-    match = re.search(r"Version:\s*([0-9]+\.[0-9]+\.[0-9]+)", text)
+def safe_relative(value: str) -> str:
+    normalized = value.replace("\\", "/")
+    path = PurePosixPath(normalized)
+    if (
+        normalized == ""
+        or normalized.startswith("/")
+        or "\\" in value
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in path.parts)
+        or (len(normalized) >= 2 and normalized[0].isalpha() and normalized[1] == ":")
+    ):
+        raise RuntimeError(f"Unsafe release inventory path: {value!r}")
+    return path.as_posix()
+
+
+def read_json(path: Path) -> dict[str, object]:
+    try:
+        decoded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid required JSON authority: {path.name}") from exc
+    if not isinstance(decoded, dict):
+        raise RuntimeError(f"Required JSON authority must be an object: {path.name}")
+    return decoded
+
+
+def release_manifest(root: Path) -> dict[str, object]:
+    return read_json(root / "plugin.manifest.json")
+
+
+def authoritative_inventory(root: Path) -> tuple[list[Path], list[Path], list[str]]:
+    manifest = release_manifest(root)
+    entries = manifest.get("files")
+    if not isinstance(entries, list):
+        raise RuntimeError("plugin.manifest.json files must be an array.")
+
+    seen: set[str] = set()
+    source_paths: list[str] = []
+    install_paths: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise RuntimeError("plugin.manifest.json contains a non-object file entry.")
+        raw_path = entry.get("path")
+        if not isinstance(raw_path, str):
+            raise RuntimeError("plugin.manifest.json file entry is missing a string path.")
+        relative = safe_relative(raw_path)
+        if relative in seen:
+            raise RuntimeError(f"Duplicate release authority entry: {relative}")
+        seen.add(relative)
+        source_paths.append(relative)
+        if entry.get("installable") is True:
+            install_paths.append(relative)
+        elif entry.get("installable") is not False:
+            raise RuntimeError(f"Release authority entry has non-boolean installable state: {relative}")
+
+    for relative in SOURCE_ONLY_FILES:
+        if relative in seen:
+            raise RuntimeError(f"Source-only authority duplicates manifest entry: {relative}")
+        source_paths.append(relative)
+
+    source_paths = sorted(source_paths, key=lambda value: value.encode("utf-8"))
+    install_paths = sorted(install_paths, key=lambda value: value.encode("utf-8"))
+    source_files = [root / relative for relative in source_paths]
+    install_files = [root / relative for relative in install_paths]
+
+    for relative, path in zip(source_paths, source_files, strict=True):
+        if not path.exists():
+            raise RuntimeError(f"Declared release authority file is missing: {relative}")
+        if path.is_symlink():
+            raise RuntimeError(f"Symlink is prohibited in release authority: {relative}")
+        if not path.is_file():
+            raise RuntimeError(f"Declared release authority path is not a regular file: {relative}")
+
+    audit_workspace(root, set(source_paths))
+    return source_files, install_files, source_paths
+
+
+def audit_workspace(root: Path, authorized: set[str]) -> None:
+    for path in root.rglob("*"):
+        try:
+            relative_path = path.relative_to(root)
+        except ValueError as exc:
+            raise RuntimeError("Workspace path escaped repository root.") from exc
+        parts = relative_path.parts
+        if not parts:
+            continue
+        if parts[0] in GENERATED_OR_DEPENDENCY_ROOTS:
+            continue
+        relative = PurePosixPath(*parts).as_posix()
+        if relative in GENERATED_OR_DEPENDENCY_FILES:
+            continue
+        if path.is_symlink():
+            raise RuntimeError(f"Undeclared or prohibited symlink in workspace: {relative}")
+        if path.is_file() and relative not in authorized:
+            raise RuntimeError(f"Undeclared ordinary source file in workspace: {relative}")
+
+
+def source_inventory_sha256(source_paths: list[str]) -> str:
+    payload = json.dumps(source_paths, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def read_match(path: Path, pattern: str, label: str) -> str:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(pattern, text, re.MULTILINE)
     if not match:
-        raise RuntimeError("Plugin version could not be read.")
+        raise RuntimeError(f"Could not resolve version authority: {label}")
     return match.group(1)
 
 
-def ignore_rules(root: Path) -> list[str]:
-    rules = []
-    for raw in (root / ".distignore").read_text(encoding="utf-8").splitlines():
-        value = raw.strip().replace("\\", "/")
-        if value and not value.startswith("#"):
-            rules.append(value.lstrip("/"))
-    return rules
+def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
+    manifest = release_manifest(root)
+    critical = read_json(root / "config/critical-files.json")
+    package = read_json(root / "package.json")
+    plugin = manifest.get("plugin") if isinstance(manifest.get("plugin"), dict) else {}
+    build = manifest.get("build") if isinstance(manifest.get("build"), dict) else {}
 
+    authorities = {
+        "plugin_header_version": read_match(root / "edis-evidence-exporter.php", r"^\s*\*\s*Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$", "plugin header Version"),
+        "exporter_constant_version": read_match(root / "edis-evidence-exporter.php", r"EDIS_EVIDENCE_EXPORTER_VERSION'\s*,\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "EDIS_EVIDENCE_EXPORTER_VERSION"),
+        "platform_constant_version": read_match(root / "edis-evidence-exporter.php", r"EDIS_EVIDENCE_BUILD_PLATFORM_VERSION'\s*,\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "EDIS_EVIDENCE_BUILD_PLATFORM_VERSION"),
+        "package_json_version": str(package.get("version", "")),
+        "manifest_plugin_version": str(plugin.get("version", "")),
+        "manifest_build_version": str(build.get("version", "")),
+        "manifest_build_platform_version": str(build.get("platform_version", "")),
+        "manifest_platform_version": str(manifest.get("platform_version", "")),
+        "producer_version": read_match(root / "src/Application/ExportService.php", r"PRODUCER_VERSION\s*=\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "ExportService producer version"),
+        "critical_files_plugin_version": str(critical.get("plugin_version", "")),
+    }
+    values = set(authorities.values())
+    if "" in values or len(values) != 1:
+        raise RuntimeError("Intended-equal release version authorities disagree: " + json.dumps(authorities, sort_keys=True))
+    plugin_version = next(iter(values))
+    worker_version = read_match(root / "src/Application/ExportJobService.php", r"IMPLEMENTATION_VERSION\s*=\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "worker implementation version")
+    if worker_version != plugin_version:
+        raise RuntimeError(f"This release requires worker implementation {plugin_version}; found {worker_version}.")
 
-def ignored(relative: str, rules: list[str]) -> bool:
-    for rule in rules:
-        if relative == rule or relative.startswith(rule.rstrip("/") + "/"):
-            return True
-    return False
-
-
-def repository_files(root: Path) -> list[Path]:
-    excluded_roots = {".git", "node_modules", "vendor", "release-build"}
-    files = []
-    for path in root.rglob("*"):
-        if not path.is_file() or path.is_symlink():
-            continue
-        relative = path.relative_to(root)
-        if any(part in excluded_roots for part in relative.parts):
-            continue
-        files.append(path)
-    return sorted(files, key=lambda p: p.relative_to(root).as_posix().encode("utf-8"))
+    return {
+        "plugin_version": plugin_version,
+        "worker_implementation_version": worker_version,
+        "plugin_manifest_sha256": sha256(root / "plugin.manifest.json"),
+        "critical_files_manifest_sha256": sha256(root / "config/critical-files.json"),
+        "source_inventory_sha256": source_inventory_sha256(source_paths),
+    }
 
 
 def zip_files(root: Path, output: Path, files: list[Path]) -> None:
@@ -70,7 +193,7 @@ def zip_files(root: Path, output: Path, files: list[Path]) -> None:
             info = zipfile.ZipInfo(archive_path, FIXED_TIME)
             info.compress_type = zipfile.ZIP_STORED
             info.create_system = 3
-            info.external_attr = (0o100644 << 16)
+            info.external_attr = 0o100644 << 16
             info.flag_bits |= 0x800
             info.extra = b""
             info.comment = b""
@@ -99,13 +222,14 @@ def lint_install(path: Path) -> dict[str, object]:
         directory = Path(tmp)
         with zipfile.ZipFile(path, "r") as archive:
             archive.extractall(directory)
-        root = directory / SLUG
+        install_root = directory / SLUG
         failures = []
-        for php_file in sorted(root.rglob("*.php")):
-            result = subprocess.run(["php", "-l", str(php_file)], capture_output=True, text=True)
+        php_files = sorted(install_root.rglob("*.php"))
+        for php_file in php_files:
+            result = subprocess.run(["php", "-l", str(php_file)], capture_output=True, text=True, check=False)
             if result.returncode != 0:
-                failures.append({"path": php_file.relative_to(root).as_posix(), "stderr": result.stderr.strip()})
-        return {"php_file_count": len(list(root.rglob("*.php"))), "state": "PASS" if not failures else "FAIL", "failures": failures}
+                failures.append({"path": php_file.relative_to(install_root).as_posix(), "stderr": result.stderr.strip()})
+        return {"php_file_count": len(php_files), "state": "PASS" if not failures else "FAIL", "failures": failures}
 
 
 def main() -> int:
@@ -116,10 +240,12 @@ def main() -> int:
     root = args.root.resolve()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    release_version = version(root)
-    rules = ignore_rules(root)
-    source_files = repository_files(root)
-    install_files = [p for p in source_files if not ignored(p.relative_to(root).as_posix(), rules)]
+
+    source_files, install_files, source_paths = authoritative_inventory(root)
+    identity = release_identity(root, source_paths)
+    release_version = identity["plugin_version"]
+    install_rel = [path.relative_to(root).as_posix() for path in install_files]
+    source_rel = [path.relative_to(root).as_posix() for path in source_files]
 
     install = output / f"{SLUG}-{release_version}.zip"
     source = output / f"{SLUG}-{release_version}-source.zip"
@@ -138,10 +264,8 @@ def main() -> int:
         shutil.copyfile(first_install, install)
         shutil.copyfile(first_source, source)
 
-    install_rel = [p.relative_to(root).as_posix() for p in install_files]
-    source_rel = [p.relative_to(root).as_posix() for p in source_files]
     report = {
-        "format": "EDIS-RELEASE-BUILD-1",
+        "format": "EDIS-RELEASE-BUILD-2",
         "version": release_version,
         "archive_root": SLUG,
         "zip_profile": "EDIS-ZIP-1",
@@ -149,6 +273,15 @@ def main() -> int:
         "zip64": "FORBIDDEN",
         "timestamp": "1980-01-01T00:00:00Z",
         "deterministic_rebuild": "PASS",
+        "release_authority": "plugin.manifest.json",
+        "install_authority": "manifest.files[installable=true]",
+        "source_authority": "manifest.files + composer.lock",
+        "build_identity": identity,
+        "plugin_manifest_sha256": identity["plugin_manifest_sha256"],
+        "critical_files_manifest_sha256": identity["critical_files_manifest_sha256"],
+        "source_inventory_sha256": identity["source_inventory_sha256"],
+        "plugin_version": identity["plugin_version"],
+        "worker_implementation_version": identity["worker_implementation_version"],
         "install": verify_archive(install, install_rel),
         "source": verify_archive(source, source_rel),
         "install_validation": lint_install(install),
@@ -158,9 +291,7 @@ def main() -> int:
     deliverables = [install, source, report_path]
     sums = "".join(f"{sha256(path)}  {path.name}\n" for path in deliverables)
     (output / "SHA256SUMS").write_text(sums, encoding="utf-8")
-    if report["install_validation"]["state"] != "PASS":
-        return 1
-    return 0
+    return 0 if report["install_validation"]["state"] == "PASS" else 1
 
 
 if __name__ == "__main__":
