@@ -13,11 +13,19 @@ namespace EDIS\EvidenceExporter\Infrastructure\Support;
 final class PrivacyProjection
 {
     /** @var list<string> */
-    private const UNIVERSAL_CREDENTIAL_PARTS = [
+    private const UNIVERSAL_CREDENTIAL_KEYS = [
         'access_token', 'accesstoken', 'api_key', 'apikey', 'api_token', 'apitoken',
-        'auth_token', 'authtoken', 'authorization', 'bearer', 'client_secret',
-        'credential', 'cookie', 'nonce', 'password', 'passwd', 'private_key',
-        'refresh_token', 'refreshtoken', 'secret', 'session', 'token',
+        'auth_token', 'authtoken', 'authorization', 'bearer_token', 'client_secret',
+        'credential', 'credentials', 'cookie', 'cookies', 'nonce', 'password',
+        'passwd', 'private_key', 'refresh_token', 'refreshtoken', 'secret',
+        'session_id', 'session_token', 'token',
+    ];
+
+    /** @var list<string> */
+    private const UNIVERSAL_CREDENTIAL_FRAGMENTS = [
+        'access_token', 'api_key', 'api_token', 'auth_token', 'bearer_token',
+        'client_secret', 'credential', 'cookie', 'nonce', 'password', 'passwd',
+        'private_key', 'refresh_token', 'session_token',
     ];
 
     /** @var list<string> */
@@ -117,7 +125,7 @@ final class PrivacyProjection
     /** @param list<string> $path */
     private function suppressionCategory(string $key, array $path, bool $strict): ?string
     {
-        if ($this->containsPart($key, self::UNIVERSAL_CREDENTIAL_PARTS)) {
+        if ($this->isCredentialKey($key)) {
             return 'CREDENTIAL';
         }
         if (!$strict) {
@@ -139,6 +147,22 @@ final class PrivacyProjection
             return 'STRICT_CONTACT_VALUE';
         }
         return null;
+    }
+
+    private function isCredentialKey(string $key): bool
+    {
+        if (in_array($key, self::UNIVERSAL_CREDENTIAL_KEYS, true)) {
+            return true;
+        }
+        foreach (self::UNIVERSAL_CREDENTIAL_FRAGMENTS as $fragment) {
+            if (str_contains($key, $fragment)) {
+                return true;
+            }
+        }
+        if (str_ends_with($key, '_secret') || str_ends_with($key, '_password')) {
+            return true;
+        }
+        return false;
     }
 
     /** @param list<string> $parts */
