@@ -1,0 +1,33 @@
+name: Agent apply documentation sync 3.7.14
+
+'on':
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/edis-wp-correctness-closure-v3.7.14' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: agent/edis-wp-correctness-closure-v3.7.14
+          fetch-depth: 0
+      - run: python3 tools/agent/apply-doc-sync-314.py
+      - run: php -l tools/validation/run-local-validation.php
+      - run: git diff --check
+      - name: Commit and remove temporary agent files
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/agent-apply-doc-sync-314.yml
+          git rm tools/agent/apply-doc-sync-314.py
+          git add docs/collector-encyclopedia.md docs/collector-encyclopedia-fa.md tools/validation/run-local-validation.php
+          git commit -m 'EDIS 3.7.14: machine-check collector documentation sync'
+          git push origin HEAD:agent/edis-wp-correctness-closure-v3.7.14
