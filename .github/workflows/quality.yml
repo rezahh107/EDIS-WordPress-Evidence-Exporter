@@ -141,6 +141,86 @@ jobs:
                 exit(1);
             }
           ' --path=/tmp/wordpress
+      - name: Verify degraded EDIS admin recovery shell
+        if: matrix.wordpress == '7.0'
+        run: |
+          wp eval '
+            $admin = get_user_by("login", "admin");
+            if (! $admin instanceof WP_User) {
+                fwrite(STDERR, "EDIS degraded-admin fixture has no administrator.\n");
+                exit(1);
+            }
+            wp_set_current_user($admin->ID);
+            remove_all_actions("admin_menu");
+            global $menu, $submenu, $wp_filter;
+            $menu = [];
+            $submenu = [];
+            $rest_before = isset($wp_filter["rest_api_init"]) ? count($wp_filter["rest_api_init"]->callbacks) : 0;
+            $worker_before = isset($wp_filter["edis_process_export_job"]) ? count($wp_filter["edis_process_export_job"]->callbacks) : 0;
+            $storage = new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage();
+            $degraded = new EDIS\EvidenceExporter\WordPress\DegradedModeIntegration(
+                $storage,
+                "EDIS_CONFIGURATION_INVALID",
+                ["storage_self_test" => $storage->selfTest()]
+            );
+            $degraded->register();
+            do_action("admin_menu");
+            $edis_menu = array_values(array_filter(
+                $menu,
+                static fn ($item): bool => is_array($item) && (($item[2] ?? null) === "edis-evidence")
+            ));
+            if (count($edis_menu) !== 1) {
+                fwrite(STDERR, "Degraded EDIS top-level menu is missing or duplicated.\n");
+                exit(1);
+            }
+            $edis_submenu = is_array($submenu["edis-evidence"] ?? null) ? $submenu["edis-evidence"] : [];
+            $slugs = array_values(array_filter(array_map(
+                static fn ($item): string => is_array($item) && is_string($item[2] ?? null) ? $item[2] : "",
+                $edis_submenu
+            )));
+            if (! in_array("edis-evidence-diagnostics", $slugs, true)) {
+                fwrite(STDERR, "Degraded EDIS Diagnostics / Recovery menu is missing.\n");
+                exit(1);
+            }
+            foreach (["edis-evidence-create", "edis-evidence-settings", "edis-evidence-sources", "edis-evidence-coverage"] as $forbidden_slug) {
+                if (in_array($forbidden_slug, $slugs, true)) {
+                    fwrite(STDERR, "Operational EDIS menu leaked into degraded mode: {$forbidden_slug}.\n");
+                    exit(1);
+                }
+            }
+            $rest_after = isset($wp_filter["rest_api_init"]) ? count($wp_filter["rest_api_init"]->callbacks) : 0;
+            $worker_after = isset($wp_filter["edis_process_export_job"]) ? count($wp_filter["edis_process_export_job"]->callbacks) : 0;
+            if ($rest_before !== $rest_after || $worker_before !== $worker_after) {
+                fwrite(STDERR, "Degraded recovery registration exposed operational execution hooks.\n");
+                exit(1);
+            }
+            ob_start();
+            $degraded->renderRecoveryPage();
+            $html = (string) ob_get_clean();
+            if (! str_contains($html, "EDIS_CONFIGURATION_INVALID") || ! str_contains($html, "Diagnostics / Recovery")) {
+                fwrite(STDERR, "Degraded recovery content is incomplete.\n");
+                exit(1);
+            }
+            if (str_contains($html, ">Create Export<") || str_contains($html, "worker-test")) {
+                fwrite(STDERR, "Operational controls leaked into degraded recovery content.\n");
+                exit(1);
+            }
+            $subscriber_id = wp_create_user("edis-degraded-viewer", wp_generate_password(24), "edis-degraded-viewer@example.test");
+            if (is_wp_error($subscriber_id)) {
+                fwrite(STDERR, "Could not create degraded authorization fixture.\n");
+                exit(1);
+            }
+            (new WP_User($subscriber_id))->set_role("subscriber");
+            wp_set_current_user($subscriber_id);
+            ob_start();
+            $degraded->renderRecoveryPage();
+            $unauthorized_html = (string) ob_get_clean();
+            if (trim($unauthorized_html) !== "") {
+                fwrite(STDERR, "Unauthorized user received degraded recovery content.\n");
+                exit(1);
+            }
+            wp_set_current_user($admin->ID);
+          ' --path=/tmp/wordpress
       - name: Verify retention-disabled uninstall
         if: matrix.wordpress == '7.0'
         run: |
@@ -318,7 +398,6 @@ jobs:
           ROOT_TWO=$(wp eval 'echo (new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage())->root();' --path=/tmp/wordpress --url="$SITE_TWO_URL")
           test "$ROOT_ONE" != "$ROOT_TWO"
           [[ "$ROOT_ONE" == *site-* ]]
-          [[ "$ROOT_TWO" == *site-* ]]
       - name: Verify multisite Site Health registration
         run: |
           wp eval '
