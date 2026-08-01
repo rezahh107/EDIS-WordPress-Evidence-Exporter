@@ -1,6 +1,7 @@
 name: Agent apply payload shape 3.7.15
 
 'on':
+  workflow_dispatch:
   push:
     branches:
       - agent/edis-3.7.15-payload-shape-closure
