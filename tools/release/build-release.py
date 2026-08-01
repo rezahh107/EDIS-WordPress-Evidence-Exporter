@@ -65,6 +65,12 @@ def read_json(path: Path) -> dict[str, object]:
     return decoded
 
 
+def required_non_empty_string(value: object, label: str) -> str:
+    if not isinstance(value, str) or value.strip() == "":
+        raise RuntimeError(f"Missing or empty release version authority: {label}")
+    return value
+
+
 def release_manifest(root: Path) -> dict[str, object]:
     return read_json(root / "plugin.manifest.json")
 
@@ -153,6 +159,13 @@ def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
     manifest = release_manifest(root)
     critical = read_json(root / "config/critical-files.json")
     package = read_json(root / "package.json")
+    package_lock = read_json(root / "package-lock.json")
+    lock_packages = package_lock.get("packages")
+    if not isinstance(lock_packages, dict):
+        raise RuntimeError('package-lock.json packages must be an object.')
+    lock_root = lock_packages.get("")
+    if not isinstance(lock_root, dict):
+        raise RuntimeError('package-lock.json packages[""] must be an object.')
     plugin = manifest.get("plugin") if isinstance(manifest.get("plugin"), dict) else {}
     build = manifest.get("build") if isinstance(manifest.get("build"), dict) else {}
 
@@ -161,6 +174,8 @@ def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
         "exporter_constant_version": read_match(root / "edis-evidence-exporter.php", r"EDIS_EVIDENCE_EXPORTER_VERSION'\s*,\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "EDIS_EVIDENCE_EXPORTER_VERSION"),
         "platform_constant_version": read_match(root / "edis-evidence-exporter.php", r"EDIS_EVIDENCE_BUILD_PLATFORM_VERSION'\s*,\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "EDIS_EVIDENCE_BUILD_PLATFORM_VERSION"),
         "package_json_version": str(package.get("version", "")),
+        "package_lock_version": required_non_empty_string(package_lock.get("version"), "package-lock.json version"),
+        "package_lock_root_version": required_non_empty_string(lock_root.get("version"), 'package-lock.json packages[""].version'),
         "manifest_plugin_version": str(plugin.get("version", "")),
         "manifest_build_version": str(build.get("version", "")),
         "manifest_build_platform_version": str(build.get("platform_version", "")),
