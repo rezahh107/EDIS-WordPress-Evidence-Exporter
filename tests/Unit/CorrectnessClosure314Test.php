@@ -107,7 +107,8 @@ final class CorrectnessClosure314Test extends TestCase
     public function testPrivacyProjectionTraversesLosslessObjectNodesWithoutChangingExactJsonSemantics(): void
     {
         $source = (new LosslessJsonParser())->parse(
-            '{"01":{"clientSecret":"remove","exact":1.2300},'
+            '{"01":{"clientSecret":"remove","exact":1.2300,'
+            . '"items":[{"privateKey":"remove","keep":"yes"}]},'
             . '"1":{"privateKey":"remove","keep":9007199254740992},'
             . '"sessionToken":"remove"}',
         );
@@ -116,10 +117,10 @@ final class CorrectnessClosure314Test extends TestCase
         $result = (new PrivacyProjection())->projectWithSummary($source, 'Diagnostic');
         self::assertInstanceOf(LosslessJsonObjectNode::class, $result['value']);
         self::assertSame(
-            '{"01":{"exact":1.23},"1":{"keep":9007199254740992}}',
+            '{"01":{"exact":1.23,"items":[{"keep":"yes"}]},"1":{"keep":9007199254740992}}',
             CanonicalJson::encode($result['value']),
         );
-        self::assertSame(3, $result['summary']['suppressed_count']);
+        self::assertSame(4, $result['summary']['suppressed_count']);
     }
 
     /** T05 */
