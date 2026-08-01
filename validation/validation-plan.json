@@ -1,8 +1,8 @@
 {
   "schema_version": "EDIS-VALIDATION-PLAN-2",
   "evidence_schema_version": "EDIS-VALIDATION-EVIDENCE-2",
-  "plugin_version": "3.7.13",
-  "scope": "degraded_admin_recovery_patch",
+  "plugin_version": "3.7.14",
+  "scope": "correctness_closure_v3_7_14",
   "runtime_feature_change": true,
   "frozen_contract_change": false,
   "local_completion_policy": "all_required_local_gates_must_pass",
@@ -14,7 +14,7 @@
       "required": true,
       "state": "implemented",
       "owner": "repository",
-      "command": "php tools/validation/run-local-validation.php --report=validation/evidence/local-validation.json"
+      "command": "php tools/validation/run-local-validation.php --report=release-build/validation-evidence/local-validation.json"
     },
     {
       "id": "composer_lock",

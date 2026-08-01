@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EDIS WordPress Evidence Exporter
  * Description: Deterministic local evidence export with explicit collector truth states and an accessible WordPress Admin workflow.
- * Version: 3.7.13
+ * Version: 3.7.14
  * Requires at least: 6.5
  * Requires PHP: 8.2
  * Text Domain: edis-evidence-exporter
@@ -17,8 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.13' );
-define( 'EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.13' );
+define( 'EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.14' );
+define( 'EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.14' );
 define( 'EDIS_EVIDENCE_BUNDLE_SCHEMA_VERSION', '3.3.0' );
 define( 'EDIS_EVIDENCE_EXPORTER_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EDIS_EVIDENCE_EXPORTER_URL', plugin_dir_url( __FILE__ ) );

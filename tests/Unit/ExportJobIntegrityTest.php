@@ -36,7 +36,7 @@ final class ExportJobIntegrityTest extends TestCase
         } catch (\ReflectionException $exception) {
             throw $exception;
         } catch (\Throwable $exception) {
-            $actual = $exception instanceof \ReflectionException ? $exception : ($exception->getPrevious() ?? $exception);
+            $actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);
             self::assertInstanceOf(ExportIntegrityException::class, $actual);
             self::assertSame('EDIS_JOB_FORMAT_INCOMPATIBLE', $actual->diagnosticCode);
         }
@@ -49,7 +49,7 @@ final class ExportJobIntegrityTest extends TestCase
         $job = [
             'job_id' => 'job-integrity',
             'job_format_version' => '2.1.0',
-            'implementation_version' => '3.7.12',
+            'implementation_version' => '3.7.14',
             'input_snapshot_format_version' => '2.0.0',
             'input_snapshot_id' => 'job-integrity',
             'input_snapshot_sha256' => $manifest['snapshot_sha256'],
@@ -65,7 +65,8 @@ final class ExportJobIntegrityTest extends TestCase
             'environment' => [
                 'component_id' => 'environment',
                 'component_schema_version' => '1.0.0',
-                'implementation_version' => '3.7.12',
+                'implementation_version' => '3.7.14',
+                'observed_at' => '2026-07-30T00:00:00Z',
                 'input_snapshot_sha256' => $manifest['snapshot_sha256'],
                 'step_input_sha256' => $stepInput,
                 'artifact_file_sha256' => $artifacts->fileSha256('job-integrity', 'environment'),
@@ -79,7 +80,7 @@ final class ExportJobIntegrityTest extends TestCase
             $resumeMethod->invoke($service, $job, ['environment'], 1);
             self::fail('Expected the tampered artifact to be rejected.');
         } catch (\Throwable $exception) {
-            $actual = $exception->getPrevious() ?? $exception;
+            $actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);
             self::assertInstanceOf(ExportIntegrityException::class, $actual);
             self::assertSame('EDIS_RESUME_ARTIFACT_MISMATCH', $actual->diagnosticCode);
         }

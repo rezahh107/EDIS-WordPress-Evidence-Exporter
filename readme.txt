@@ -4,7 +4,7 @@ Tags: elementor, evidence, export, diagnostics, deterministic
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 3.7.13
+Stable tag: 3.7.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Exports saved WordPress and Elementor evidence for a deterministic Python analys
 
 EDIS exports saved source evidence, registries, references, provenance and lightweight source indexes. Browser runtime evidence and final Python resolution remain separate products.
 
-Version 3.7.13 is a bounded degraded-admin recovery patch. Unsupported deterministic PHP runtime is handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice` and does not register the recovery shell. After a supported runtime reaches Bootstrap, the three current degraded causes—installation-integrity failure, invalid configuration, and private-storage failure—use `DegradedModeIntegration` to retain a minimal EDIS Evidence Diagnostics / Recovery surface without initializing export services. Healthy-mode behavior and frozen public evidence contracts are unchanged, and worker implementation compatibility remains 3.7.12.
+Version 3.7.14 closes eight bounded correctness defects without changing frozen public evidence schemas: shared pre-commit privacy projection, failure-vs-empty observation truth, orchestrator-stamped provenance, manifest-authoritative release inventory and build fingerprinting, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build runtime qualification. Unsupported deterministic PHP runtime is still handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice`. After a supported runtime reaches Bootstrap, installation-integrity failure, invalid configuration, and private-storage failure continue through `DegradedModeIntegration`; export, worker, download, and operational REST controls remain unavailable while degraded. Worker implementation compatibility advances to 3.7.14.
 
 Public evidence versions:
 
@@ -47,9 +47,19 @@ EDIS-ZIP-1 uses STORE with fixed headers so identical package inputs produce ide
 
 = Can old jobs resume after upgrading? =
 
-Jobs are compatible by worker implementation identity, not merely plugin release number. A persisted job created by worker implementation 3.7.11 must be recreated under 3.7.12. Release 3.7.13 intentionally keeps worker implementation compatibility at 3.7.12, so otherwise-compatible persisted 3.7.12 jobs are not invalidated by this admin-only patch.
+Jobs are compatible by worker implementation identity, not merely plugin release number. Release 3.7.14 advances the worker implementation identity to 3.7.14 because committed-artifact provenance and resume semantics changed. Incomplete jobs created under worker 3.7.12 are not migrated in place and must be recreated.
 
 == Changelog ==
+
+= 3.7.14 =
+
+* Adds one shared recursive/path-aware pre-commit privacy projection for exported raw-value source evidence while preserving immutable private input bytes.
+* Distinguishes failed required observations from successful empty observations and preserves valid optional evidence only as bounded PARTIAL results.
+* Stores truthful per-component `observed_at` provenance and one persisted `packaging_started_at`; worker compatibility advances to 3.7.14.
+* Makes `plugin.manifest.json` the install/source release inventory authority, fails on undeclared ordinary files, and emits deterministic build fingerprints.
+* Keeps generated validation evidence under `release-build/validation-evidence/` and machine-checks both collector encyclopedias against active Technical IDs/schema versions.
+* Normalizes failed-job scheduling state through the existing recovery scheduler so released jobs cannot remain `REST_ADVANCE_ACTIVE`.
+* Preserves Bundle Schema 3.3.0, Shared Artifact Envelope 2.0.0, Package Manifest 2.1.0, Selection Snapshot 1.2.0, EDIS-CJ-2 and EDIS-ZIP-1.
 
 = 3.7.13 =
 

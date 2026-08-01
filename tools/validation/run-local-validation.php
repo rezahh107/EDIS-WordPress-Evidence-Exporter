@@ -53,6 +53,7 @@ final class EdisValidationRunner
         $this->lintPhp();
         $this->commandGate('local_test_harness', ['php', 'tests/run-local.php']);
         $this->commandGate('runtime_smoke', ['php', '-d', 'error_reporting=E_ALL', '-d', 'display_errors=1', 'tests/runtime-smoke.php']);
+        $this->collectorDocumentationSync();
 
         if ($this->skipNpm) {
             $this->notRun('npm_ci', 'skipped_by_command_line');
@@ -193,6 +194,75 @@ final class EdisValidationRunner
             }
         }
         fwrite(STDERR, '[EDIS validation] END php_lint state=' . $this->gates['php_lint']['state'] . PHP_EOL);
+    }
+
+    private function collectorDocumentationSync(): void
+    {
+        $manifestPath = $this->root . DIRECTORY_SEPARATOR . 'plugin.manifest.json';
+        try {
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $exception) {
+            $this->gates['collector_documentation_sync'] = [
+                'state' => 'FAIL',
+                'reason' => 'manifest_unreadable',
+                'exception_class' => get_class($exception),
+            ];
+            return;
+        }
+        $expected = [];
+        foreach ((array) ($manifest['collectors'] ?? []) as $collector) {
+            if (!is_array($collector) || !is_string($collector['id'] ?? null) || !is_string($collector['schema_version'] ?? null)) {
+                continue;
+            }
+            $expected[$collector['id']] = $collector['schema_version'];
+        }
+        ksort($expected, SORT_STRING);
+        if ($expected === []) {
+            $this->gates['collector_documentation_sync'] = ['state' => 'FAIL', 'reason' => 'manifest_collector_authority_empty'];
+            return;
+        }
+
+        $documents = [
+            'docs/collector-encyclopedia.md' => '/- \*\*Technical ID:\*\* `([^`]+)`.*?- \*\*Schema:\*\* `[^`]+` version `([^`]+)`/s',
+            'docs/collector-encyclopedia-fa.md' => '/- \*\*شناسه فنی:\*\* `([^`]+)`.*?- \*\*Schema:\*\* `[^`]+` نسخه `([^`]+)`/su',
+        ];
+        $failures = [];
+        foreach ($documents as $relative => $pattern) {
+            $bytes = @file_get_contents($this->root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
+            if (!is_string($bytes) || preg_match_all($pattern, $bytes, $matches, PREG_SET_ORDER) === false) {
+                $failures[$relative] = ['document_unreadable_or_unparseable'];
+                continue;
+            }
+            $actual = [];
+            foreach ($matches as $match) {
+                $actual[(string) $match[1]] = (string) $match[2];
+            }
+            ksort($actual, SORT_STRING);
+            $documentFailures = [];
+            foreach ($expected as $technicalId => $schemaVersion) {
+                if (!array_key_exists($technicalId, $actual)) {
+                    $documentFailures[] = $technicalId . ':MISSING';
+                } elseif ($actual[$technicalId] !== $schemaVersion) {
+                    $documentFailures[] = $technicalId . ':EXPECTED_' . $schemaVersion . '_FOUND_' . $actual[$technicalId];
+                }
+            }
+            foreach (array_keys($actual) as $technicalId) {
+                if (!array_key_exists($technicalId, $expected)) {
+                    $documentFailures[] = $technicalId . ':UNDECLARED';
+                }
+            }
+            if ($documentFailures !== []) {
+                sort($documentFailures, SORT_STRING);
+                $failures[$relative] = array_slice($documentFailures, 0, 64);
+            }
+        }
+        ksort($failures, SORT_STRING);
+        $this->gates['collector_documentation_sync'] = [
+            'state' => $failures === [] ? 'PASS' : 'FAIL',
+            'expected_component_count' => count($expected),
+            'documents_checked' => array_keys($documents),
+            'failures' => $failures,
+        ];
     }
 
     private function commandExists(string $name): bool

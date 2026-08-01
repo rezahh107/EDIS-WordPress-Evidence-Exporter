@@ -1,23 +1,23 @@
-# کیت اعتبارسنجی EDIS 3.7.13
+# کیت اعتبارسنجی EDIS 3.7.14
 
 این کیت فقط در بستهٔ سورس قرار دارد و دامنه و وضعیت شواهد اعتبارسنجی را ثبت می‌کند. پوشه از ZIP نصب WordPress حذف شده است.
 
 اجرای Gateهای متعلق به مخزن:
 
 ```bash
-php tools/validation/run-local-validation.php --report=validation/evidence/local-validation.json
+php tools/validation/run-local-validation.php --report=release-build/validation-evidence/local-validation.json
 ```
 
 در Windows PowerShell:
 
 ```powershell
-./tools/validation/run-local-validation.ps1 --report=validation/evidence/windows-local-validation.json
+./tools/validation/run-local-validation.ps1 --report=release-build/validation-evidence/windows-local-validation.json
 ```
 
 مقدار `summary.local_state=PASS` فقط وقتی تولید می‌شود که تمام Gateهای محلی الزامی پاس شده باشند. Gate محلی Skipشده یا در دسترس‌نبوده، وضعیت `INCOMPLETE` و exit code غیرصفر ایجاد می‌کند. Gateهای خارجی WordPress، Elementor، Windows/LocalWP، Composer و Python جداگانه در `summary.external_state` خلاصه می‌شوند.
 
 گزینهٔ `--strict-external` علاوه بر Gateهای محلی، پاس‌شدن تمام Gateهای خارجی را نیز الزام می‌کند و وضعیت Gate محلی Skipشده را تغییر نمی‌دهد.
 
-خروجی فرمان‌ها در فایل‌های موقت خصوصی ثبت می‌شود و Evidence فقط SHA-256، تعداد بایت و Tail محدود را نگه می‌دارد. فایل گزارش نیز با جایگزینی اتمیک و بررسی مجدد SHA-256 ثبت می‌شود.
+خروجی فرمان‌ها در فایل‌های موقت خصوصی ثبت می‌شود و Evidence فقط SHA-256، تعداد بایت و Tail محدود را نگه می‌دارد. شواهد تولیدشدهٔ Validation فقط زیر `release-build/validation-evidence/` نوشته می‌شوند، هیچ‌گاه Source Authority نیستند و به `plugin.manifest.json` اضافه نمی‌شوند. فایل گزارش با جایگزینی اتمیک و بررسی مجدد SHA-256 ثبت می‌شود.
 
-نسخهٔ 3.7.13 فقط بازیابی Admin در حالت degraded را تغییر می‌دهد. Schemaها، قراردادهای frozen، مرزهای Runtime، سازگاری Worker با `3.7.12` و semantics اجرای Export تغییر نمی‌کنند.
+نسخهٔ 3.7.14 مکانیزم‌های correctness انتخاب‌شده برای Privacy Projection، Observation Truth، Temporal Provenance، Release Authority، محل Generated Evidence، همگام‌سازی مستندات، Failure State و Exact-build Qualification را می‌بندد. نسخه‌های Schema عمومی frozen بدون مجوز جداگانه تغییر نمی‌کنند.

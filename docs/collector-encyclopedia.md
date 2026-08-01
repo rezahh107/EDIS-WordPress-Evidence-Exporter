@@ -1,6 +1,6 @@
 # EDIS Evidence Component Encyclopedia
 
-Version 3.7.11
+Version 3.7.14
 
 > This is the complete registry-driven guide for every Source Collector, Deterministic Index Builder, and Bundle Processor declared by this release. Components export source evidence and deterministic indexes; they do not score UX, resolve final values, or perform final source/runtime correlation.
 
@@ -79,7 +79,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "bridge_source_context",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -178,7 +178,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "bundle_diagnostics",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -277,7 +277,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "estimated_export_size",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -376,7 +376,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "evidence_conservation",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -419,7 +419,7 @@ Review selected documents, source availability, conservation diagnostics, and pa
 - **Declared source truth:** `VERIFIED`
 - **Default source availability:** `AVAILABLE`
 - **Artifact path:** `selection/selection-snapshot.json`
-- **Schema:** `urn:edis:schema:bundle:selection-snapshot` version `1.0.0`
+- **Schema:** `urn:edis:schema:bundle:selection-snapshot` version `1.2.0`
 - **Dependencies:** `elementor_document_source` (OPTIONAL), `elementor_document_inventory` (OPTIONAL)
 
 ### Plain-language summary
@@ -475,7 +475,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "selection_snapshot",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -574,7 +574,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "source_coverage",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -673,7 +673,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "fixture_capture",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -772,7 +772,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "export_comparison",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -871,7 +871,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_architecture_index",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -970,7 +970,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_document_index",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1069,7 +1069,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_element_structure_index",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1168,7 +1168,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_capability_evidence",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1267,7 +1267,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_reference_index",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1366,7 +1366,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_responsive_declaration_index",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1409,7 +1409,7 @@ Review Source Availability, diagnostics, Elementor activation/version, selected 
 - **Declared source truth:** `PARTIAL`
 - **Default source availability:** `AVAILABLE`
 - **Artifact path:** `indexes/site-settings-index.json`
-- **Schema:** `urn:edis:schema:index:site-settings` version `1.0.0`
+- **Schema:** `urn:edis:schema:index:site-settings` version `1.1.0`
 - **Dependencies:** `elementor_kit_settings` (REQUIRED), `elementor_legacy_global_styles` (OPTIONAL)
 
 ### Plain-language summary
@@ -1465,7 +1465,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_site_settings_index",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1564,7 +1564,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_usage_summary",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1663,7 +1663,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_unknown_structure_ledger",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1762,7 +1762,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_performance_configuration",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1861,7 +1861,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_registered_document_types",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -1960,7 +1960,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_registered_widgets",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2059,7 +2059,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_breakpoints",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2158,7 +2158,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_feature_flags",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2257,7 +2257,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_installation",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2356,7 +2356,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_kit_metadata",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2399,7 +2399,7 @@ Review Source Availability, diagnostics, Elementor activation/version, selected 
 - **Declared source truth:** `VERIFIED`
 - **Default source availability:** `AVAILABLE`
 - **Artifact path:** `sources/elementor/kit-settings.json`
-- **Schema:** `urn:edis:schema:elementor:kit-settings` version `1.0.0`
+- **Schema:** `urn:edis:schema:elementor:kit-settings` version `1.1.0`
 - **Dependencies:** `elementor_kit_metadata` (REQUIRED)
 
 ### Plain-language summary
@@ -2455,7 +2455,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_kit_settings",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2554,7 +2554,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_global_classes_order",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2653,7 +2653,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_global_classes_registry",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2752,7 +2752,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_legacy_global_styles",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2851,7 +2851,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_variables_registry",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -2950,7 +2950,7 @@ The declared truth state is `PARTIAL` and the default availability is `AVAILABLE
   "artifact_type": "elementor_dynamic_references",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -3049,7 +3049,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_document_inventory",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -3092,7 +3092,7 @@ Review Source Availability, diagnostics, Elementor activation/version, selected 
 - **Declared source truth:** `VERIFIED`
 - **Default source availability:** `AVAILABLE`
 - **Artifact path:** `sources/elementor/documents/selected-documents.json`
-- **Schema:** `urn:edis:schema:elementor:document-source` version `1.0.0`
+- **Schema:** `urn:edis:schema:elementor:document-source` version `1.1.0`
 - **Dependencies:** `elementor_document_inventory` (REQUIRED)
 
 ### Plain-language summary
@@ -3148,7 +3148,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "elementor_document_source",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -3247,7 +3247,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "plugin",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -3346,7 +3346,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "theme",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {
@@ -3445,7 +3445,7 @@ The declared truth state is `VERIFIED` and the default availability is `AVAILABL
   "artifact_type": "environment",
   "producer": {
     "product": "edis-evidence-exporter",
-    "version": "3.7.11"
+    "version": "3.7.14"
   },
   "captured_at": "2026-06-14T00:00:00Z",
   "canonicalization": {

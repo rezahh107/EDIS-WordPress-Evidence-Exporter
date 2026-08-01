@@ -22,37 +22,29 @@ final class BreakpointsCollector implements EvidenceCollector
             : null;
         if (!is_object($manager)) {
             return new CollectionResult(
-                $this->id(),
-                TruthState::VERIFIED,
-                EvidenceAvailability::UNAVAILABLE,
-                ComponentType::SOURCE_COLLECTOR,
-                null,
+                $this->id(), TruthState::VERIFIED, EvidenceAvailability::UNAVAILABLE,
+                ComponentType::SOURCE_COLLECTOR, null,
                 [new Diagnostic('EDIS_BREAKPOINT_MANAGER_UNAVAILABLE', 'WARNING', 'SEMANTIC', 'diagnostic.elementor.breakpoint_manager_unavailable')],
             );
         }
-
         $method = method_exists($manager, 'get_active_breakpoints')
             ? 'get_active_breakpoints'
             : (method_exists($manager, 'get_breakpoints') ? 'get_breakpoints' : null);
         if ($method === null) {
             return new CollectionResult(
-                $this->id(),
-                TruthState::VERIFIED,
-                EvidenceAvailability::UNAVAILABLE,
-                ComponentType::SOURCE_COLLECTOR,
-                null,
+                $this->id(), TruthState::VERIFIED, EvidenceAvailability::UNAVAILABLE,
+                ComponentType::SOURCE_COLLECTOR, null,
                 [new Diagnostic('EDIS_BREAKPOINT_API_UNAVAILABLE', 'WARNING', 'SEMANTIC', 'diagnostic.elementor.breakpoint_api_unavailable')],
             );
         }
 
-        try {
-            $items = $manager->{$method}();
-        } catch (\Throwable) {
-            $items = [];
+        $items = $manager->{$method}();
+        if (!is_array($items)) {
+            throw new \RuntimeException('Elementor breakpoints API returned an unusable value.');
         }
         $rows = [];
         $order = 0;
-        foreach (is_array($items) ? $items : [] as $key => $breakpoint) {
+        foreach ($items as $key => $breakpoint) {
             $id = is_string($key)
                 ? $key
                 : (is_object($breakpoint) && method_exists($breakpoint, 'get_name') ? (string) $breakpoint->get_name() : (string) $key);
@@ -81,26 +73,12 @@ final class BreakpointsCollector implements EvidenceCollector
         }
 
         return new CollectionResult(
-            $this->id(),
-            TruthState::VERIFIED,
+            $this->id(), TruthState::VERIFIED,
             $rows === [] ? EvidenceAvailability::INSUFFICIENT : EvidenceAvailability::AVAILABLE,
             ComponentType::SOURCE_COLLECTOR,
-            [
-                'breakpoints' => $rows,
-                'desktop_is_base' => true,
-                'retrieval_method' => $method,
-                'ordering_is_observed_not_inferred' => true,
-                'direction_is_resolved' => false,
-            ],
-            [],
-            [],
-            [
-                'collector_id' => $this->id(),
-                'adapter_id' => 'elementor.breakpoints-manager',
-                'adapter_version' => '1.2.0',
-                'source_kind' => 'ELEMENTOR_MANAGER',
-                'retrieval_strategy' => $method,
-            ],
+            ['breakpoints' => $rows, 'desktop_is_base' => true, 'retrieval_method' => $method, 'ordering_is_observed_not_inferred' => true, 'direction_is_resolved' => false],
+            [], [],
+            ['collector_id' => $this->id(), 'adapter_id' => 'elementor.breakpoints-manager', 'adapter_version' => '1.3.0', 'source_kind' => 'ELEMENTOR_MANAGER', 'retrieval_strategy' => $method],
         );
     }
 }

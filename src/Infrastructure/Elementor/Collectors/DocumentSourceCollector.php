@@ -16,14 +16,17 @@ use EDIS\EvidenceExporter\Infrastructure\Support\DocumentIdentity;
 use EDIS\EvidenceExporter\Infrastructure\Support\InputSnapshotStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonArrayNode;
 use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonParseException;
+use EDIS\EvidenceExporter\Infrastructure\Support\PrivacyProjection;
 
 final class DocumentSourceCollector implements EvidenceCollector
 {
     private InputSnapshotStore $inputs;
+    private PrivacyProjection $privacy;
 
-    public function __construct(?InputSnapshotStore $inputs = null)
+    public function __construct(?InputSnapshotStore $inputs = null, ?PrivacyProjection $privacy = null)
     {
         $this->inputs = $inputs ?? new InputSnapshotStore();
+        $this->privacy = $privacy ?? new PrivacyProjection();
     }
 
     public function id(): string { return 'elementor_document_source'; }
@@ -35,11 +38,12 @@ final class DocumentSourceCollector implements EvidenceCollector
         $provenance = [
             'collector_id' => $this->id(),
             'adapter_id' => 'elementor.saved-document',
-            'adapter_version' => '1.4.0',
+            'adapter_version' => '1.5.0',
             'source_kind' => 'IMMUTABLE_PRIVATE_INPUT_SNAPSHOT',
             'retrieval_strategy' => 'job_bound_snapshot_with_bounded_element_projection',
             'input_snapshot_id' => $snapshotId,
             'input_snapshot_sha256' => $snapshotSha256,
+            'privacy_projection' => 'EDIS_PATH_AWARE_PRE_COMMIT_1',
         ];
         if ($context->exportScope() === 'METADATA_ONLY') {
             return new CollectionResult($this->id(), TruthState::VERIFIED, EvidenceAvailability::NOT_APPLICABLE, ComponentType::SOURCE_COLLECTOR, ['documents' => [], 'count' => 0, 'metadata_only' => true], [], [], $provenance);
@@ -99,9 +103,22 @@ final class DocumentSourceCollector implements EvidenceCollector
             $fingerprint = DocumentIdentity::fingerprint($documentId, $type, $storage);
             $fullElements = array_values(array_filter($decoded, 'is_array'));
             $projection = $projector->project($documentId, $fullElements, $context->elementSelectionForDocument($documentId));
+
+            $exportView = [
+                'page_settings' => $settings instanceof \stdClass ? $settings : (object) $settings,
+                'elements' => $projection['elements'],
+            ];
+            if ($context->includeOriginalDocuments && $context->privacyMode !== 'Strict') {
+                $exportView['original'] = $projection['applied'] ? $projection['elements'] : $decoded;
+            }
+            $privacyResult = $this->privacy->projectWithSummary($exportView, $context->privacyMode);
+            $safeView = is_array($privacyResult['value'] ?? null) ? $privacyResult['value'] : [];
+            $safeElements = is_array($safeView['elements'] ?? null) ? $safeView['elements'] : [];
+            $safeSettings = $safeView['page_settings'] ?? (object) [];
+
             $projectedHash = 'sha256:' . hash('sha256', CanonicalJson::encode([
                 'canonical_saved_source_sha256' => $hashes['canonical_saved_source_sha256'],
-                'elements' => $projection['elements'],
+                'elements' => $safeElements,
                 'selection_roots' => $projection['selection_roots'],
             ]));
             $record = [
@@ -129,8 +146,8 @@ final class DocumentSourceCollector implements EvidenceCollector
                 'input_snapshot_captured_at' => is_string($captured['snapshot_captured_at'] ?? null) ? $captured['snapshot_captured_at'] : null,
                 'source_post_modified_gmt_at_snapshot' => is_string($captured['post_modified_gmt'] ?? null) ? $captured['post_modified_gmt'] : null,
                 'elementor_version' => is_string($captured['elementor_version'] ?? null) ? $captured['elementor_version'] : null,
-                'page_settings' => $settings instanceof \stdClass ? $settings : (object) $settings,
-                'elements' => $projection['elements'],
+                'page_settings' => $safeSettings,
+                'elements' => $safeElements,
                 'selection_projection_applied' => $projection['applied'],
                 'selection_roots' => $projection['selection_roots'],
                 'element_projection_index' => (object) $projection['projection_index'],
@@ -138,7 +155,8 @@ final class DocumentSourceCollector implements EvidenceCollector
                 'projected_element_count' => $projection['projected_element_count'],
                 'projected_identified_element_count' => $projection['projected_identified_element_count'],
                 'anonymous_projected_node_count' => $projection['anonymous_node_count'],
-                'exported_state' => 'LAST_SAVED_SOURCE_FROM_IMMUTABLE_JOB_SNAPSHOT',
+                'exported_state' => 'PRIVACY_PROJECTED_LAST_SAVED_SOURCE_FROM_IMMUTABLE_JOB_SNAPSHOT',
+                'privacy_projection' => $privacyResult['summary'],
                 'json_evidence_profile' => [
                     'parser' => 'EDIS-LOSSLESS-JSON-1',
                     'canonicalization' => CanonicalJson::PROFILE,
@@ -151,9 +169,9 @@ final class DocumentSourceCollector implements EvidenceCollector
             ];
             if ($context->includeOriginalDocuments && $context->privacyMode !== 'Strict') {
                 if ($projection['applied']) {
-                    $record['original_selected_projection'] = $projection['elements'];
+                    $record['original_selected_projection'] = is_array($safeView['original'] ?? null) ? $safeView['original'] : [];
                 } else {
-                    $record['original_saved_document'] = $losslessDocument;
+                    $record['original_saved_document'] = is_array($safeView['original'] ?? null) ? $safeView['original'] : [];
                 }
             }
             $rows[] = $record;
@@ -183,11 +201,12 @@ final class DocumentSourceCollector implements EvidenceCollector
                     'snapshot_sha256' => $snapshotSha256,
                     'immutable' => true,
                     'worker_reads_live_document_source' => false,
+                    'exported_view_is_privacy_projected' => true,
                 ],
                 'hash_contract' => [
                     'raw_storage_bytes_sha256' => 'Exact _elementor_data bytes captured into the immutable job input snapshot.',
                     'canonical_saved_source_sha256' => 'EDIS-CJ-2 hash of the losslessly parsed complete saved source captured for the job.',
-                    'projected_source_sha256' => 'EDIS-CJ-2 hash of the bounded selected element projection plus its complete-source hash.',
+                    'projected_source_sha256' => 'EDIS-CJ-2 hash of the privacy-projected bounded selected element view plus its complete-source hash.',
                     'saved_source_sha256' => 'Compatibility alias for canonical_saved_source_sha256 in bundle schema 3.3.0.',
                     'exported_artifact_sha256_location' => 'package-manifest.json files[].sha256',
                 ],
