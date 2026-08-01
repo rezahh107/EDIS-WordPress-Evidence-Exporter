@@ -20,6 +20,9 @@ use EDIS\EvidenceExporter\Infrastructure\Elementor\Collectors\BreakpointsCollect
 use EDIS\EvidenceExporter\Infrastructure\Elementor\Collectors\KitSettingsCollector;
 use EDIS\EvidenceExporter\Infrastructure\Elementor\Collectors\RegisteredDocumentTypesCollector;
 use EDIS\EvidenceExporter\Infrastructure\Elementor\Collectors\RegisteredWidgetsCollector;
+use EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson;
+use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonObjectNode;
+use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonParser;
 use EDIS\EvidenceExporter\Infrastructure\Support\PrivacyProjection;
 use PHPUnit\Framework\TestCase;
 
@@ -71,6 +74,52 @@ final class CorrectnessClosure314Test extends TestCase
         self::assertSame('row', $strict['value']['nested']['layout']['direction']);
         self::assertSame('global-color-primary', $strict['value']['nested']['layout']['color_token']);
         self::assertGreaterThanOrEqual(5, $strict['summary']['suppressed_count']);
+    }
+
+    /** T01 */
+    public function testPrivacyProjectionRecognizesCredentialKeyFormsInEveryMode(): void
+    {
+        $projection = new PrivacyProjection();
+        $source = [
+            'clientSecret' => 'remove',
+            'PrivateKey' => 'remove',
+            'session token' => 'remove',
+            'bearer-token' => 'remove',
+            'api_token' => 'remove',
+            'refreshToken' => 'remove',
+            'clientsecret' => 'remove',
+            'privatekey' => 'remove',
+            'sessiontoken' => 'remove',
+            'bearertoken' => 'remove',
+            'apitoken' => 'remove',
+            'refreshtoken' => 'remove',
+            'styleValue' => 'retain',
+        ];
+
+        foreach (['Standard', 'Strict', 'Diagnostic'] as $privacyMode) {
+            $result = $projection->projectWithSummary($source, $privacyMode);
+            self::assertSame(['styleValue' => 'retain'], $result['value'], $privacyMode);
+            self::assertSame(12, $result['summary']['suppressed_count'], $privacyMode);
+        }
+    }
+
+    /** T02 */
+    public function testPrivacyProjectionTraversesLosslessObjectNodesWithoutChangingExactJsonSemantics(): void
+    {
+        $source = (new LosslessJsonParser())->parse(
+            '{"01":{"clientSecret":"remove","exact":1.2300},'
+            . '"1":{"privateKey":"remove","keep":9007199254740992},'
+            . '"sessionToken":"remove"}',
+        );
+        self::assertInstanceOf(LosslessJsonObjectNode::class, $source);
+
+        $result = (new PrivacyProjection())->projectWithSummary($source, 'Diagnostic');
+        self::assertInstanceOf(LosslessJsonObjectNode::class, $result['value']);
+        self::assertSame(
+            '{"01":{"exact":1.23},"1":{"keep":9007199254740992}}',
+            CanonicalJson::encode($result['value']),
+        );
+        self::assertSame(3, $result['summary']['suppressed_count']);
     }
 
     /** T05 */
