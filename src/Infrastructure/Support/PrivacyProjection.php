@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace EDIS\EvidenceExporter\Infrastructure\Support;
 
+use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonNode;
+use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonObjectNode;
+
 /**
  * Deterministic, recursive privacy projection for exported source evidence.
  *
@@ -81,6 +84,9 @@ final class PrivacyProjection
      */
     private function walk(mixed $value, array $path, bool $strict, array &$summary): mixed
     {
+        if ($value instanceof LosslessJsonObjectNode) {
+            return $this->walkLosslessObject($value, $path, $strict, $summary);
+        }
         if ($value instanceof \stdClass) {
             $value = get_object_vars($value);
             $projected = $this->walkMap($value, $path, $strict, $summary);
@@ -97,6 +103,35 @@ final class PrivacyProjection
             return $rows;
         }
         return $this->walkMap($value, $path, $strict, $summary);
+    }
+
+    /**
+     * @param list<string> $path
+     * @param array{suppressed_count:int,categories:array<string,int>,path_classes:array<string,int>} $summary
+     */
+    private function walkLosslessObject(
+        LosslessJsonObjectNode $value,
+        array $path,
+        bool $strict,
+        array &$summary,
+    ): LosslessJsonObjectNode
+    {
+        $projected = [];
+        foreach ($value->members() as [$key, $child]) {
+            $normalizedKey = $this->normalize($key);
+            $nextPath = [...$path, $normalizedKey];
+            $category = $this->suppressionCategory($normalizedKey, $nextPath, $strict);
+            if ($category !== null) {
+                $this->recordSuppression($category, $nextPath, $summary);
+                continue;
+            }
+            $projectedChild = $this->walk($child, $nextPath, $strict, $summary);
+            if (!$projectedChild instanceof LosslessJsonNode) {
+                throw new \LogicException('Lossless JSON projection changed the node representation.');
+            }
+            $projected[] = [$key, $projectedChild];
+        }
+        return new LosslessJsonObjectNode($projected);
     }
 
     /**
@@ -154,8 +189,12 @@ final class PrivacyProjection
         if (in_array($key, self::UNIVERSAL_CREDENTIAL_KEYS, true)) {
             return true;
         }
+        $compactKey = str_replace('_', '', $key);
         foreach (self::UNIVERSAL_CREDENTIAL_FRAGMENTS as $fragment) {
-            if (str_contains($key, $fragment)) {
+            if (
+                str_contains($key, $fragment)
+                || str_contains($compactKey, str_replace('_', '', $fragment))
+            ) {
                 return true;
             }
         }
@@ -208,7 +247,10 @@ final class PrivacyProjection
 
     private function normalize(string $key): string
     {
-        $key = strtolower(trim($key));
+        $key = trim($key);
+        $key = preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1_$2', $key) ?? $key;
+        $key = preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', $key) ?? $key;
+        $key = strtolower($key);
         $key = preg_replace('/[^a-z0-9]+/', '_', $key) ?? $key;
         return trim($key, '_');
     }
