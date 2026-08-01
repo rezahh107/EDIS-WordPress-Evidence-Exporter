@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace EDIS\EvidenceExporter\Infrastructure\Support;
 
+use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonArrayNode;
 use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonNode;
 use EDIS\EvidenceExporter\Infrastructure\Support\Json\LosslessJsonObjectNode;
 
@@ -87,6 +88,9 @@ final class PrivacyProjection
         if ($value instanceof LosslessJsonObjectNode) {
             return $this->walkLosslessObject($value, $path, $strict, $summary);
         }
+        if ($value instanceof LosslessJsonArrayNode) {
+            return $this->walkLosslessArray($value, $path, $strict, $summary);
+        }
         if ($value instanceof \stdClass) {
             $value = get_object_vars($value);
             $projected = $this->walkMap($value, $path, $strict, $summary);
@@ -103,6 +107,28 @@ final class PrivacyProjection
             return $rows;
         }
         return $this->walkMap($value, $path, $strict, $summary);
+    }
+
+    /**
+     * @param list<string> $path
+     * @param array{suppressed_count:int,categories:array<string,int>,path_classes:array<string,int>} $summary
+     */
+    private function walkLosslessArray(
+        LosslessJsonArrayNode $value,
+        array $path,
+        bool $strict,
+        array &$summary,
+    ): LosslessJsonArrayNode
+    {
+        $projected = [];
+        foreach ($value->items() as $index => $child) {
+            $projectedChild = $this->walk($child, [...$path, (string) $index], $strict, $summary);
+            if (!$projectedChild instanceof LosslessJsonNode) {
+                throw new \LogicException('Lossless JSON projection changed the node representation.');
+            }
+            $projected[] = $projectedChild;
+        }
+        return new LosslessJsonArrayNode($projected);
     }
 
     /**
