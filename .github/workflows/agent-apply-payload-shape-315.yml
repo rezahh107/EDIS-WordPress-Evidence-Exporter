@@ -1,0 +1,41 @@
+name: Agent source snapshot 3.7.15
+
+'on':
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/edis-3.7.15-payload-shape-closure
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-source-snapshot-315
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      - name: Verify bounded branch ancestry
+        run: |
+          test "${GITHUB_REF_NAME}" = "agent/edis-3.7.15-payload-shape-closure"
+          git merge-base --is-ancestor 37ffb0ce1cd628c3e27d05b808384feda78f831e HEAD
+          git status --short
+      - name: Create read-only repository snapshot
+        run: |
+          mkdir -p release-build/source-snapshot
+          git bundle create release-build/source-snapshot/repository.bundle --all
+          tar --exclude=.git --exclude=release-build -czf release-build/source-snapshot/working-tree.tar.gz .
+          git rev-parse HEAD > release-build/source-snapshot/head-sha.txt
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: edis-3.7.15-source-snapshot
+          path: release-build/source-snapshot/
+          if-no-files-found: error
+          retention-days: 3
