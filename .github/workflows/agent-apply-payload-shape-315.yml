@@ -1,4 +1,4 @@
-name: Agent assemble reviewed payload-shape blobs
+name: Export locked PR6 source snapshot
 
 'on':
   push:
@@ -9,179 +9,42 @@ name: Agent assemble reviewed payload-shape blobs
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: agent-assemble-payload-shape-315-${{ github.event_name }}
+  group: pr6-locked-source-snapshot-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
-  assemble:
+  snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Checkout locked reviewed head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          fetch-depth: 1
-      - name: Recover reviewed chunks and create final content blobs
-        env:
-          GH_TOKEN: ${{ github.token }}
+          ref: 5190c4cc983ec2d0638f05baab80ca50f64c33ac
+          fetch-depth: 0
+      - name: Assert locked reviewed head
+        shell: bash
         run: |
-          python3 - <<'PY'
-          import base64
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-          import tarfile
-          import tempfile
-          import urllib.request
-
-          repository = os.environ['GITHUB_REPOSITORY']
-          token = os.environ['GH_TOKEN']
-          chunk_shas = [
-              'fe9b349947b189385bc7c922ae8438a4be73937a',
-              '15a370bd94000866c3f5cdcecd0a80f8d50b5ada',
-              'e278c0cc80bd6ca0564ec891007b21603844b83b',
-              'd6f57042b61ea5902fcfe6e0ae39fb28fc2f8a3c',
-              '32a30fef504077c3ed18d77d574f248f583b066d',
-              '06f44c912596cf686cae26debf3f2dca7b85d84d',
-              'c30d3f015ed92da61d642318ad21750449b769e6',
-              '43e48b836e5cf80890bd1bbcd005e31087b5d7bc',
-              '796eac83c56a95cb4c7284868008b7c20fc0b878',
-              'cefaa58a8ffc5afaac617b009b6e76405753a228',
-              '5fb26eeca636435ea5f45bcea162ad72ebec595b',
-              'e673b8849aada7df2b3b67fe57f54977aeaa22a1',
-              '505899f0fb08fa0fa894af9ba76a0f3919da7f66',
-              '620351cabd26ed6c5123075f22ae69cb24db16be',
-              '21a12a6e8583fc019e1d81e9068cc980542fca16',
-              'ad907acf7143490fd76e4bcb0153dba28cbd0ada',
-              'b55f1c44d995d09ea7d53f7e6356cefe6d3cdf30',
-          ]
-          missing = {
-              'd6f57042b61ea5902fcfe6e0ae39fb28fc2f8a3c',
-              '32a30fef504077c3ed18d77d574f248f583b066d',
-          }
-          expected_files = {
-              '.github/workflows/quality.yml': '77afa47e7d38832198570e94fa6d2263da3ca1fc',
-              'CHANGELOG.md': '984318d4a18745ba18ce02a5b7ebd52634419551',
-              'README.md': 'a51a0c39ff22557a972369803933dd9c27d14afa',
-              'config/collectors.php': 'a82dabd841e47b3c87acef174a39bef0e74a74a7',
-              'docs/collector-encyclopedia-fa.md': '0adbe636fb02211ac937d6619980ff982ff9ed6a',
-              'docs/collector-encyclopedia.md': '750f3c8b78dc376c6dd1754791844995b5283496',
-              'languages/edis-evidence-exporter-fa_IR.po': '395dfaa0f27cc4dc2a52c22801253ab8791f8635',
-              'languages/edis-evidence-exporter.pot': 'bab7836f32041146a3b3f8dab29aeb6e3bc31361',
-              'plugin.manifest.json': 'ab11528eeeb8285a52ecf9aa39c7066a39485713',
-              'readme.txt': '8dbf4919b690383ba3c898005a8be4a4de6db460',
-              'tests/Unit/RootCompleteRepairTest.php': '00c0d7c68412c36a191f54b21619fdc50f384d55',
-              'tests/release-authority-314.py': '3ee57b432533ca96bf5a93a81bc74528cd576f66',
-          }
-
-          def request(method, path, payload=None):
-              data = None if payload is None else json.dumps(payload, separators=(',', ':')).encode()
-              req = urllib.request.Request(
-                  f'https://api.github.com/repos/{repository}{path}',
-                  data=data,
-                  method=method,
-                  headers={
-                      'Authorization': f'Bearer {token}',
-                      'Accept': 'application/vnd.github+json',
-                      'X-GitHub-Api-Version': '2022-11-28',
-                      'Content-Type': 'application/json',
-                  },
-              )
-              with urllib.request.urlopen(req) as response:
-                  return json.load(response)
-
-          def git_blob_sha(raw):
-              return hashlib.sha1(f'blob {len(raw)}\0'.encode() + raw).hexdigest()
-
-          blob_bytes = {}
-          candidate_sizes = set()
-          for sha in chunk_shas:
-              if sha in missing:
-                  continue
-              blob = request('GET', f'/git/blobs/{sha}')
-              raw = base64.b64decode(blob['content'])
-              if git_blob_sha(raw) != sha:
-                  raise SystemExit(f'existing chunk mismatch: {sha}')
-              blob_bytes[sha] = raw
-              candidate_sizes.add(len(raw))
-
-          transport = b''.join(
-              base64.b64decode(path.read_text(encoding='ascii').strip())
-              for path in sorted(Path('release-build/blob-assembly/transport').glob('*.b64'))
-          )
-          recovery = {}
-          for target in sorted(missing):
-              found = None
-              for size in sorted(candidate_sizes):
-                  for offset in range(0, len(transport) - size + 1):
-                      raw = transport[offset:offset + size]
-                      if git_blob_sha(raw) == target:
-                          found = (offset, raw)
-                          break
-                  if found is not None:
-                      break
-              if found is None:
-                  raise SystemExit(f'could not recover chunk: {target}')
-              offset, raw = found
-              created = request('POST', '/git/blobs', {
-                  'content': base64.b64encode(raw).decode(),
-                  'encoding': 'base64',
-              })
-              if created.get('sha') != target:
-                  raise SystemExit(f'recovered chunk mismatch: {target}')
-              blob_bytes[target] = raw
-              recovery[target] = {'offset': offset, 'size': len(raw)}
-
-          archive = b''.join(blob_bytes[sha] for sha in chunk_shas)
-          archive_sha256 = hashlib.sha256(archive).hexdigest()
-          if archive_sha256 != '6b50686b52ce0fe888f14cbd9ab24b0fe1d4e22f05afb8a35af4caa9f939fd46':
-              raise SystemExit(f'archive sha256 mismatch: {archive_sha256}')
-
-          with tempfile.TemporaryDirectory(prefix='edis-reviewed-blobs-') as temporary:
-              root = Path(temporary)
-              archive_path = root / 'reviewed-files.tar.xz'
-              archive_path.write_bytes(archive)
-              extract_root = root / 'files'
-              extract_root.mkdir()
-              with tarfile.open(archive_path, mode='r:xz') as tar:
-                  names = sorted(member.name for member in tar.getmembers() if member.isfile())
-                  if names != sorted(expected_files):
-                      raise SystemExit(f'archive inventory mismatch: {names}')
-                  tar.extractall(extract_root, filter='data')
-
-              final_blobs = {}
-              for path, expected_sha in sorted(expected_files.items()):
-                  raw = (extract_root / path).read_bytes()
-                  if git_blob_sha(raw) != expected_sha:
-                      raise SystemExit(f'{path}: local blob mismatch')
-                  created = request('POST', '/git/blobs', {
-                      'content': base64.b64encode(raw).decode(),
-                      'encoding': 'base64',
-                  })
-                  if created.get('sha') != expected_sha:
-                      raise SystemExit(f'{path}: GitHub blob mismatch')
-                  final_blobs[path] = expected_sha
-
-          output = Path('release-build/blob-assembly/output')
-          output.mkdir(parents=True, exist_ok=True)
-          report = {
-              'archive_sha256': archive_sha256,
-              'recovered_chunks': recovery,
-              'final_blobs': final_blobs,
-          }
-          (output / 'blob-map.json').write_text(
-              json.dumps(report, sort_keys=True, separators=(',', ':')) + '\n',
-              encoding='utf-8',
-          )
-          print(json.dumps(report, indent=2, sort_keys=True))
-          PY
-      - name: Upload reviewed blob map
+          set -euo pipefail
+          expected=5190c4cc983ec2d0638f05baab80ca50f64c33ac
+          actual="$(git rev-parse HEAD)"
+          printf 'EXPECTED_HEAD_SHA=%s\nACTUAL_HEAD_SHA=%s\n' "$expected" "$actual"
+          test "$actual" = "$expected"
+      - name: Create source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/edis-pr6-snapshot
+          tar --exclude='./.git' --exclude='./release-build/snapshot' -czf /tmp/edis-pr6-snapshot/source.tar.gz .
+          git bundle create /tmp/edis-pr6-snapshot/repository.bundle --all
+          sha256sum /tmp/edis-pr6-snapshot/source.tar.gz /tmp/edis-pr6-snapshot/repository.bundle | tee /tmp/edis-pr6-snapshot/SHA256SUMS
+      - name: Upload locked source snapshot
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: edis-3.7.15-reviewed-blob-map-${{ github.event_name }}
-          path: release-build/blob-assembly/output/blob-map.json
+          name: edis-pr6-locked-source-5190c4c
+          path: /tmp/edis-pr6-snapshot
           if-no-files-found: error
           retention-days: 3
