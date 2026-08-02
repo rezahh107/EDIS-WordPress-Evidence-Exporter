@@ -81,6 +81,11 @@ final class SupplyChainGateContractTest extends TestCase
             }
         }
         sort($missing, SORT_STRING);
-        self::assertSame([], $missing, 'plugin.manifest.json omits manifest-owned repository files.');
+        self::assertSame(
+            [],
+            $missing,
+            'plugin.manifest.json omits manifest-owned repository files: '
+                . json_encode($missing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        );
     }
 }
