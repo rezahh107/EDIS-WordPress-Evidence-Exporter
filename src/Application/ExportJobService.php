@@ -25,7 +25,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\Uuid;
 final class ExportJobService
 {
     private const TERMINAL = ['completed', 'failed', 'cancelled'];
-    private const IMPLEMENTATION_VERSION = '3.7.14';
+    private const IMPLEMENTATION_VERSION = '3.7.15';
     private ?PreflightProof $preflightProof;
     /** @var array<string,array<string,array<string,mixed>>> */
     private array $committedArtifacts = [];
@@ -628,7 +628,7 @@ final class ExportJobService
         }
     }
 
-    /** @param array<string, mixed> $job */
+    /** @param array<string,mixed> $job */
     private function context(array $job): CollectionContext
     {
         $config = is_array($job['config'] ?? null) ? $job['config'] : [];
