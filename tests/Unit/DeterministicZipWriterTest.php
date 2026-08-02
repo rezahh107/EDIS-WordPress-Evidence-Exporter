@@ -1,7 +1,55 @@
 <?php
 declare(strict_types=1);
 
-namespace EDIS\EvidenceExporter\Tests\Unit;
+namespace EDIS\EvidenceExporter\Infrastructure\Support {
+    /** @return array<string,mixed>|null */
+    function directoryRaceState(): ?array
+    {
+        $state = $GLOBALS['edis_directory_race_state'] ?? null;
+        return is_array($state) ? $state : null;
+    }
+
+    function is_dir(string $directory): bool
+    {
+        $state = directoryRaceState();
+        if (is_array($state) && $directory === ($state['directory'] ?? null)) {
+            $result = array_shift($GLOBALS['edis_directory_race_state']['is_dir']);
+            return (bool) $result;
+        }
+        return \is_dir($directory);
+    }
+
+    function is_link(string $directory): bool
+    {
+        $state = directoryRaceState();
+        if (is_array($state) && $directory === ($state['directory'] ?? null)) {
+            return (bool) ($state['is_link'] ?? false);
+        }
+        return \is_link($directory);
+    }
+
+    function mkdir(string $directory, int $permissions = 0777, bool $recursive = false): bool
+    {
+        $state = directoryRaceState();
+        if (is_array($state) && $directory === ($state['directory'] ?? null)) {
+            ++$GLOBALS['edis_directory_race_state']['mkdir_calls'];
+            return (bool) ($state['mkdir_result'] ?? false);
+        }
+        return \mkdir($directory, $permissions, $recursive);
+    }
+
+    function chmod(string $path, int $permissions): bool
+    {
+        $state = directoryRaceState();
+        if (is_array($state) && $path === ($state['directory'] ?? null)) {
+            ++$GLOBALS['edis_directory_race_state']['chmod_calls'];
+            return (bool) ($state['chmod_result'] ?? true);
+        }
+        return \chmod($path, $permissions);
+    }
+}
+
+namespace EDIS\EvidenceExporter\Tests\Unit {
 
 use EDIS\EvidenceExporter\Infrastructure\Support\DeterministicFilesystem;
 use EDIS\EvidenceExporter\Infrastructure\Support\DeterministicZipReader;
@@ -10,6 +58,87 @@ use PHPUnit\Framework\TestCase;
 
 final class DeterministicZipWriterTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['edis_directory_race_state']);
+    }
+
+    public function testConcurrentDirectoryCreationDoesNotTransferOwnership(): void
+    {
+        $directory = '/simulated/concurrently-created';
+        $this->simulateDirectoryCreation($directory, [false, true, true], false);
+
+        (new DeterministicFilesystem())->ensureDirectory($directory);
+
+        self::assertSame(1, $GLOBALS['edis_directory_race_state']['mkdir_calls']);
+        self::assertSame(0, $GLOBALS['edis_directory_race_state']['chmod_calls']);
+    }
+
+    public function testSuccessfullyCreatedDirectoryReceivesPermissions(): void
+    {
+        $directory = '/simulated/created-here';
+        $this->simulateDirectoryCreation($directory, [false, true], true);
+
+        (new DeterministicFilesystem())->ensureDirectory($directory);
+
+        self::assertSame(1, $GLOBALS['edis_directory_race_state']['mkdir_calls']);
+        self::assertSame(1, $GLOBALS['edis_directory_race_state']['chmod_calls']);
+    }
+
+    public function testExistingCallerOwnedDirectoryDoesNotReceivePermissions(): void
+    {
+        $directory = '/simulated/caller-owned';
+        $this->simulateDirectoryCreation($directory, [true, true], false);
+
+        (new DeterministicFilesystem())->ensureDirectory($directory);
+
+        self::assertSame(0, $GLOBALS['edis_directory_race_state']['mkdir_calls']);
+        self::assertSame(0, $GLOBALS['edis_directory_race_state']['chmod_calls']);
+    }
+
+    public function testExplicitlyOwnedDirectoryReceivesEnforcedPermissions(): void
+    {
+        $directory = '/simulated/edis-owned';
+        $this->simulateDirectoryCreation($directory, [true, true], false);
+
+        (new DeterministicFilesystem())->ensureDirectory($directory, 0750, true);
+
+        self::assertSame(0, $GLOBALS['edis_directory_race_state']['mkdir_calls']);
+        self::assertSame(1, $GLOBALS['edis_directory_race_state']['chmod_calls']);
+    }
+
+    public function testMissingDirectoryAfterFailedCreationRemainsAnError(): void
+    {
+        $directory = '/simulated/missing';
+        $this->simulateDirectoryCreation($directory, [false, false], false);
+
+        $this->expectException(\EDIS\EvidenceExporter\Infrastructure\Support\FilesystemException::class);
+        (new DeterministicFilesystem())->ensureDirectory($directory);
+    }
+
+    public function testSymlinkDirectoryRemainsRejected(): void
+    {
+        $directory = '/simulated/symlink';
+        $this->simulateDirectoryCreation($directory, [], false, true);
+
+        $this->expectException(\EDIS\EvidenceExporter\Infrastructure\Support\FilesystemException::class);
+        (new DeterministicFilesystem())->ensureDirectory($directory);
+    }
+
+    /** @param list<bool> $isDirectory */
+    private function simulateDirectoryCreation(string $directory, array $isDirectory, bool $mkdirResult, bool $isLink = false): void
+    {
+        $GLOBALS['edis_directory_race_state'] = [
+            'directory' => $directory,
+            'is_dir' => $isDirectory,
+            'is_link' => $isLink,
+            'mkdir_result' => $mkdirResult,
+            'mkdir_calls' => 0,
+            'chmod_calls' => 0,
+            'chmod_result' => true,
+        ];
+    }
+
     public function testOrderDoesNotChangeArchiveBytes(): void
     {
         $writer = new DeterministicZipWriter();
@@ -136,4 +265,5 @@ final class DeterministicZipWriterTest extends TestCase
             if (is_file($path)) { unlink($path); }
         }
     }
+}
 }

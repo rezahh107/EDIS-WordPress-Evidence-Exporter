@@ -31,7 +31,7 @@ final class DeterministicFilesystem
             if ($created !== true && !is_dir($directory)) {
                 throw new FilesystemException('EDIS_FILESYSTEM_DIRECTORY_CREATE_FAILED', 'mkdir', 'Unable to create directory: ' . $directory);
             }
-            $createdDirectory = true;
+            $createdDirectory = ($created === true);
         }
         if (!is_dir($directory) || is_link($directory)) {
             throw new FilesystemException('EDIS_FILESYSTEM_DIRECTORY_INVALID', 'mkdir', 'Directory validation failed: ' . $directory);
