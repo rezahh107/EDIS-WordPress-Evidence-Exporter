@@ -43,6 +43,33 @@ final class DeterministicZipWriterTest extends TestCase
         }
     }
 
+    public function testWritingZipDoesNotChmodExistingCallerOwnedParent(): void
+    {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            self::markTestSkipped('POSIX directory modes are not available on Windows.');
+        }
+        $directory = sys_get_temp_dir() . '/edis-caller-owned-' . bin2hex(random_bytes(6));
+        mkdir($directory, 0770, true);
+        chmod($directory, 0770);
+        $path = $directory . '/evidence.zip';
+        try {
+            (new DeterministicZipWriter())->writeToFile(
+                $path,
+                ['manifest.json' => '{}'],
+                new DeterministicFilesystem(),
+            );
+            clearstatcache(true, $directory);
+            self::assertSame(0770, fileperms($directory) & 0777);
+        } finally {
+            if (is_file($path)) {
+                unlink($path);
+            }
+            if (is_dir($directory)) {
+                rmdir($directory);
+            }
+        }
+    }
+
     public function testNormalizedPathCollisionsAreRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);

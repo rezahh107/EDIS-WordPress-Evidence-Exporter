@@ -26,7 +26,7 @@ final class ArtifactStore
 
     public function rootWritable(): bool
     {
-        try { $this->filesystem->ensureDirectory($this->root); }
+        try { $this->filesystem->ensureDirectory($this->root, 0750, true); }
         catch (\Throwable) { return false; }
         return !is_link($this->root) && is_writable($this->root);
     }

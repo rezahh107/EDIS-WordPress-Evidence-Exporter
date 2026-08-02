@@ -4,7 +4,7 @@ Tags: elementor, evidence, export, diagnostics, deterministic
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 3.7.14
+Stable tag: 3.7.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Exports saved WordPress and Elementor evidence for a deterministic Python analys
 
 EDIS exports saved source evidence, registries, references, provenance and lightweight source indexes. Browser runtime evidence and final Python resolution remain separate products.
 
-Version 3.7.14 closes eight bounded correctness defects without changing frozen public evidence schemas: shared pre-commit privacy projection, failure-vs-empty observation truth, orchestrator-stamped provenance, manifest-authoritative release inventory and build fingerprinting, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build runtime qualification. Unsupported deterministic PHP runtime is still handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice`. After a supported runtime reaches Bootstrap, installation-integrity failure, invalid configuration, and private-storage failure continue through `DegradedModeIntegration`; export, worker, download, and operational REST controls remain unavailable while degraded. Worker implementation compatibility advances to 3.7.14.
+Version 3.7.15 closes eight bounded correctness defects without changing frozen public evidence schemas: shared pre-commit privacy projection, failure-vs-empty observation truth, orchestrator-stamped provenance, manifest-authoritative release inventory and build fingerprinting, generated-validation output isolation, machine-checked collector documentation, truthful recovery scheduling state, and exact final-build runtime qualification. Unsupported deterministic PHP runtime is still handled before `Bootstrap` by `edis_evidence_exporter_runtime_notice`. After a supported runtime reaches Bootstrap, installation-integrity failure, invalid configuration, and private-storage failure continue through `DegradedModeIntegration`; export, worker, download, and operational REST controls remain unavailable while degraded. Worker implementation compatibility advances to 3.7.15.
 
 Public evidence versions:
 
@@ -47,15 +47,15 @@ EDIS-ZIP-1 uses STORE with fixed headers so identical package inputs produce ide
 
 = Can old jobs resume after upgrading? =
 
-Jobs are compatible by worker implementation identity, not merely plugin release number. Release 3.7.14 advances the worker implementation identity to 3.7.14 because committed-artifact provenance and resume semantics changed. Incomplete jobs created under worker 3.7.12 are not migrated in place and must be recreated.
+Jobs are compatible by worker implementation identity, not merely plugin release number. Release 3.7.15 advances the worker implementation identity to 3.7.15 because committed-artifact provenance and resume semantics changed. Incomplete jobs created under worker 3.7.12 are not migrated in place and must be recreated.
 
 == Changelog ==
 
-= 3.7.14 =
+= 3.7.15 =
 
 * Adds one shared recursive/path-aware pre-commit privacy projection for exported raw-value source evidence while preserving immutable private input bytes.
 * Distinguishes failed required observations from successful empty observations and preserves valid optional evidence only as bounded PARTIAL results.
-* Stores truthful per-component `observed_at` provenance and one persisted `packaging_started_at`; worker compatibility advances to 3.7.14.
+* Stores truthful per-component `observed_at` provenance and one persisted `packaging_started_at`; worker compatibility advances to 3.7.15.
 * Makes `plugin.manifest.json` the install/source release inventory authority, fails on undeclared ordinary files, and emits deterministic build fingerprints.
 * Keeps generated validation evidence under `release-build/validation-evidence/` and machine-checks both collector encyclopedias against active Technical IDs/schema versions.
 * Normalizes failed-job scheduling state through the existing recovery scheduler so released jobs cannot remain `REST_ADVANCE_ACTIVE`.

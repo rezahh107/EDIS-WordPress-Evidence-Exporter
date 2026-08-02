@@ -69,7 +69,7 @@ final class InputSnapshotStore
     public function rootWritable(): bool
     {
         try {
-            $this->filesystem->ensureDirectory($this->root);
+            $this->filesystem->ensureDirectory($this->root, 0750, true);
         } catch (\Throwable) {
             return false;
         }

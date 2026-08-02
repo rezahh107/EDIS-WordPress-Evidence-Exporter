@@ -16,7 +16,7 @@ final class SelectionTokenStore
     public function issue(int $ownerId, int $documentId, array $selection, string $unsavedState): array
     {
         if ($ownerId <= 0 || $documentId <= 0) { throw new \InvalidArgumentException('Selection owner and document are required.'); }
-        $this->filesystem->ensureDirectory($this->root);
+        $this->filesystem->ensureDirectory($this->root, 0750, true);
         $token = bin2hex(random_bytes(32));
         $expiresAt = time() + max(60, min(1800, $this->ttlSeconds));
         $payload = [

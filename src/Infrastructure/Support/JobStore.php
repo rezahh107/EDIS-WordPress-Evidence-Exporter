@@ -18,7 +18,7 @@ final class JobStore
 
     public function rootWritable(): bool
     {
-        try { $this->filesystem->ensureDirectory($this->root); }
+        try { $this->filesystem->ensureDirectory($this->root, 0750, true); }
         catch (\Throwable) { return false; }
         return is_writable($this->root) && !is_link($this->root);
     }
@@ -75,7 +75,7 @@ final class JobStore
         $current = $this->get($job['job_id']);
         $currentRevision = is_array($current) ? (int) ($current['revision'] ?? 0) : 0;
         if ($expectedRevision !== null && $currentRevision !== $expectedRevision) { throw new \RuntimeException('Job revision conflict.'); }
-        $this->filesystem->ensureDirectory($this->root);
+        $this->filesystem->ensureDirectory($this->root, 0750, true);
         $job['revision'] = max((int) ($job['revision'] ?? 0), $currentRevision) + 1;
         $job['updated_at'] = time();
         $path = $this->path($job['job_id']);
@@ -305,7 +305,7 @@ final class JobStore
     public function acquireLock(string $jobId, int $timeoutSeconds = 1)
     {
         try {
-            $this->filesystem->ensureDirectory($this->root);
+            $this->filesystem->ensureDirectory($this->root, 0750, true);
             $handle = $this->filesystem->open($this->root . '/' . $this->safeName($jobId) . '.lock', 'c+b');
         } catch (\Throwable) { return null; }
         $deadline = microtime(true) + max(0, $timeoutSeconds);

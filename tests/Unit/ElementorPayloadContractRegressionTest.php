@@ -26,6 +26,11 @@ use PHPUnit\Framework\TestCase;
 
 final class ElementorPayloadContractRegressionTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['edis_feature_flags_test_options']);
+    }
+
     public function testEmptyKitSettingsAndSiteSettingsIndexSerializeWithDeclaredJsonTypes(): void
     {
         [, $registry, $service, $context, $method, $schemaIndex, $validator] = $this->harness();
