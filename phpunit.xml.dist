@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="autoload.php" colors="true">
+<phpunit bootstrap="autoload.php" colors="true" failOnEmptyTestSuite="true">
+  <php>
+    <const name="ABSPATH" value="/tmp/wordpress/"/>
+  </php>
   <testsuites>
     <testsuite name="Unit">
-      <directory>tests/Unit</directory>
+      <directory suffix="Test.php">tests/Unit</directory>
     </testsuite>
   </testsuites>
 </phpunit>

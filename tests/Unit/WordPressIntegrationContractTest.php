@@ -188,10 +188,10 @@ final class WordPressIntegrationContractTest extends TestCase
         $plugin = $this->read('edis-evidence-exporter.php');
         $worker = $this->read('src/Application/ExportJobService.php');
 
-        self::assertStringContainsString("Version: 3.7.14", $plugin);
-        self::assertStringContainsString("EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.14'", $plugin);
-        self::assertStringContainsString("private const IMPLEMENTATION_VERSION = '3.7.14';", $worker);
-        self::assertStringNotContainsString("private const IMPLEMENTATION_VERSION = '3.7.12';", $worker);
+        self::assertStringContainsString("Version: 3.7.15", $plugin);
+        self::assertStringContainsString("EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.15'", $plugin);
+        self::assertStringContainsString("private const IMPLEMENTATION_VERSION = '3.7.15';", $worker);
+        self::assertStringNotContainsString("private const IMPLEMENTATION_VERSION = '3.7.14';", $worker);
     }
 
     public function testAtomicCommitsSynchronizeParentDirectoriesOnPosix(): void

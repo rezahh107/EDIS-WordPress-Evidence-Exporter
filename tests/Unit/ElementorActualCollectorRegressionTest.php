@@ -5,7 +5,8 @@ namespace {
     if (!function_exists('get_option')) {
         function get_option(string $name, mixed $default = false): mixed
         {
-            return $name === 'elementor_active_kit' ? 77 : $default;
+            $options = $GLOBALS['edis_test_options'] ?? [];
+            return is_array($options) && array_key_exists($name, $options) ? $options[$name] : $default;
         }
     }
 
@@ -37,7 +38,7 @@ namespace EDIS\EvidenceExporter\Tests\Unit {
 
         protected function tearDown(): void
         {
-            unset($GLOBALS['edis_test_kit_settings']);
+            unset($GLOBALS['edis_test_options'], $GLOBALS['edis_test_kit_settings']);
             if ($this->artifactRoot !== null) {
                 $this->remove($this->artifactRoot);
             }
@@ -45,6 +46,7 @@ namespace EDIS\EvidenceExporter\Tests\Unit {
 
         public function testActualCollectorsPreservePayloadTypesThroughFinalEnvelope(): void
         {
+            $GLOBALS['edis_test_options'] = ['elementor_active_kit' => 77];
             $GLOBALS['edis_test_kit_settings'] = [
                 'system_colors' => [],
                 'container_width' => ['size' => 1140, 'unit' => 'px'],

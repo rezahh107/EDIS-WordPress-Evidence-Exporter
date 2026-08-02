@@ -1,7 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace EDIS\EvidenceExporter\Tests\Unit;
+namespace {
+    if (!function_exists('get_option')) {
+        function get_option(string $name, mixed $default = false): mixed
+        {
+            $options = $GLOBALS['edis_test_options'] ?? [];
+            return is_array($options) && array_key_exists($name, $options) ? $options[$name] : $default;
+        }
+    }
+}
+
+namespace EDIS\EvidenceExporter\Tests\Unit {
 
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
 use EDIS\EvidenceExporter\Application\ExportJobService;
@@ -26,6 +36,7 @@ final class RootCompleteRepairTest extends TestCase
 
     protected function tearDown(): void
     {
+        unset($GLOBALS['edis_test_options']);
         foreach (array_reverse($this->cleanup) as $path) {
             $this->remove($path);
         }
@@ -394,7 +405,7 @@ final class RootCompleteRepairTest extends TestCase
         $job = [
             'job_id' => $jobId,
             'job_format_version' => '2.1.0',
-            'implementation_version' => '3.7.14',
+            'implementation_version' => '3.7.15',
             'input_snapshot_format_version' => '2.0.0',
             'input_snapshot_id' => $jobId,
             'input_snapshot_sha256' => $snapshot['snapshot_sha256'],
@@ -548,4 +559,5 @@ final class RootCompleteRepairTest extends TestCase
         }
         rmdir($path);
     }
+}
 }

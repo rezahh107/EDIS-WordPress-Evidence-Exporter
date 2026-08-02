@@ -326,7 +326,7 @@ final class PrivateStorage
             if (!$this->isAbsolutePath($root) || $this->containsParentTraversal($root) || !$this->isOutsideWebRoot($root) || $this->hasRedirectingAncestor($root)) {
                 return false;
             }
-            $this->filesystem->ensureDirectory($root);
+            $this->filesystem->ensureDirectory($root, 0750, true);
             if (!is_dir($root) || !is_writable($root) || $this->hasRedirectingAncestor($root) || !$this->isOutsideWebRoot($root)) {
                 return false;
             }
