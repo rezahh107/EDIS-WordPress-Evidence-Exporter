@@ -42,6 +42,27 @@ final class ExportJobIntegrityTest extends TestCase
         }
     }
 
+    public function testPreviousWorkerJobCannotResumeAfter315(): void
+    {
+        [$service] = $this->service();
+        $reflection = new \ReflectionClass(ExportJobService::class);
+        self::assertSame('3.7.15', $reflection->getConstant('IMPLEMENTATION_VERSION'));
+        $method = new \ReflectionMethod($service, 'assertJobCompatible');
+        try {
+            $method->invoke($service, [
+                'job_id' => 'previous-worker-job',
+                'job_format_version' => '2.1.0',
+                'implementation_version' => '3.7.14',
+                'input_snapshot_format_version' => '2.0.0',
+            ]);
+            self::fail('Expected the 3.7.14 worker job to be rejected.');
+        } catch (\Throwable $exception) {
+            $actual = $exception instanceof ExportIntegrityException ? $exception : ($exception->getPrevious() ?? $exception);
+            self::assertInstanceOf(ExportIntegrityException::class, $actual);
+            self::assertSame('EDIS_JOB_FORMAT_INCOMPATIBLE', $actual->diagnosticCode);
+        }
+    }
+
     public function testTamperedCompletedArtifactCannotResume(): void
     {
         [$service, $artifacts, $inputs, $root] = $this->service();
@@ -49,7 +70,7 @@ final class ExportJobIntegrityTest extends TestCase
         $job = [
             'job_id' => 'job-integrity',
             'job_format_version' => '2.1.0',
-            'implementation_version' => '3.7.14',
+            'implementation_version' => '3.7.15',
             'input_snapshot_format_version' => '2.0.0',
             'input_snapshot_id' => 'job-integrity',
             'input_snapshot_sha256' => $manifest['snapshot_sha256'],
@@ -65,7 +86,7 @@ final class ExportJobIntegrityTest extends TestCase
             'environment' => [
                 'component_id' => 'environment',
                 'component_schema_version' => '1.0.0',
-                'implementation_version' => '3.7.14',
+                'implementation_version' => '3.7.15',
                 'observed_at' => '2026-07-30T00:00:00Z',
                 'input_snapshot_sha256' => $manifest['snapshot_sha256'],
                 'step_input_sha256' => $stepInput,
