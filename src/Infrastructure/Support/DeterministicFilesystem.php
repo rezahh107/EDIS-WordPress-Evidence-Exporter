@@ -15,11 +15,12 @@ final class DeterministicFilesystem
         'stderr' => '',
     ];
 
-    public function ensureDirectory(string $directory, int $mode = 0750): void
+    public function ensureDirectory(string $directory, int $mode = 0750, bool $enforcePermissions = false): void
     {
         if (is_link($directory)) {
             throw new FilesystemException('EDIS_FILESYSTEM_SYMLINK_REJECTED', 'mkdir', 'Refusing to use a symbolic-link directory: ' . $directory);
         }
+        $createdDirectory = false;
         if (!is_dir($directory)) {
             $created = $this->invoke('mkdir', static function () use ($directory, $mode): bool {
                 if (function_exists('wp_mkdir_p')) {
@@ -30,11 +31,14 @@ final class DeterministicFilesystem
             if ($created !== true && !is_dir($directory)) {
                 throw new FilesystemException('EDIS_FILESYSTEM_DIRECTORY_CREATE_FAILED', 'mkdir', 'Unable to create directory: ' . $directory);
             }
+            $createdDirectory = ($created === true);
         }
         if (!is_dir($directory) || is_link($directory)) {
             throw new FilesystemException('EDIS_FILESYSTEM_DIRECTORY_INVALID', 'mkdir', 'Directory validation failed: ' . $directory);
         }
-        $this->setPermissions($directory, $mode, true);
+        if ($createdDirectory || $enforcePermissions) {
+            $this->setPermissions($directory, $mode, true);
+        }
     }
 
     public function writeAtomically(string $path, string $contents, int $mode = 0640): void

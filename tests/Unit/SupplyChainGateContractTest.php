@@ -30,6 +30,35 @@ final class SupplyChainGateContractTest extends TestCase
         self::assertStringContainsString('sha512sum --check --strict', $workflow);
     }
 
+    public function testEverySubstantiveCheckoutIsBoundAndImmediatelyVerified(): void
+    {
+        $workflow = (string) file_get_contents(dirname(__DIR__, 2) . '/.github/workflows/quality.yml');
+        $checkout = '      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1';
+        $ref = '          ref: ${{ github.event_name == \'pull_request\' && github.event.pull_request.head.sha || github.sha }}';
+        $assertion = '      - name: Verify exact checkout identity';
+        $expectedCount = substr_count($workflow, $checkout);
+
+        self::assertSame(5, $expectedCount);
+        self::assertSame($expectedCount, substr_count($workflow, $ref));
+        self::assertSame($expectedCount, substr_count($workflow, $assertion));
+        self::assertSame($expectedCount, substr_count($workflow, 'actual="$(git rev-parse HEAD)"'));
+        self::assertSame($expectedCount, substr_count($workflow, 'test "$actual" = "$EXPECTED_HEAD_SHA"'));
+        self::assertSame(
+            $expectedCount,
+            preg_match_all(
+                '/^      - uses: actions\\/checkout@[^\\n]+\\n        with:\\n          ref: [^\\n]+\\n      - name: Verify exact checkout identity$/m',
+                $workflow,
+            ),
+        );
+
+        $withoutRef = preg_replace('/^          ref: [^\\n]+\\n/m', '', $workflow, 1);
+        self::assertIsString($withoutRef);
+        self::assertNotSame($expectedCount, substr_count($withoutRef, $ref));
+        $withoutAssertion = preg_replace('/^      - name: Verify exact checkout identity\\n/m', '', $workflow, 1);
+        self::assertIsString($withoutAssertion);
+        self::assertNotSame($expectedCount, substr_count($withoutAssertion, $assertion));
+    }
+
     public function testPackageScriptsRunLocalQualityGates(): void
     {
         $package = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/package.json'), true);
@@ -69,6 +98,7 @@ final class SupplyChainGateContractTest extends TestCase
             if (str_starts_with($relative, 'vendor/')
                 || str_starts_with($relative, 'node_modules/')
                 || str_starts_with($relative, '.git/')
+                || $relative === '.phpunit.result.cache'
                 || str_starts_with($relative, '.phpunit.cache/')
                 || str_starts_with($relative, 'release-build/')
                 || str_starts_with($relative, '.pytest_cache/')

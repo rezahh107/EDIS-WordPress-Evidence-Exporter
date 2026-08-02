@@ -1,10 +1,10 @@
 # Changelog
 
-## 3.7.14
+## 3.7.15
 
 - Adds a shared deterministic recursive/path-aware privacy projection before exported raw-value source artifacts are committed; private immutable snapshot bytes and their authoritative hashes remain exact.
 - Separates successful empty Elementor/WordPress observations from failed observations, including bounded PARTIAL Environment evidence for optional URL-normalization failure.
-- Stamps committed artifacts with truthful `observed_at` provenance and persists one `packaging_started_at` across packaging retries; worker implementation compatibility advances to `3.7.14`.
+- Stamps committed artifacts with truthful `observed_at` provenance and persists one `packaging_started_at` across packaging retries; worker implementation compatibility advances to `3.7.15`.
 - Makes `plugin.manifest.json` authoritative for release inventory, rejects undeclared ordinary workspace files, validates all intended-equal release version authorities, and emits manifest/critical/source-inventory build fingerprints.
 - Moves normative generated validation reports under `release-build/validation-evidence/` and adds machine-checked Technical ID/schema synchronization for both collector encyclopedias.
 - Normalizes retryable and non-retryable failure scheduling through the existing recovery state machine so released failures cannot retain `REST_ADVANCE_ACTIVE`.

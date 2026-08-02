@@ -31,7 +31,7 @@ if (!current_user_can('manage_options')) {
 $postId = wp_insert_post([
     'post_type' => 'page',
     'post_status' => 'publish',
-    'post_title' => 'EDIS 3.7.14 Real Export Gate',
+    'post_title' => 'EDIS 3.7.15 Real Export Gate',
     'post_content' => '',
 ], true);
 if (is_wp_error($postId) || !is_int($postId) || $postId <= 0) {
@@ -107,8 +107,8 @@ try {
     if (!is_array($stored) || ($stored['selected_components'] ?? null) !== $expectedPlan) {
         throw new RuntimeException('Production job plan does not match the current default selectable dependency plan.');
     }
-    if (($stored['implementation_version'] ?? null) !== '3.7.14') {
-        throw new RuntimeException('Fresh job implementation_version is not 3.7.14.');
+    if (($stored['implementation_version'] ?? null) !== '3.7.15') {
+        throw new RuntimeException('Fresh job implementation_version is not 3.7.15.');
     }
 
     $terminal = null;
@@ -128,8 +128,8 @@ try {
     }
 
     $stored = $jobs->get($jobId);
-    if (!is_array($stored) || ($stored['implementation_version'] ?? null) !== '3.7.14') {
-        throw new RuntimeException('Completed job implementation_version is not 3.7.14.');
+    if (!is_array($stored) || ($stored['implementation_version'] ?? null) !== '3.7.15') {
+        throw new RuntimeException('Completed job implementation_version is not 3.7.15.');
     }
     $token = is_string($stored['download_token'] ?? null) ? $stored['download_token'] : '';
     $bundlePath = $token === '' ? null : $files->authorize($jobId, $token);
@@ -143,10 +143,10 @@ try {
     }
     $manifest = json_decode($manifestBytes, true, 512, JSON_THROW_ON_ERROR);
     $validation = json_decode($validationBytes, true, 512, JSON_THROW_ON_ERROR);
-    if (($manifest['producer']['version'] ?? null) !== '3.7.14'
+    if (($manifest['producer']['version'] ?? null) !== '3.7.15'
         || ($manifest['data']['bundle_schema_version'] ?? null) !== '3.3.0'
         || ($validation['data']['evidence']['state'] ?? null) !== 'PASS') {
-        throw new RuntimeException('Completed ZIP metadata does not prove the 3.7.14/Schema 3.3.0 PASS contract with 3.7.14 worker compatibility.');
+        throw new RuntimeException('Completed ZIP metadata does not prove the 3.7.15/Schema 3.3.0 PASS contract with 3.7.15 worker compatibility.');
     }
 
     fwrite(STDOUT, "EDIS_REAL_EXPORT_COMPLETION_PASS job={$jobId}\n");
