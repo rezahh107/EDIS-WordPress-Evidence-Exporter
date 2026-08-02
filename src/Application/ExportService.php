@@ -14,7 +14,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\JsonSchemaValidator;
 
 final class ExportService
 {
-    private const PRODUCER_VERSION = '3.7.14';
+    private const PRODUCER_VERSION = '3.7.15';
     private DeterministicFilesystem $filesystem;
     private readonly string $pluginRoot;
 
@@ -376,7 +376,9 @@ final class ExportService
             'elementor_architecture_index' => ['totals', 'documents'],
             'elementor_dynamic_references' => ['kind_counts'],
             'elementor_kit_settings' => ['settings'],
+            'elementor_performance_configuration' => ['configuration'],
             'elementor_site_settings_index' => ['groups'],
+            'elementor_usage_summary' => ['element_kinds', 'widget_types'],
             'fixture_capture' => ['environment_notes'],
             default => [],
         };
@@ -385,6 +387,9 @@ final class ExportService
                 continue;
             }
             $value[$field] = $this->normalizeDeclaredObject($value[$field]);
+        }
+        if ($artifactType === 'elementor_feature_flags' && array_key_exists('features', $value)) {
+            $value['features'] = $this->normalizeFeatureFlagRecords($value['features']);
         }
         if ($artifactType === 'selection_snapshot' && is_array($value['semantic_identity'] ?? null) && is_array($value['semantic_identity']['selected_source_hashes'] ?? null)) {
             $value['semantic_identity']['selected_source_hashes'] = (object) $value['semantic_identity']['selected_source_hashes'];
@@ -407,6 +412,67 @@ final class ExportService
             unset($document);
         }
         return $value;
+    }
+
+    /** @return list<array{name:string,value:string}> */
+    private function normalizeFeatureFlagRecords(mixed $features): array
+    {
+        if (!is_array($features)) {
+            $this->failFeatureFlagProjection();
+        }
+        if ($features === []) {
+            return [];
+        }
+
+        $records = [];
+        if (array_is_list($features)) {
+            foreach ($features as $index => $record) {
+                if (!is_array($record)) {
+                    $this->failFeatureFlagProjection($index);
+                }
+                $keys = array_keys($record);
+                sort($keys, SORT_STRING);
+                if ($keys !== ['name', 'value']
+                    || !is_string($record['name'] ?? null)
+                    || !is_string($record['value'] ?? null)) {
+                    $this->failFeatureFlagProjection($index);
+                }
+                $records[] = ['name' => $record['name'], 'value' => $record['value']];
+            }
+        } else {
+            foreach ($features as $name => $observedValue) {
+                if (!is_string($name) || !is_string($observedValue)) {
+                    $this->failFeatureFlagProjection();
+                }
+                $records[] = ['name' => $name, 'value' => $observedValue];
+            }
+        }
+
+        usort(
+            $records,
+            static fn (array $left, array $right): int => CanonicalJson::compareObjectKeys(
+                $left['name'],
+                $right['name'],
+            ),
+        );
+        return $records;
+    }
+
+    private function failFeatureFlagProjection(?int $recordIndex = null): never
+    {
+        $context = [
+            'failure_phase' => 'public_artifact_projection',
+            'component_id' => 'elementor_feature_flags',
+        ];
+        if ($recordIndex !== null) {
+            $context['record_index'] = $recordIndex;
+        }
+        throw new ExportIntegrityException(
+            'EDIS_FEATURE_FLAGS_PROJECTION_INVALID',
+            'Feature Flags evidence could not be projected to the public record contract.',
+            null,
+            $context,
+        );
     }
 
     private function normalizeDeclaredObject(mixed $value): mixed
