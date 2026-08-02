@@ -4,6 +4,9 @@ name: EDIS manifest and PHPUnit diagnostic
   push:
     branches:
       - agent/edis-3.7.15-payload-shape-closure
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
