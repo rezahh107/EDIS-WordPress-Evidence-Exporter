@@ -5,12 +5,15 @@ name: Agent source snapshot 3.7.15
   push:
     branches:
       - agent/edis-3.7.15-payload-shape-closure
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: agent-source-snapshot-315
+  group: agent-source-snapshot-315-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +26,6 @@ jobs:
           fetch-depth: 0
       - name: Verify bounded branch ancestry
         run: |
-          test "${GITHUB_REF_NAME}" = "agent/edis-3.7.15-payload-shape-closure"
           git merge-base --is-ancestor 37ffb0ce1cd628c3e27d05b808384feda78f831e HEAD
           git status --short
       - name: Create read-only repository snapshot
@@ -35,7 +37,7 @@ jobs:
       - name: Upload source snapshot
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: edis-3.7.15-source-snapshot
+          name: edis-3.7.15-source-snapshot-${{ github.event_name }}
           path: release-build/source-snapshot/
           if-no-files-found: error
           retention-days: 3
