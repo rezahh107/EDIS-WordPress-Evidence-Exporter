@@ -101,7 +101,6 @@ final class DiagnosticsService
     /** @return array<string, mixed> */
     public function workerTest(int $ownerId): array
     {
-        $startedAt = time();
         try {
             $result = $this->worker->safeWorkerTest($ownerId);
             $job = is_array($result['job'] ?? null) ? $result['job'] : [];
@@ -121,24 +120,25 @@ final class DiagnosticsService
                     : $this->diagnosticUnavailable();
             }
             return $result;
+        } catch (SafeWorkerPostCreateException $exception) {
+            $job = $this->jobs->get($exception->jobId);
+            $publicJob = is_array($job) && (int) ($job['owner_id'] ?? 0) === $ownerId
+                ? $this->jobs->publicView($job)
+                : null;
+            $cause = $exception->getPrevious() ?? $exception;
+            $diagnostic = $this->records instanceof DiagnosticRecordService
+                ? $this->records->captureJobFailure(
+                    $ownerId,
+                    $exception->jobId,
+                    'SAFE_WORKER_TEST',
+                    '/edis-evidence-exporter/v3/diagnostics/worker-test',
+                    $cause,
+                    'edis_worker_test_failed',
+                    'WORKER_FAILURE',
+                )
+                : $this->diagnosticUnavailable();
+            return ['test_job_id' => $exception->jobId, 'state' => 'FAIL', 'job' => $publicJob] + $diagnostic;
         } catch (\Throwable $exception) {
-            $latest = $this->jobs->latestForUser($ownerId);
-            if (is_array($latest)
-                && is_string($latest['job_id'] ?? null)
-                && (int) ($latest['created_at'] ?? 0) >= $startedAt) {
-                $diagnostic = $this->records instanceof DiagnosticRecordService
-                    ? $this->records->captureJobFailure(
-                        $ownerId,
-                        (string) $latest['job_id'],
-                        'SAFE_WORKER_TEST',
-                        '/edis-evidence-exporter/v3/diagnostics/worker-test',
-                        $exception,
-                        'edis_worker_test_failed',
-                        'WORKER_FAILURE',
-                    )
-                    : $this->diagnosticUnavailable();
-                return ['test_job_id' => $latest['job_id'], 'state' => 'FAIL', 'job' => $latest] + $diagnostic;
-            }
             $diagnostic = $this->records instanceof DiagnosticRecordService
                 ? $this->records->capturePreJobFailure(
                     $ownerId,
