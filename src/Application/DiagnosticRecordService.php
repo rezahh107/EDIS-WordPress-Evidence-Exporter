@@ -5,6 +5,7 @@ namespace EDIS\EvidenceExporter\Application;
 
 use EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson;
 use EDIS\EvidenceExporter\Infrastructure\Support\DeterministicFilesystem;
+use EDIS\EvidenceExporter\Infrastructure\Support\DiagnosticCapacityReachedException;
 use EDIS\EvidenceExporter\Infrastructure\Support\DiagnosticRecordStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\ExportIntegrityException;
 use EDIS\EvidenceExporter\Infrastructure\Support\JsonSchemaValidator;
@@ -47,6 +48,8 @@ final class DiagnosticRecordService
         try {
             $record = $this->buildPreJobRecord($operation, $route, $request, $exception, $boundary, $publicCode);
             return $this->persist($ownerId, $record);
+        } catch (DiagnosticCapacityReachedException) {
+            return $this->unavailable(DiagnosticCapacityReachedException::CODE);
         } catch (\Throwable) {
             return $this->unavailable();
         }
@@ -84,6 +87,8 @@ final class DiagnosticRecordService
             }
             $record = $this->buildJobRecord($job, $operation, $route, $exception, $publicCode, $recordType);
             return $this->persist($ownerId, $record);
+        } catch (DiagnosticCapacityReachedException) {
+            return $this->unavailable(DiagnosticCapacityReachedException::CODE);
         } catch (\Throwable) {
             return $this->unavailable();
         }
@@ -185,7 +190,7 @@ final class DiagnosticRecordService
             $questions[] = $this->question(3, 'Is retry safe?', 'NOT_PROVEN', 'A blind retry could repeat an integrity or storage failure.', 'Resolve the named subsystem state before retrying or creating another Job.');
         }
 
-        $record = $this->baseRecord(
+        return $this->baseRecord(
             $diagnosticId,
             'PRE_JOB_FAILURE',
             $createdAt,
@@ -234,7 +239,6 @@ final class DiagnosticRecordService
             $this->recoveryGuidance($retryability),
             $truncation,
         );
-        return $record;
     }
 
     /** @param array<string,mixed> $job @return array<string,mixed> */
@@ -416,6 +420,8 @@ final class DiagnosticRecordService
         array $recovery,
         array $truncation,
     ): array {
+        [$systemIdentity, $identityEvidence] = $this->systemIdentity();
+        $evidence = array_values(array_merge($evidence, $identityEvidence));
         return [
             'schema' => [
                 'format' => self::FORMAT,
@@ -441,7 +447,7 @@ final class DiagnosticRecordService
                     'complete Elementor documents and unrestricted source content',
                 ],
             ],
-            'system_identity' => $this->systemIdentity($evidence),
+            'system_identity' => $systemIdentity,
             'operation_identity' => [
                 'operation_type' => $this->safeIdentifier($operation, 'UNKNOWN_OPERATION'),
                 'rest_route' => $this->safeRoute($route),
@@ -537,44 +543,71 @@ final class DiagnosticRecordService
         throw new \RuntimeException('Core diagnostic fields cannot fit the bounded record contract.');
     }
 
-    /** @param list<array<string,mixed>> $evidence @return array<string,mixed> */
-    private function systemIdentity(array $evidence): array
+    /** @return array{0:array<string,mixed>,1:list<array<string,mixed>>} */
+    private function systemIdentity(): array
     {
         global $wp_version;
-        $evidenceIds = $evidence === [] ? [] : ['ev-001'];
         $pluginVersion = defined('EDIS_EVIDENCE_EXPORTER_VERSION') ? (string) EDIS_EVIDENCE_EXPORTER_VERSION : null;
         $workerVersion = null;
         try {
             $reflection = new \ReflectionClass(ExportJobService::class);
             $value = $reflection->getConstant('IMPLEMENTATION_VERSION');
-            $workerVersion = is_string($value) ? $value : null;
+            $workerVersion = is_string($value) && $value !== '' ? $value : null;
         } catch (\Throwable) {
         }
+        $wordpressVersion = isset($wp_version) && is_string($wp_version) && $wp_version !== '' ? $wp_version : null;
         $elementorVersion = defined('ELEMENTOR_VERSION') ? (string) ELEMENTOR_VERSION : null;
-        return [
-            'plugin_version' => $this->observation($pluginVersion, $pluginVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $evidenceIds),
-            'worker_implementation_version' => $this->observation($workerVersion, $workerVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $evidenceIds),
-            'wordpress_version' => $this->observation(isset($wp_version) && is_string($wp_version) ? $wp_version : null, isset($wp_version) && is_string($wp_version) ? 'CONFIRMED' : 'UNAVAILABLE', $evidenceIds),
-            'php_version' => $this->observation(PHP_VERSION, 'CONFIRMED', $evidenceIds),
-            'elementor_version' => $this->observation($elementorVersion, $elementorVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $evidenceIds),
-            'build_identity' => $this->observation($this->buildIdentity(), $this->buildIdentity() !== null ? 'CONFIRMED' : 'UNAVAILABLE', $evidenceIds),
-        ];
+        $pluginManifestHash = $this->boundedFileSha256('plugin.manifest.json');
+        $criticalFilesHash = $this->boundedFileSha256('config/critical-files.json');
+        $buildIdentity = $pluginManifestHash !== null && $criticalFilesHash !== null
+            ? 'plugin_manifest=sha256:' . $pluginManifestHash . ';critical_files=sha256:' . $criticalFilesHash
+            : null;
+
+        $evidence = [];
+        $evidenceIds = [];
+        $append = static function (array &$rows, string $id, string $sourceType, string $locator): array {
+            $rows[] = ['evidence_id' => $id, 'source_type' => $sourceType, 'source_locator' => $locator, 'status' => 'CONFIRMED'];
+            return [$id];
+        };
+
+        $pluginEvidence = $pluginVersion !== null
+            ? $append($evidence, 'ev-101', 'RUNTIME_CONSTANT', 'EDIS_EVIDENCE_EXPORTER_VERSION')
+            : [];
+        $workerEvidence = $workerVersion !== null
+            ? $append($evidence, 'ev-102', 'RUNTIME_CLASS_CONSTANT', 'ExportJobService::IMPLEMENTATION_VERSION')
+            : [];
+        $wordpressEvidence = $wordpressVersion !== null
+            ? $append($evidence, 'ev-103', 'WORDPRESS_RUNTIME_GLOBAL', 'global:wp_version')
+            : [];
+        $phpEvidence = $append($evidence, 'ev-104', 'PHP_RUNTIME_VERSION', 'PHP_VERSION');
+        $elementorEvidence = $elementorVersion !== null
+            ? $append($evidence, 'ev-105', 'ELEMENTOR_RUNTIME_CONSTANT', 'ELEMENTOR_VERSION')
+            : [];
+        if ($buildIdentity !== null) {
+            $evidenceIds = array_merge(
+                $append($evidence, 'ev-106', 'BUILD_IDENTITY_FILE_SHA256', 'plugin.manifest.json#sha256:' . $pluginManifestHash),
+                $append($evidence, 'ev-107', 'BUILD_IDENTITY_FILE_SHA256', 'config/critical-files.json#sha256:' . $criticalFilesHash),
+            );
+        }
+
+        return [[
+            'plugin_version' => $this->observation($pluginVersion, $pluginVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $pluginEvidence),
+            'worker_implementation_version' => $this->observation($workerVersion, $workerVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $workerEvidence),
+            'wordpress_version' => $this->observation($wordpressVersion, $wordpressVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $wordpressEvidence),
+            'php_version' => $this->observation(PHP_VERSION, 'CONFIRMED', $phpEvidence),
+            'elementor_version' => $this->observation($elementorVersion, $elementorVersion !== null ? 'CONFIRMED' : 'UNAVAILABLE', $elementorEvidence),
+            'build_identity' => $this->observation($buildIdentity, $buildIdentity !== null ? 'CONFIRMED' : 'UNAVAILABLE', $evidenceIds),
+        ], $evidence];
     }
 
-    private function buildIdentity(): ?string
+    private function boundedFileSha256(string $relativePath): ?string
     {
-        $parts = [];
-        foreach (['plugin.manifest.json' => 'plugin_manifest', 'config/critical-files.json' => 'critical_files'] as $relative => $label) {
-            $path = rtrim($this->pluginRoot, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-            if (!is_file($path) || is_link($path)) {
-                continue;
-            }
-            $hash = hash_file('sha256', $path);
-            if (is_string($hash)) {
-                $parts[] = $label . '=sha256:' . $hash;
-            }
+        $path = rtrim($this->pluginRoot, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        if (!is_file($path) || is_link($path)) {
+            return null;
         }
-        return $parts === [] ? null : substr(implode(';', $parts), 0, 256);
+        $hash = hash_file('sha256', $path);
+        return is_string($hash) ? $hash : null;
     }
 
     /** @return array{value:string|int|bool|null,status:string,evidence_ids:list<string>} */
@@ -843,12 +876,12 @@ final class DiagnosticRecordService
     }
 
     /** @return array{diagnostic_available:false,diagnostic_id:null,diagnostic_persistence_code:string} */
-    private function unavailable(): array
+    private function unavailable(string $code = 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED'): array
     {
         return [
             'diagnostic_available' => false,
             'diagnostic_id' => null,
-            'diagnostic_persistence_code' => 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED',
+            'diagnostic_persistence_code' => $code,
         ];
     }
 }
