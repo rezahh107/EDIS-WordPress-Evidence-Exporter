@@ -1,8 +1,8 @@
 {
   "schema_version": "EDIS-VALIDATION-PLAN-2",
   "evidence_schema_version": "EDIS-VALIDATION-EVIDENCE-2",
-  "plugin_version": "3.7.15",
-  "scope": "payload_shape_closure_v3_7_15",
+  "plugin_version": "3.7.16",
+  "scope": "canonical_llm_diagnostic_record_v1",
   "runtime_feature_change": true,
   "frozen_contract_change": false,
   "local_completion_policy": "all_required_local_gates_must_pass",

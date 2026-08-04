@@ -16,7 +16,7 @@ if SPEC is None or SPEC.loader is None:
 release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release)
 
-VERSION = "3.7.15"
+VERSION = "3.7.16"
 BASE_PATHS = [
     "config/critical-files.json",
     "edis-evidence-exporter.php",
@@ -56,9 +56,9 @@ def manifest(paths: list[str] | None = None) -> dict[str, object]:
 def fixture(root: Path) -> None:
     write(
         root / "edis-evidence-exporter.php",
-        "<?php\n/**\n * Version: 3.7.15\n */\n"
-        "define('EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.15');\n"
-        "define('EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.15');\n",
+        "<?php\n/**\n * Version: 3.7.16\n */\n"
+        "define('EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.16');\n"
+        "define('EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.16');\n",
     )
     write(root / "package.json", json.dumps({"version": VERSION}) + "\n")
     write(
@@ -67,8 +67,8 @@ def fixture(root: Path) -> None:
     )
     write(root / "plugin.manifest.json", json.dumps(manifest(), separators=(",", ":")) + "\n")
     write(root / "config/critical-files.json", json.dumps({"plugin_version": VERSION, "files": {}}) + "\n")
-    write(root / "src/Application/ExportService.php", "<?php final class X { private const PRODUCER_VERSION = '3.7.15'; }\n")
-    write(root / "src/Application/ExportJobService.php", "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.15'; }\n")
+    write(root / "src/Application/ExportService.php", "<?php final class X { private const PRODUCER_VERSION = '3.7.16'; }\n")
+    write(root / "src/Application/ExportJobService.php", "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.16'; }\n")
     write(root / "composer.lock", "{}\n")
 
 
@@ -140,15 +140,15 @@ def test_t17_all_version_authorities_fail_closed() -> None:
     mutations = {
         "plugin_header_version": lambda root: write(
             root / "edis-evidence-exporter.php",
-            (root / "edis-evidence-exporter.php").read_text(encoding="utf-8").replace("Version: 3.7.15", "Version: 3.7.13"),
+            (root / "edis-evidence-exporter.php").read_text(encoding="utf-8").replace("Version: 3.7.16", "Version: 3.7.13"),
         ),
         "exporter_constant_version": lambda root: write(
             root / "edis-evidence-exporter.php",
-            (root / "edis-evidence-exporter.php").read_text(encoding="utf-8").replace("EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.15", "EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.13"),
+            (root / "edis-evidence-exporter.php").read_text(encoding="utf-8").replace("EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.16", "EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.13"),
         ),
         "platform_constant_version": lambda root: write(
             root / "edis-evidence-exporter.php",
-            (root / "edis-evidence-exporter.php").read_text(encoding="utf-8").replace("EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.15", "EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.13"),
+            (root / "edis-evidence-exporter.php").read_text(encoding="utf-8").replace("EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.16", "EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.13"),
         ),
         "package_json_version": lambda root: mutate_json(root / "package.json", lambda value: value.__setitem__("version", "3.7.13")),
         "manifest_plugin_version": lambda root: mutate_json(root / "plugin.manifest.json", lambda value: value["plugin"].__setitem__("version", "3.7.13")),

@@ -68,6 +68,7 @@ final class DegradedModeIntegration {
 
         $facts = $this->recoveryFacts();
         echo '<div class="notice notice-error"><p>' . esc_html( $facts['message'] ) . '</p>';
+        $this->renderArtifactAvailability();
         $this->renderStorageFacts( $facts );
         $this->renderRetestForm();
         echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=' . self::DIAGNOSTICS_SLUG ) ) . '">' . esc_html__( 'Open EDIS Diagnostics / Recovery', 'edis-evidence-exporter' ) . '</a></p>';
@@ -87,6 +88,7 @@ final class DegradedModeIntegration {
         echo '<div class="notice notice-error inline"><p>' . esc_html__( 'EDIS is in fail-closed recovery mode. Export creation, worker execution, operational REST controls, downloads, and scheduled export execution remain unavailable until the existing runtime, integrity, configuration, and storage gates pass.', 'edis-evidence-exporter' ) . '</p></div>';
         echo '<p><strong>' . esc_html__( 'Active diagnostic:', 'edis-evidence-exporter' ) . '</strong> <code>' . esc_html( $facts['diagnostic_code'] ) . '</code></p>';
         echo '<p>' . esc_html( $facts['message'] ) . '</p>';
+        $this->renderArtifactAvailability();
         $this->renderStorageFacts( $facts );
 
         $status = isset( $_GET['edis_storage_test'] ) && is_string( $_GET['edis_storage_test'] )
@@ -102,7 +104,8 @@ final class DegradedModeIntegration {
         $this->renderRetestForm();
         echo '<h2>' . esc_html__( 'Command-line diagnostics', 'edis-evidence-exporter' ) . '</h2>';
         echo '<p><code>wp edis storage paths</code><br /><code>wp edis storage self-test</code></p>';
-        echo '<p>' . esc_html__( 'This recovery page intentionally provides diagnostics only. Normal EDIS export and operational controls return automatically on a later request only after the existing startup gates pass.', 'edis-evidence-exporter' ) . '</p>';
+        echo '<p>' . esc_html__( 'This recovery page intentionally provides bounded ephemeral recovery facts only. No canonical incident artifact is persisted while the normal operational graph remains disabled.', 'edis-evidence-exporter' ) . '</p>';
+        echo '<p>' . esc_html__( 'Normal EDIS export and operational controls return automatically on a later request only after the existing startup gates pass.', 'edis-evidence-exporter' ) . '</p>';
         echo '</div>';
     }
 
@@ -124,7 +127,14 @@ final class DegradedModeIntegration {
 
     /** @param list<string> $args @param array<string,mixed> $assoc_args */
     public function cliPaths( array $args, array $assoc_args ): void {
-        $this->printCliJson( $this->storage->diagnosticContext() );
+        $this->printCliJson(
+            array(
+                'diagnostic_available' => false,
+                'diagnostic_id'        => null,
+                'diagnostic_code'      => $this->diagnosticCode,
+                'diagnostic_context'   => $this->storage->diagnosticContext(),
+            )
+        );
     }
 
     /** @param list<string> $args @param array<string,mixed> $assoc_args */
@@ -132,9 +142,11 @@ final class DegradedModeIntegration {
         $result = $this->storage->selfTest( true );
         $this->printCliJson(
             array(
-                'diagnostic_code'    => $this->diagnosticCode,
-                'diagnostic_context' => $this->storage->diagnosticContext(),
-                'self_test'          => $result,
+                'diagnostic_available' => false,
+                'diagnostic_id'        => null,
+                'diagnostic_code'      => $this->diagnosticCode,
+                'diagnostic_context'   => $this->storage->diagnosticContext(),
+                'self_test'            => $result,
             )
         );
         if ( ! $this->storage->acceptsSelfTestResult( $result ) ) {
@@ -168,6 +180,12 @@ final class DegradedModeIntegration {
             $this->diagnosticCode,
             'EDIS_EVIDENCE_PRIVATE_STORAGE_DIR'
         );
+    }
+
+    /** Render the explicit degraded-mode persistence boundary. */
+    private function renderArtifactAvailability(): void {
+        echo '<p><strong>' . esc_html__( 'Canonical diagnostic artifact:', 'edis-evidence-exporter' ) . '</strong> <code>diagnostic_available=false</code></p>';
+        echo '<p>' . esc_html__( 'The normal private diagnostic store is not initialized in fail-closed recovery mode, so no incident-specific JSON artifact is promised or persisted.', 'edis-evidence-exporter' ) . '</p>';
     }
 
     /** @param array{candidate:string,failed:list<string>} $facts */

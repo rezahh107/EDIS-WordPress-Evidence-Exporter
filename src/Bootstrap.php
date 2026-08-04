@@ -9,9 +9,12 @@ declare(strict_types=1);
 namespace EDIS\EvidenceExporter;
 
 use EDIS\EvidenceExporter\Admin\AdminModule;
+use EDIS\EvidenceExporter\Admin\DiagnosticAdminAssets;
+use EDIS\EvidenceExporter\Admin\DiagnosticDownloadController;
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRegistrar;
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
 use EDIS\EvidenceExporter\Admin\Settings\SettingsSanitizer;
+use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
 use EDIS\EvidenceExporter\Application\DiagnosticsService;
 use EDIS\EvidenceExporter\Application\DocumentQueryService;
 use EDIS\EvidenceExporter\Application\ExportJobService;
@@ -21,18 +24,21 @@ use EDIS\EvidenceExporter\Infrastructure\Collector\CollectorRegistry;
 use EDIS\EvidenceExporter\Infrastructure\Support\ArtifactStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson;
 use EDIS\EvidenceExporter\Infrastructure\Support\DeterministicFilesystem;
+use EDIS\EvidenceExporter\Infrastructure\Support\DiagnosticRecordStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\ExportFileStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\InputSnapshotStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\InstallationIntegrity;
 use EDIS\EvidenceExporter\Infrastructure\Support\JobStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage;
 use EDIS\EvidenceExporter\Infrastructure\Support\SelectionTokenStore;
+use EDIS\EvidenceExporter\Rest\DiagnosticExportJobController;
 use EDIS\EvidenceExporter\Rest\DiagnosticsController;
 use EDIS\EvidenceExporter\Rest\DocumentController;
 use EDIS\EvidenceExporter\Rest\ExportJobController;
 use EDIS\EvidenceExporter\Rest\InspectorSelectionController;
 use EDIS\EvidenceExporter\WordPress\CliCommands;
 use EDIS\EvidenceExporter\WordPress\DegradedModeIntegration;
+use EDIS\EvidenceExporter\WordPress\DiagnosticWorkerRunner;
 use EDIS\EvidenceExporter\WordPress\PrivacyIntegration;
 use EDIS\EvidenceExporter\WordPress\RuntimeContext;
 use EDIS\EvidenceExporter\WordPress\SiteHealthIntegration;
@@ -89,25 +95,30 @@ final class Bootstrap {
 			return;
 		}
 
-		$filesystem       = new DeterministicFilesystem();
-		$job_store        = new JobStore( $private_storage->path( 'jobs' ), $filesystem );
-		$artifact_store   = new ArtifactStore( $private_storage->path( 'artifacts' ), $filesystem );
-		$file_store       = new ExportFileStore( $settings, $private_storage->path( 'bundles' ), $filesystem );
-		$selection_tokens = new SelectionTokenStore( $private_storage->path( 'selections' ), 600, $filesystem );
-		$input_snapshots  = new InputSnapshotStore( $private_storage->path( 'inputs' ), null, $filesystem );
-		$export_service   = new ExportService( $registry, $this->pluginRoot );
-		$job_service      = new ExportJobService( $registry, $export_service, $job_store, $artifact_store, $file_store, $settings, $input_snapshots, $private_storage );
-		$document_service = new DocumentQueryService();
-		$diagnostics      = new DiagnosticsService( $registry, $job_store, $artifact_store, $file_store, $settings, $input_snapshots, $job_service, $this->pluginRoot, $filesystem );
-		$capability       = (string) $admin_config['capability'];
+		$filesystem         = new DeterministicFilesystem();
+		$job_store          = new JobStore( $private_storage->path( 'jobs' ), $filesystem );
+		$artifact_store     = new ArtifactStore( $private_storage->path( 'artifacts' ), $filesystem );
+		$file_store         = new ExportFileStore( $settings, $private_storage->path( 'bundles' ), $filesystem );
+		$selection_tokens   = new SelectionTokenStore( $private_storage->path( 'selections' ), 600, $filesystem );
+		$input_snapshots    = new InputSnapshotStore( $private_storage->path( 'inputs' ), null, $filesystem );
+		$diagnostic_store   = new DiagnosticRecordStore( $private_storage->path( 'diagnostics' ), $filesystem, $settings->retentionHours() * 3600 );
+		$diagnostic_records = new DiagnosticRecordService( $diagnostic_store, $job_store, $this->pluginRoot, $filesystem );
+		$export_service     = new ExportService( $registry, $this->pluginRoot );
+		$job_service        = new ExportJobService( $registry, $export_service, $job_store, $artifact_store, $file_store, $settings, $input_snapshots, $private_storage );
+		$document_service   = new DocumentQueryService();
+		$diagnostics        = new DiagnosticsService( $registry, $job_store, $artifact_store, $file_store, $settings, $input_snapshots, $job_service, $this->pluginRoot, $filesystem, $diagnostic_records );
+		$capability         = (string) $admin_config['capability'];
 
 		( new PrivacyIntegration( $job_store, $artifact_store, $input_snapshots, $file_store ) )->register();
 		( new SiteHealthIntegration( $private_storage, $job_store ) )->register();
 		( new CliCommands( $job_service, $job_store, $diagnostics, $private_storage ) )->register();
-		$worker_recovery = new WorkerRecovery( $job_store );
+		$worker_recovery  = new WorkerRecovery( $job_store );
+		$diagnostic_worker = new DiagnosticWorkerRunner( $job_service, $job_store, $diagnostic_records );
 
 		if ( $runtime->isAdmin() ) {
 			( new AdminModule( $this->pluginRoot, $admin_config, $registry, $settings, $settings_registrar, $job_store, $diagnostics, $selection_tokens ) )->register();
+			( new DiagnosticAdminAssets() )->register();
+			( new DiagnosticDownloadController( $diagnostic_records, $capability ) )->register();
 			( new InspectorModule( $capability ) )->register();
 			$export_controller = new ExportJobController( $job_service, $job_store, $file_store, $capability );
 			add_action( 'admin_post_edis_download_export', array( $export_controller, 'download' ) );
@@ -115,19 +126,20 @@ final class Bootstrap {
 		}
 
 		if ( $runtime->isRest() ) {
-			$export_controller = new ExportJobController( $job_service, $job_store, $file_store, $capability );
+			$export_controller = new DiagnosticExportJobController( $job_service, $job_store, $diagnostic_records, $capability );
 			add_action( 'rest_api_init', array( $export_controller, 'registerRoutes' ) );
 			add_action( 'rest_api_init', array( new InspectorSelectionController( $selection_tokens, $capability ), 'registerRoutes' ) );
 			add_action( 'rest_api_init', array( new DocumentController( $document_service, $capability ), 'registerRoutes' ) );
 			add_action( 'rest_api_init', array( new DiagnosticsController( $diagnostics ), 'registerRoutes' ) );
 		}
 
-		add_action( 'edis_process_export_job', array( $job_service, 'process' ), 10, 1 );
+		add_action( 'edis_process_export_job', array( $diagnostic_worker, 'process' ), 10, 1 );
 		add_action( 'edis_cleanup_export_files', array( $worker_recovery, 'run' ), 5 );
 		add_action( 'edis_cleanup_export_files', array( $file_store, 'cleanupExpired' ) );
 		add_action( 'edis_cleanup_export_files', array( $job_store, 'cleanupExpired' ) );
 		add_action( 'edis_cleanup_export_files', array( $selection_tokens, 'cleanupExpired' ) );
 		add_action( 'edis_cleanup_export_files', array( $input_snapshots, 'cleanupExpired' ) );
+		add_action( 'edis_cleanup_export_files', array( $diagnostic_records, 'cleanupExpired' ) );
 
 		if ( $runtime->isAdmin() && ! wp_next_scheduled( 'edis_cleanup_export_files' ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', 'edis_cleanup_export_files' );

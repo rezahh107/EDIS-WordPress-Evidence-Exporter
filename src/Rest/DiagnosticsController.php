@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace EDIS\EvidenceExporter\Rest;
 
+use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
 use EDIS\EvidenceExporter\Application\DiagnosticsService;
 
 final class DiagnosticsController
@@ -23,6 +24,20 @@ final class DiagnosticsController
             'permission_callback' => [$this, 'permission'],
             'args' => [],
         ]);
+        register_rest_route('edis-evidence-exporter/v3', '/diagnostics/(?P<diagnostic_id>edis-diag-[a-f0-9]{32})', [
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => [$this, 'resolve'],
+            'permission_callback' => [$this, 'permission'],
+            'args' => [
+                'diagnostic_id' => [
+                    'type' => 'string',
+                    'required' => true,
+                    'pattern' => '^edis-diag-[a-f0-9]{32}$',
+                    'validate_callback' => static fn (mixed $value): bool => is_string($value) && preg_match('/\Aedis-diag-[a-f0-9]{32}\z/D', $value) === 1,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ]);
     }
 
     public function permission(): bool|\WP_Error
@@ -34,18 +49,29 @@ final class DiagnosticsController
 
     public function report(): \WP_REST_Response
     {
-        return new \WP_REST_Response($this->diagnostics->report(), 200);
+        $response = new \WP_REST_Response($this->diagnostics->report(), 200);
+        $response->header('Cache-Control', 'no-store');
+        return $response;
     }
 
-    public function workerTest(): \WP_REST_Response|\WP_Error
+    public function resolve(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        try {
-            return new \WP_REST_Response($this->diagnostics->workerTest(get_current_user_id()), 200);
-        } catch (\Throwable $exception) {
-            return new \WP_Error('edis_worker_test_failed', __('The worker self-test could not be completed. Review private diagnostics for details.', 'edis-evidence-exporter'), [
-                'status' => 500,
-                'diagnostic_id' => 'edis-' . substr(hash('sha256', 'edis_worker_test_failed|' . $exception::class . '|' . $exception->getMessage()), 0, 16),
-            ]);
+        $diagnosticId = (string) $request->get_param('diagnostic_id');
+        $resolved = $this->diagnostics->resolveDiagnostic(get_current_user_id(), $diagnosticId);
+        if (!is_array($resolved)) {
+            return new \WP_Error('edis_diagnostic_not_found', __('Diagnostic artifact not found.', 'edis-evidence-exporter'), ['status' => 404]);
         }
+        $response = new \WP_REST_Response($resolved['record'], 200);
+        $response->header('Content-Type', DiagnosticRecordService::MEDIA_TYPE . '; charset=utf-8');
+        $response->header('Cache-Control', 'no-store');
+        $response->header('X-Content-Type-Options', 'nosniff');
+        return $response;
+    }
+
+    public function workerTest(): \WP_REST_Response
+    {
+        $response = new \WP_REST_Response($this->diagnostics->workerTest(get_current_user_id()), 200);
+        $response->header('Cache-Control', 'no-store');
+        return $response;
     }
 }

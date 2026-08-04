@@ -46,7 +46,7 @@ final class InstallationIntegrityTest extends TestCase
         $result = InstallationIntegrity::verify($root);
         self::assertSame('PASS', $result['state']);
         self::assertSame('EDIS_INSTALLATION_INTEGRITY_PASS', $result['code']);
-        self::assertSame('3.7.15', $result['version']);
+        self::assertSame('3.7.16', $result['version']);
     }
 
     public function testReportsReleaseCriticalHashesForIntegrityRegeneration(): void

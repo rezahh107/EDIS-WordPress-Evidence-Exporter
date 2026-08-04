@@ -1,4 +1,4 @@
-# EDIS 3.7.13 Quality Gates
+# EDIS 3.7.16 Quality Gates
 
 A release claim is valid only for commands that actually ran and passed. A workflow definition is not itself verification evidence.
 
@@ -34,7 +34,7 @@ Both checks are release gates. Enable `WP_DEBUG`, `WP_DEBUG_LOG`, `SCRIPT_DEBUG`
 
 The repository workflow pins WordPress `7.0` and Elementor `4.1.3`, activates both plugins on PHP 8.2 through 8.5, verifies the Elementor load hook, executes the EDIS-CJ-2 runtime gate and requires the private-storage self-test to pass.
 
-On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.13`. Worker compatibility remains independently pinned to `ExportJobService::IMPLEMENTATION_VERSION = 3.7.12`.
+On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.16`. Worker compatibility remains independently pinned to `ExportJobService::IMPLEMENTATION_VERSION = 3.7.15`.
 
 This is a real application-path export-completion integration gate, not an Elementor Editor browser automation matrix. Legacy/editor-interaction, Windows/LocalWP, third-party addon and other browser-observed behaviors remain separate environment gates.
 
@@ -56,6 +56,11 @@ This gate must not weaken production storage checks or instantiate the normal Ad
 ## Storage gate
 
 The active private-storage path must pass durable write, atomic replacement/rename, post-write SHA-256 verification, cleanup, two-handle lock exclusion and separate-PHP-process lock exclusion. The self-test field `atomic_replace` must be `true`. Independent-process lock exclusion must pass both the source regression test and the active deployment self-test. Production invokes the current `PHP_BINARY` through `proc_open` without a shell and requires the child lock attempt to be blocked. Shared/NFS/container-cluster storage requires an additional deployment-specific concurrency test. Failure is fail-closed.
+
+
+## Canonical diagnostic record gate
+
+The regression suite must prove schema validation, required fact/inference boundaries, rejection of unknown fields, 64 KiB and list bounds, visible truncation, secret/path/source redaction, pre-Job persistence, exact Job association, owner and object-authorization denial, expiry, cleanup safety, truthful persistence fallback, browser metadata preservation, exact copy/download bytes, human/canonical agreement, and Safe Worker PASS/IN_PROGRESS/FAIL/ABORTED mapping. Native Windows/LocalWP execution remains a separate environment gate.
 
 ## Package gate
 
