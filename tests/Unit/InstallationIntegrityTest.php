@@ -55,9 +55,14 @@ final class InstallationIntegrityTest extends TestCase
         foreach ([
             'edis-evidence-exporter.php',
             'plugin.manifest.json',
+            'src/Application/DiagnosticRecordService.php',
+            'src/Application/DiagnosticsService.php',
+            'src/Application/ExportJobService.php',
             'src/Application/ExportService.php',
+            'src/Infrastructure/Support/DiagnosticRecordStore.php',
             'src/Infrastructure/Support/PrivateStorage.php',
             'src/WordPress/DegradedModeIntegration.php',
+            'src/WordPress/DiagnosticWorkerRunner.php',
         ] as $relative) {
             $digest = hash_file('sha256', $root . $relative);
             self::assertIsString($digest);
