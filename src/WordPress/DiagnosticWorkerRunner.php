@@ -9,22 +9,32 @@ use EDIS\EvidenceExporter\Infrastructure\Support\JobStore;
 
 final class DiagnosticWorkerRunner
 {
+    private readonly ?\Closure $processJob;
+
     public function __construct(
         private readonly ExportJobService $worker,
         private readonly JobStore $jobs,
         private readonly DiagnosticRecordService $diagnostics,
+        ?callable $processJob = null,
     ) {
+        $this->processJob = $processJob !== null ? \Closure::fromCallable($processJob) : null;
     }
 
     public function process(string $jobId): void
     {
         $before = $this->jobs->get($jobId);
-        $beforeErrorAt = is_array($before) ? (int) ($before['last_error_at'] ?? 0) : 0;
-        $this->worker->process($jobId);
+        if ($this->processJob instanceof \Closure) {
+            ($this->processJob)($jobId);
+        } else {
+            $this->worker->process($jobId);
+        }
         $after = $this->jobs->get($jobId);
-        if (!is_array($after)
-            || ($after['status'] ?? null) !== 'failed'
-            || (int) ($after['last_error_at'] ?? 0) <= $beforeErrorAt) {
+        $afterSignature = $this->failureSignature($after);
+        if ($afterSignature === null) {
+            return;
+        }
+        $beforeSignature = $this->failureSignature($before);
+        if ($beforeSignature !== null && hash_equals($beforeSignature, $afterSignature)) {
             return;
         }
         $this->diagnostics->captureJobFailure(
@@ -36,5 +46,19 @@ final class DiagnosticWorkerRunner
             'edis_background_worker_failed',
             'WORKER_FAILURE',
         );
+    }
+
+    /** @param array<string,mixed>|null $job */
+    private function failureSignature(?array $job): ?string
+    {
+        if (!is_array($job) || ($job['status'] ?? null) !== 'failed') {
+            return null;
+        }
+        return implode("\0", [
+            (string) ($job['job_id'] ?? ''),
+            (string) ($job['last_error_code'] ?? ''),
+            (string) ($job['phase'] ?? ''),
+            is_scalar($job['current_component'] ?? null) ? (string) $job['current_component'] : '',
+        ]);
     }
 }
