@@ -25,7 +25,7 @@ final class InstallationIntegrityTest extends TestCase
         file_put_contents($this->root . '/src/Bootstrap.php', 'version-a');
         $manifest = [
             'format' => 'EDIS-INTEGRITY-1',
-            'plugin_version' => '3.7.11',
+            'plugin_version' => '3.7.16',
             'files' => [
                 'src/Bootstrap.php' => 'sha256:' . hash('sha256', 'version-a'),
             ],
