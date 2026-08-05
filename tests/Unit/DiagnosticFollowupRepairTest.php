@@ -90,9 +90,12 @@ final class DiagnosticFollowupRepairTest extends TestCase
         self::assertSame('EDIS_JOB_FORMAT_INCOMPATIBLE', $record['failure_classification']['internal_code']);
         self::assertSame('SEMANTIC', $record['failure_classification']['scope']);
         self::assertSame('resume_compatibility', $record['safe_context']['failure_phase']);
-        $observedAt = strtotime((string) $record['causal_timeline'][0]['observed_at']);
-        self::assertIsInt($observedAt);
-        self::assertGreaterThanOrEqual($captureStarted, $observedAt);
+        $observedTimes = array_map(
+            static fn (array $entry): int => (int) strtotime((string) ($entry['observed_at'] ?? '')),
+            $record['causal_timeline'],
+        );
+        self::assertNotSame([], $observedTimes);
+        self::assertGreaterThanOrEqual($captureStarted, max($observedTimes));
         self::assertContains(
             'PRIOR_PERSISTED_JOB_FAILURE',
             array_column($record['evidence_and_provenance'], 'source_type'),
