@@ -70,7 +70,6 @@ final class CanonicalDiagnosticResponseAdapter
             foreach ($canonicalResponse->get_headers() as $name => $value) {
                 $server->send_header((string) $name, (string) $value);
             }
-            $server->set_status($canonicalResponse->get_status());
         }
 
         if ($request->get_method() === 'GET') {
