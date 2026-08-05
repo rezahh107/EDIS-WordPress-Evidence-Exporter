@@ -167,7 +167,7 @@ jobs:
         run: wp plugin check edis-evidence-exporter --path=/tmp/wordpress --require=/tmp/wordpress/wp-content/plugins/plugin-check/cli.php
       - name: Verify exact canonical Diagnostic REST bytes and authorization
         if: matrix.wordpress == '7.0'
-        run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/canonical-diagnostic-rest.php" --path=/tmp/wordpress
+        run: wp --require="$GITHUB_WORKSPACE/tests/integration/rest-request-context.php" eval-file "$GITHUB_WORKSPACE/tests/integration/canonical-diagnostic-rest.php" --path=/tmp/wordpress
       - name: Verify Site Health, privacy hooks and filesystem preflight
         run: |
           wp eval '
@@ -543,7 +543,7 @@ jobs:
       - name: Verify multisite WP-CLI commands
         run: |
           wp edis worker status --path=/tmp/wordpress --url=http://localhost
-          wp edis jobs repair --path=/tmp/wordpress --url=http://localhost
+          wp edis jobs repair --path=/tmp/wordpress --url="$SITE_TWO_URL"
       - name: Verify network deactivation cleans scheduled hooks
         run: |
           wp plugin deactivate edis-evidence-exporter --network --path=/tmp/wordpress --url=http://localhost
