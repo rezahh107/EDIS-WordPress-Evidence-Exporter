@@ -166,6 +166,7 @@ $forbidden = edis_rest_dispatch($server, 'GET', $route, ['_envelope' => '1']);
 edis_rest_assert(edis_rest_response_status($forbidden) === 403, 'Capability denial did not precede canonical envelope handling.', 23);
 
 $other->add_cap('edis_export_evidence');
+wp_set_current_user((int) $otherId);
 $wrongOwner = edis_rest_dispatch($server, 'GET', $route, ['_envelope' => '1']);
 edis_rest_assert(edis_rest_response_status($wrongOwner) === 404, 'Wrong owner was not hidden by 404 before envelope handling.', 24);
 
