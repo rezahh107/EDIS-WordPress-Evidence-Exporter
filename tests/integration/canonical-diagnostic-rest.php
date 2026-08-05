@@ -190,7 +190,7 @@ $postId = wp_insert_post([
     'post_author' => (int) $otherId,
 ], true);
 edis_rest_assert(!is_wp_error($postId) && (int) $postId > 0, 'Authorization fixture post could not be created.', 27);
-$jobId = 'rest-auth-' . strtolower(wp_generate_password(12, false));
+$jobId = wp_generate_uuid4();
 $jobs->create([
     'job_id' => $jobId,
     'owner_id' => (int) $otherId,
