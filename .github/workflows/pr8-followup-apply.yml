@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          fetch-depth: 16
+          fetch-depth: 20
           ref: ${{ github.sha }}
       - name: Verify bounded starting ancestry and staging-only delta
         run: |
@@ -91,6 +91,20 @@ jobs:
               "\\t\\t\\tCanonicalDiagnosticResponseAdapter::register();\\n\\t\\t\\tadd_action( 'rest_api_init', array( new DiagnosticsController( $diagnostics ), 'registerRoutes' ) );",
           )'''
           source = source[:block_start] + new_bootstrap + source[block_end:]
+          release_marker = '"tools/release/build-release.py"'
+          release_index = source.find(release_marker)
+          if release_index < 0:
+              raise SystemExit('Bounded release predicate marker was not found.')
+          release_start = source.rfind('replace_once(', 0, release_index)
+          release_end = source.find('\n# Existing release test fixture', release_index)
+          if release_start < 0 or release_end < 0:
+              raise SystemExit('Bounded release predicate block was not found.')
+          new_release = '''regex_once(
+              "tools/release/build-release.py",
+              r'''    if worker_version != plugin_version:\\n        raise RuntimeError\\(f"[^"\\n]+"\\)\\n\\n''',
+              "",
+          )'''
+          source = source[:release_start] + new_release + source[release_end:]
           namespace = {'__file__': str(payload_path), '__name__': '__main__'}
           exec(compile(source, str(payload_path), 'exec'), namespace, namespace)
           PY
