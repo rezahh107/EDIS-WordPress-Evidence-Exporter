@@ -34,6 +34,29 @@ function edis_rest_dispatch(\WP_REST_Server $server, string $method, string $rou
     return $server->dispatch($request);
 }
 
+/** @param \WP_REST_Response|\WP_Error $response */
+function edis_rest_response_status($response): int
+{
+    if ($response instanceof \WP_Error) {
+        $data = $response->get_error_data();
+        return is_array($data) ? (int) ($data['status'] ?? 0) : 0;
+    }
+    return $response instanceof \WP_REST_Response ? $response->get_status() : 0;
+}
+
+/** @param \WP_REST_Response|\WP_Error $response */
+function edis_rest_response_code($response): string
+{
+    if ($response instanceof \WP_Error) {
+        return (string) $response->get_error_code();
+    }
+    if (!$response instanceof \WP_REST_Response) {
+        return '';
+    }
+    $data = $response->get_data();
+    return is_array($data) && is_string($data['code'] ?? null) ? $data['code'] : '';
+}
+
 function edis_rest_serve(\WP_REST_Server $server, string $method, string $route, array $query = []): string
 {
     $oldMethod = $_SERVER['REQUEST_METHOD'] ?? null;
@@ -122,7 +145,7 @@ $headBody = edis_rest_serve($server, 'HEAD', $route);
 edis_rest_assert($headBody === '', 'HEAD did not terminate with an empty body.', 17);
 
 $envelope = edis_rest_dispatch($server, 'GET', $route, ['_envelope' => '1']);
-edis_rest_assert($envelope instanceof \WP_Error && $envelope->get_error_code() === 'edis_diagnostic_envelope_unsupported' && (int) ($envelope->get_error_data()['status'] ?? 0) === 406, 'Authorized canonical _envelope request was not rejected deterministically.', 18);
+edis_rest_assert(edis_rest_response_code($envelope) === 'edis_diagnostic_envelope_unsupported' && edis_rest_response_status($envelope) === 406, 'Authorized canonical _envelope request was not rejected deterministically.', 18);
 
 $ordinaryRoute = '/edis-evidence-exporter/v3/diagnostics';
 $ordinaryResponse = edis_rest_dispatch($server, 'GET', $ordinaryRoute);
@@ -140,23 +163,23 @@ $other = get_user_by('id', (int) $otherId);
 edis_rest_assert($other instanceof \WP_User, 'Secondary REST user could not be loaded.', 22);
 wp_set_current_user((int) $otherId);
 $forbidden = edis_rest_dispatch($server, 'GET', $route, ['_envelope' => '1']);
-edis_rest_assert($forbidden instanceof \WP_Error && (int) ($forbidden->get_error_data()['status'] ?? 0) === 403, 'Capability denial did not precede canonical envelope handling.', 23);
+edis_rest_assert(edis_rest_response_status($forbidden) === 403, 'Capability denial did not precede canonical envelope handling.', 23);
 
 $other->add_cap('edis_export_evidence');
 $wrongOwner = edis_rest_dispatch($server, 'GET', $route, ['_envelope' => '1']);
-edis_rest_assert($wrongOwner instanceof \WP_Error && (int) ($wrongOwner->get_error_data()['status'] ?? 0) === 404, 'Wrong owner was not hidden by 404 before envelope handling.', 24);
+edis_rest_assert(edis_rest_response_status($wrongOwner) === 404, 'Wrong owner was not hidden by 404 before envelope handling.', 24);
 
 wp_set_current_user($adminId);
 $missingRoute = '/edis-evidence-exporter/v3/diagnostics/edis-diag-' . str_repeat('f', 32);
 $missing = edis_rest_dispatch($server, 'GET', $missingRoute, ['_envelope' => '1']);
-edis_rest_assert($missing instanceof \WP_Error && (int) ($missing->get_error_data()['status'] ?? 0) === 404, 'Nonexistent diagnostic did not retain bounded 404.', 25);
+edis_rest_assert(edis_rest_response_status($missing) === 404, 'Nonexistent diagnostic did not retain bounded 404.', 25);
 
 $expiredRecord = $resolved['record'];
 $expiredRecord['diagnostic_identity']['expires_at'] = gmdate('Y-m-d\TH:i:s\Z', time() - 60);
 $expiredPath = $diagnosticRoot . '/user-' . $adminId . '/' . $id . '.json';
 $filesystem->writeAtomically($expiredPath, CanonicalJson::encode($expiredRecord), 0640);
 $expired = edis_rest_dispatch($server, 'GET', $route, ['_envelope' => '1']);
-edis_rest_assert($expired instanceof \WP_Error && (int) ($expired->get_error_data()['status'] ?? 0) === 404, 'Expired diagnostic did not retain bounded 404.', 26);
+edis_rest_assert(edis_rest_response_status($expired) === 404, 'Expired diagnostic did not retain bounded 404.', 26);
 
 $postId = wp_insert_post([
     'post_type' => 'page',
@@ -202,7 +225,7 @@ edis_rest_assert(($jobDiagnostic['diagnostic_available'] ?? false) === true, 'Jo
 wp_set_current_user((int) $otherId);
 $revokedRoute = '/edis-evidence-exporter/v3/diagnostics/' . (string) $jobDiagnostic['diagnostic_id'];
 $revoked = edis_rest_dispatch($server, 'GET', $revokedRoute, ['_envelope' => '1']);
-edis_rest_assert($revoked instanceof \WP_Error && (int) ($revoked->get_error_data()['status'] ?? 0) === 404, 'Revoked document access did not retain bounded 404.', 29);
+edis_rest_assert(edis_rest_response_status($revoked) === 404, 'Revoked document access did not retain bounded 404.', 29);
 
 wp_set_current_user($adminId);
 wp_delete_post((int) $postId, true);
