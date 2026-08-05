@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          fetch-depth: 20
+          fetch-depth: 24
           ref: ${{ github.sha }}
       - name: Verify bounded starting ancestry and staging-only delta
         run: |
@@ -101,7 +101,7 @@ jobs:
               raise SystemExit('Bounded release predicate block was not found.')
           new_release = '''regex_once(
               "tools/release/build-release.py",
-              r'''    if worker_version != plugin_version:\\n        raise RuntimeError\\(f"[^"\\n]+"\\)\\n\\n''',
+              r'    if worker_version != plugin_version:\\n        raise RuntimeError\\(f"[^"\\n]+"\\)\\n\\n',
               "",
           )'''
           source = source[:release_start] + new_release + source[release_end:]
