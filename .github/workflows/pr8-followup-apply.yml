@@ -53,7 +53,8 @@ jobs:
           import re
           import zlib
           from pathlib import Path
-          bootstrap = Path('tools/ci/apply-pr8-followup.py').read_text(encoding='utf-8')
+          payload_path = Path('tools/ci/apply-pr8-followup.py').resolve()
+          bootstrap = payload_path.read_text(encoding='utf-8')
           match = re.search(r"b64decode\((?P<literal>'[^']+')\)", bootstrap)
           if match is None:
               raise SystemExit('Bounded applicator payload was not found.')
@@ -63,7 +64,7 @@ jobs:
           if source.count(old) != 1:
               raise SystemExit('Bounded regex helper changed unexpectedly.')
           source = source.replace(old, new, 1)
-          exec(compile(source, 'apply_pr8_followup.py', 'exec'))
+          exec(compile(source, str(payload_path), 'exec'))
           PY
       - name: Validate generated syntax
         run: |
