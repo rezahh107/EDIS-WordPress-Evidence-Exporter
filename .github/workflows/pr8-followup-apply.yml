@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          fetch-depth: 24
+          fetch-depth: 32
           ref: ${{ github.sha }}
       - name: Verify bounded starting ancestry and staging-only delta
         run: |
@@ -105,9 +105,29 @@ jobs:
               "",
           )'''
           source = source[:release_start] + new_release + source[release_end:]
+          quality_start = source.find('# Update quality workflow using bounded insertions.')
+          quality_end = source.find('# Synchronize critical hashes after all production/asset/manifest bytes stabilize.')
+          if quality_start < 0 or quality_end < 0:
+              raise SystemExit('Bounded quality workflow patch block was not found.')
+          quality_patch = r'''# Update quality workflow using exact live anchors.
+workflow = read(".github/workflows/quality.yml")
+needle = "      - if: matrix.php == '8.4'\n        run: npm run lint:js && npm run lint:css && npm run lint:workflows:strict\n"
+if workflow.count(needle) != 1:
+    raise RuntimeError("quality workflow live JS lane anchor missing")
+workflow = workflow.replace(needle, needle + "      - name: Verify separated release identities and two independent builds\n        if: matrix.php == '8.4'\n        run: |\n          python tests/release-authority-314.py\n          rm -rf /tmp/edis-release-a /tmp/edis-release-b\n          python tools/release/build-release.py --root . --output /tmp/edis-release-a\n          python tools/release/build-release.py --root . --output /tmp/edis-release-b\n          diff -qr /tmp/edis-release-a /tmp/edis-release-b\n          (cd /tmp/edis-release-a && sha256sum * | sort) > /tmp/edis-release-a.sha256\n          (cd /tmp/edis-release-b && sha256sum * | sort) > /tmp/edis-release-b.sha256\n          diff -u /tmp/edis-release-a.sha256 /tmp/edis-release-b.sha256\n", 1)
+wp_anchor = "      - name: Verify Site Health, privacy hooks and filesystem preflight\n"
+if workflow.count(wp_anchor) != 1:
+    raise RuntimeError("quality workflow live WordPress anchor missing")
+workflow = workflow.replace(wp_anchor, "      - name: Verify exact canonical Diagnostic REST bytes and authorization\n        if: matrix.wordpress == '7.0'\n        run: wp eval-file /tmp/wordpress/wp-content/plugins/edis-evidence-exporter/tests/integration/canonical-diagnostic-rest.php --path=/tmp/wordpress\n" + wp_anchor, 1)
+write(".github/workflows/quality.yml", workflow)
+
+'''
+          source = source[:quality_start] + quality_patch + source[quality_end:]
           namespace = {'__file__': str(payload_path), '__name__': '__main__'}
           exec(compile(source, str(payload_path), 'exec'), namespace, namespace)
           PY
+      - name: Remove bounded applicator from final tree
+        run: rm -f tools/ci/apply-pr8-followup.py .github/workflows/pr8-followup-apply.yml
       - name: Validate generated syntax
         run: |
           python -m py_compile tools/release/build-release.py tests/release-authority-314.py
