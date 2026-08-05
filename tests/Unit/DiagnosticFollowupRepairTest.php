@@ -92,7 +92,7 @@ final class DiagnosticFollowupRepairTest extends TestCase
         self::assertSame('resume_compatibility', $record['safe_context']['failure_phase']);
         self::assertGreaterThanOrEqual(
             $captureStarted,
-            strtotime((string) $record['timeline'][0]['observed_at']),
+            (int) $record['timeline'][0]['observed_at'],
         );
         self::assertContains(
             'PRIOR_PERSISTED_JOB_FAILURE',
