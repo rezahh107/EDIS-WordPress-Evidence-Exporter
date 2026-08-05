@@ -46,24 +46,24 @@ final class CanonicalDiagnosticResponseAdapter
     }
 
     public static function serve(
-        bool $served,
+        mixed $served,
         mixed $response,
         mixed $request,
         mixed $server,
     ): bool {
-        if ($served
+        if ($served === true
             || !$request instanceof \WP_REST_Request
             || !self::isCanonicalRequest($request)
             || ($response instanceof \WP_REST_Response && $response->get_status() >= 400)
         ) {
-            return $served;
+            return $served === true;
         }
 
         $canonicalResponse = $response instanceof CanonicalDiagnosticResponse
             ? $response
             : self::boundResponse($request);
         if (!$canonicalResponse instanceof CanonicalDiagnosticResponse) {
-            return $served;
+            return false;
         }
 
         if ($server instanceof \WP_REST_Server) {
