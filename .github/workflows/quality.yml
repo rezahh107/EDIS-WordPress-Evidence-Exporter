@@ -83,6 +83,17 @@ jobs:
         run: npm ci
       - if: matrix.php == '8.4'
         run: npm run lint:js && npm run lint:css && npm run lint:workflows:strict
+      - name: Verify separated release identities and two independent builds
+        if: matrix.php == '8.4'
+        run: |
+          python tests/release-authority-314.py
+          rm -rf /tmp/edis-release-a /tmp/edis-release-b
+          python tools/release/build-release.py --root . --output /tmp/edis-release-a
+          python tools/release/build-release.py --root . --output /tmp/edis-release-b
+          diff -qr /tmp/edis-release-a /tmp/edis-release-b
+          (cd /tmp/edis-release-a && sha256sum * | sort) > /tmp/edis-release-a.sha256
+          (cd /tmp/edis-release-b && sha256sum * | sort) > /tmp/edis-release-b.sha256
+          diff -u /tmp/edis-release-a.sha256 /tmp/edis-release-b.sha256
 
   plugin-check:
     name: Plugin Check / WordPress ${{ matrix.wordpress }}
@@ -154,6 +165,9 @@ jobs:
         run: wp plugin check edis-evidence-exporter --path=/tmp/wordpress
       - name: Runtime Plugin Check
         run: wp plugin check edis-evidence-exporter --path=/tmp/wordpress --require=/tmp/wordpress/wp-content/plugins/plugin-check/cli.php
+      - name: Verify exact canonical Diagnostic REST bytes and authorization
+        if: matrix.wordpress == '7.0'
+        run: wp eval-file /tmp/wordpress/wp-content/plugins/edis-evidence-exporter/tests/integration/canonical-diagnostic-rest.php --path=/tmp/wordpress
       - name: Verify Site Health, privacy hooks and filesystem preflight
         run: |
           wp eval '
