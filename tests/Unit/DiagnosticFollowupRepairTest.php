@@ -89,7 +89,7 @@ final class DiagnosticFollowupRepairTest extends TestCase
         $record = $resolved['record'];
         self::assertSame('EDIS_JOB_FORMAT_INCOMPATIBLE', $record['failure_classification']['internal_code']);
         self::assertSame('SEMANTIC', $record['failure_classification']['scope']);
-        self::assertSame('resume_compatibility', $record['safe_context']['lifecycle_stage']);
+        self::assertSame('resume_compatibility', $record['safe_context']['failure_phase']);
         self::assertGreaterThanOrEqual(
             $captureStarted,
             strtotime((string) $record['timeline'][0]['observed_at']),
@@ -121,7 +121,7 @@ final class DiagnosticFollowupRepairTest extends TestCase
             'message_key' => 'diagnostic.export.advance_failed',
             'context' => ['failure_phase' => 'new_persisted_occurrence'],
         ];
-        $jobs->save($job, 1);
+        $jobs->save($job, (int) $job['revision']);
 
         $result = $service->captureJobFailure(
             7,
@@ -139,7 +139,7 @@ final class DiagnosticFollowupRepairTest extends TestCase
         self::assertIsArray($resolved);
         $record = $resolved['record'];
         self::assertSame('EDIS_EXPORT_ADVANCE_FAILED', $record['failure_classification']['internal_code']);
-        self::assertSame('new_persisted_occurrence', $record['safe_context']['lifecycle_stage']);
+        self::assertSame('new_persisted_occurrence', $record['safe_context']['failure_phase']);
         self::assertContains(
             'PERSISTED_JOB_TRANSITION',
             array_column($record['evidence_and_provenance'], 'source_type'),
