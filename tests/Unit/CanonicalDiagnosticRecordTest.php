@@ -509,6 +509,7 @@ PHP
     {
         $root = dirname(__DIR__, 2) . '/';
         $javascript = (string) file_get_contents($root . 'assets/js/diagnostics.js');
+        $adminBind = (string) file_get_contents($root . 'assets/js/admin-bind.js');
         $template = (string) file_get_contents($root . 'templates/admin/diagnostics.php');
         $plugin = (string) file_get_contents($root . 'edis-evidence-exporter.php');
         $degraded = (string) file_get_contents($root . 'src/WordPress/DegradedModeIntegration.php');
@@ -516,7 +517,7 @@ PHP
         self::assertStringContainsString('diagnosticAvailable', $javascript);
         self::assertStringContainsString('diagnosticId', $javascript);
         self::assertStringContainsString('safeResponseMetadata', $javascript);
-        self::assertStringContainsString('copy-canonical-diagnostic', $javascript);
+        self::assertStringContainsString('copy-canonical-diagnostic', $adminBind);
         self::assertStringContainsString('edis-canonical-diagnostic-json', $template);
         self::assertStringContainsString('Current environment health', $template);
         self::assertStringContainsString('EDIS_UNSUPPORTED_RUNTIME', $plugin);

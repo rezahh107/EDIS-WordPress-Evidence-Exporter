@@ -361,7 +361,7 @@ final class RootCompleteRepairTest extends TestCase
         self::assertContains('environment', $normalizedExplicit['collectors']);
     }
 
-    public function testEquivalentAutomaticWorkerFailuresEmitOnceAndChangedSignatureEmitsAgain(): void
+    public function testAutomaticWorkerUsesCursorOccurrenceIdentityForDeduplicationAndRepetition(): void
     {
         $root = $this->tempRoot();
         [$worker, , $jobs, $inputs] = $this->service($root);
@@ -375,13 +375,17 @@ final class RootCompleteRepairTest extends TestCase
         $filesystem = new DeterministicFilesystem();
         $store = new DiagnosticRecordStore($root . '/diagnostics', $filesystem, 3600);
         $records = new DiagnosticRecordService($store, $jobs, $this->realPluginRoot(), $filesystem);
+        $mode = 'initial';
         $errorCode = 'EDIS_EXPORT_ADVANCE_FAILED';
         $cycles = 0;
         $runner = new DiagnosticWorkerRunner(
             $worker,
             $jobs,
             $records,
-            static function (string $id) use ($jobs, &$errorCode, &$cycles): void {
+            static function (string $id) use ($jobs, &$mode, &$errorCode, &$cycles): void {
+                if ($mode === 'unchanged') {
+                    return;
+                }
                 $job = $jobs->get($id);
                 if (!is_array($job)) {
                     return;
@@ -397,33 +401,55 @@ final class RootCompleteRepairTest extends TestCase
                     'severity' => 'ERROR',
                     'scope' => 'OPERATIONAL',
                     'message_key' => 'diagnostic.export.advance_failed',
-                    'context' => ['failure_phase' => 'failed'],
+                    'context' => [
+                        'failure_phase' => $mode === 'same-code-new-occurrence'
+                            ? 'same_code_new_occurrence'
+                            : 'failed',
+                    ],
                 ];
                 $jobs->save($job);
             },
         );
 
         $runner->process($jobId);
+        $mode = 'unchanged';
         $runner->process($jobId);
         $runner->process($jobId);
         $paths = glob($root . '/diagnostics/user-7/edis-diag-*.json') ?: [];
         self::assertCount(1, $paths);
-        $persisted = $jobs->get($jobId);
-        self::assertIsArray($persisted);
-        self::assertGreaterThan(time(), (int) $persisted['next_retry_at']);
 
-        $errorCode = 'EDIS_CHANGED_FAILURE_CODE';
+        $mode = 'same-code-new-occurrence';
         $runner->process($jobId);
         $paths = glob($root . '/diagnostics/user-7/edis-diag-*.json') ?: [];
         self::assertCount(2, $paths);
+
+        $mode = 'changed-code';
+        $errorCode = 'EDIS_CHANGED_FAILURE_CODE';
+        $runner->process($jobId);
+        $paths = glob($root . '/diagnostics/user-7/edis-diag-*.json') ?: [];
+        self::assertCount(3, $paths);
+
+        $persisted = $jobs->get($jobId);
+        self::assertIsArray($persisted);
+        self::assertGreaterThan(time(), (int) $persisted['next_retry_at']);
         $codes = [];
+        $phases = [];
         foreach ($paths as $path) {
             $record = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
             self::assertSame($jobId, $record['operation_identity']['job_id']);
+            self::assertSame(
+                'EDIS_RULE_CURRENT_OCCURRENCE_FROM_CHANGED_PERSISTED_TRANSITION',
+                $record['plugin_classification'][0]['rule_id'],
+            );
             $codes[] = $record['failure_classification']['internal_code'];
+            $phases[] = $record['safe_context']['failure_phase'] ?? null;
         }
         sort($codes, SORT_STRING);
-        self::assertSame(['EDIS_CHANGED_FAILURE_CODE', 'EDIS_EXPORT_ADVANCE_FAILED'], $codes);
+        self::assertSame(
+            ['EDIS_CHANGED_FAILURE_CODE', 'EDIS_EXPORT_ADVANCE_FAILED', 'EDIS_EXPORT_ADVANCE_FAILED'],
+            $codes,
+        );
+        self::assertContains('same_code_new_occurrence', $phases);
     }
 
     public function testSafeWorkerPostCreateFailureBindsExactJobDespiteCompetingNewerJob(): void

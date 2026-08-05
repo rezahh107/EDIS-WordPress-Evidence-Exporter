@@ -206,10 +206,11 @@ final class DiagnosticFollowupRepairTest extends TestCase
     {
         $root = dirname(__DIR__, 2) . '/';
         $controller = (string) file_get_contents($root . 'src/Rest/DiagnosticsController.php');
+        $adapter = (string) file_get_contents($root . 'src/Rest/CanonicalDiagnosticResponseAdapter.php');
         $exportController = (string) file_get_contents($root . 'src/Rest/DiagnosticExportJobController.php');
         $service = (string) file_get_contents($root . 'src/Application/DiagnosticRecordService.php');
         $builder = (string) file_get_contents($root . 'tools/release/build-release.py');
-        self::assertStringContainsString('rest_pre_serve_request', $controller);
+        self::assertStringContainsString('rest_pre_serve_request', $adapter);
         self::assertStringContainsString("\$resolved['bytes']", $controller);
         self::assertStringNotContainsString("\$resolved['record']", $controller);
         self::assertStringContainsString('JobFailureCursor::capture', $exportController);
