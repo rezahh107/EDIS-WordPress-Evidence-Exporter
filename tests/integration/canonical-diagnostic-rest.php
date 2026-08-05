@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 
 use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
 use EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson;
