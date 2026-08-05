@@ -167,7 +167,7 @@ jobs:
         run: wp plugin check edis-evidence-exporter --path=/tmp/wordpress --require=/tmp/wordpress/wp-content/plugins/plugin-check/cli.php
       - name: Verify exact canonical Diagnostic REST bytes and authorization
         if: matrix.wordpress == '7.0'
-        run: wp eval-file /tmp/wordpress/wp-content/plugins/edis-evidence-exporter/tests/integration/canonical-diagnostic-rest.php --path=/tmp/wordpress
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/canonical-diagnostic-rest.php" --path=/tmp/wordpress
       - name: Verify Site Health, privacy hooks and filesystem preflight
         run: |
           wp eval '
