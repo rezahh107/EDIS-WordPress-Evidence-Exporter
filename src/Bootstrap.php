@@ -33,6 +33,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage;
 use EDIS\EvidenceExporter\Infrastructure\Support\SelectionTokenStore;
 use EDIS\EvidenceExporter\Rest\DiagnosticExportJobController;
 use EDIS\EvidenceExporter\Rest\DiagnosticsController;
+use EDIS\EvidenceExporter\Rest\CanonicalDiagnosticResponseAdapter;
 use EDIS\EvidenceExporter\Rest\DocumentController;
 use EDIS\EvidenceExporter\Rest\ExportJobController;
 use EDIS\EvidenceExporter\Rest\InspectorSelectionController;
@@ -130,6 +131,7 @@ final class Bootstrap {
 			add_action( 'rest_api_init', array( $export_controller, 'registerRoutes' ) );
 			add_action( 'rest_api_init', array( new InspectorSelectionController( $selection_tokens, $capability ), 'registerRoutes' ) );
 			add_action( 'rest_api_init', array( new DocumentController( $document_service, $capability ), 'registerRoutes' ) );
+			CanonicalDiagnosticResponseAdapter::register();
 			add_action( 'rest_api_init', array( new DiagnosticsController( $diagnostics ), 'registerRoutes' ) );
 		}
 

@@ -135,6 +135,7 @@ final class DiagnosticsService
                     $cause,
                     'edis_worker_test_failed',
                     'WORKER_FAILURE',
+                    $exception->failureCursor,
                 )
                 : $this->diagnosticUnavailable();
             return ['test_job_id' => $exception->jobId, 'state' => 'FAIL', 'job' => $publicJob] + $diagnostic;

@@ -66,6 +66,7 @@ final class DiagnosticRecordService
         \Throwable $exception,
         ?string $publicCode = null,
         string $recordType = 'JOB_FAILURE',
+        ?array $failureCursor = null,
     ): array {
         try {
             $job = $this->jobs->get($jobId);
@@ -85,7 +86,20 @@ final class DiagnosticRecordService
                     $publicCode,
                 );
             }
-            $record = $this->buildJobRecord($job, $operation, $route, $exception, $publicCode, $recordType);
+            $expiresAt = $this->store->expirationForJob((int) ($job['expires_at'] ?? 0));
+            if ($expiresAt === null) {
+                return $this->unavailable('EDIS_DIAGNOSTIC_AUTHORITY_EXPIRED');
+            }
+            $record = $this->buildJobRecord(
+                $job,
+                $operation,
+                $route,
+                $exception,
+                $publicCode,
+                $recordType,
+                $failureCursor,
+                $expiresAt,
+            );
             return $this->persist($ownerId, $record);
         } catch (DiagnosticCapacityReachedException) {
             return $this->unavailable(DiagnosticCapacityReachedException::CODE);
@@ -194,7 +208,7 @@ final class DiagnosticRecordService
             $diagnosticId,
             'PRE_JOB_FAILURE',
             $createdAt,
-            $this->store->expiration(),
+            $this->store->defaultExpiration(),
             $operation,
             $route,
             null,
@@ -249,14 +263,29 @@ final class DiagnosticRecordService
         \Throwable $exception,
         ?string $publicCode,
         string $recordType,
+        ?array $failureCursor,
+        int $expiresAt,
     ): array {
         $diagnosticId = $this->newId();
         $createdAt = time();
         $jobId = (string) ($job['job_id'] ?? '');
         $latestDiagnostic = $this->latestDiagnostic($job);
-        $diagnosticContext = is_array($latestDiagnostic['context'] ?? null) ? $latestDiagnostic['context'] : [];
-        $internalCode = $this->safeCode($job['last_error_code'] ?? $latestDiagnostic['code'] ?? $this->internalCode($exception, 'EDIS_JOB_FAILURE'));
-        $scope = in_array(($latestDiagnostic['scope'] ?? null), ['SEMANTIC', 'OPERATIONAL'], true)
+        $persistedContext = is_array($latestDiagnostic['context'] ?? null) ? $latestDiagnostic['context'] : [];
+        $persistedTransition = $failureCursor === null || JobFailureCursor::changed($failureCursor, $job);
+        $fallbackCodes = [
+            'EXPORT_ADVANCE' => 'EDIS_EXPORT_ADVANCE_FAILED',
+            'EXPORT_RESUME' => 'EDIS_EXPORT_RESUME_FAILED',
+            'EXPORT_RETRY' => 'EDIS_EXPORT_RETRY_FAILED',
+            'EXPORT_CANCEL' => 'EDIS_EXPORT_CANCEL_FAILED',
+            'SAFE_WORKER_TEST' => 'EDIS_SAFE_WORKER_TEST_FAILED',
+        ];
+        $currentFallback = $fallbackCodes[$operation] ?? 'EDIS_JOB_FAILURE';
+        $exceptionContext = $this->exceptionContext($exception);
+        $diagnosticContext = $persistedTransition ? $persistedContext : $exceptionContext;
+        $internalCode = $persistedTransition
+            ? $this->safeCode($job['last_error_code'] ?? $latestDiagnostic['code'] ?? $this->internalCode($exception, $currentFallback))
+            : $this->safeCode($this->internalCode($exception, $currentFallback));
+        $scope = $persistedTransition && in_array(($latestDiagnostic['scope'] ?? null), ['SEMANTIC', 'OPERATIONAL'], true)
             ? (string) $latestDiagnostic['scope']
             : ($exception instanceof ExportIntegrityException ? 'SEMANTIC' : 'OPERATIONAL');
         $status = (string) ($job['status'] ?? 'unknown');
@@ -264,23 +293,32 @@ final class DiagnosticRecordService
         $retryability = $this->jobRetryability($job, $scope, $terminal);
         [$selectedComponents, $truncation] = $this->boundedStrings((array) ($job['selected_components'] ?? []), 64, 'operation_identity.selected_components');
         $config = is_array($job['config'] ?? null) ? $job['config'] : [];
-        $stage = $this->safeIdentifier($diagnosticContext['failure_phase'] ?? $job['phase'] ?? null);
+        $stage = $this->safeIdentifier($diagnosticContext['failure_phase'] ?? ($persistedTransition ? ($job['phase'] ?? null) : null));
         $subsystem = $this->safeIdentifier($job['current_component'] ?? ($stage === 'packaging' ? 'ExportService' : 'ExportJobService'));
         $lastSuccessful = $this->jobLastSuccessfulState($job);
-        $jobObservedAt = isset($job['last_error_at']) && is_numeric($job['last_error_at']) ? (int) $job['last_error_at'] : $createdAt;
+        $jobObservedAt = $persistedTransition && isset($job['last_error_at']) && is_numeric($job['last_error_at'])
+            ? (int) $job['last_error_at']
+            : $createdAt;
 
         $evidence = [
-            ['evidence_id' => 'ev-001', 'source_type' => 'PERSISTED_JOB_RECORD', 'source_locator' => 'JobStore:' . $jobId, 'status' => 'CONFIRMED'],
+            ['evidence_id' => 'ev-001', 'source_type' => $persistedTransition ? 'PERSISTED_JOB_TRANSITION' : 'PERSISTED_JOB_RECORD', 'source_locator' => 'JobStore:' . $jobId, 'status' => 'CONFIRMED'],
             ['evidence_id' => 'ev-002', 'source_type' => 'RUNTIME_EXCEPTION_CLASS', 'source_locator' => 'caught_throwable_class', 'status' => 'CONFIRMED'],
         ];
+        if (!$persistedTransition && is_array($failureCursor['state'] ?? null)) {
+            $evidence[] = ['evidence_id' => 'ev-003', 'source_type' => 'PRIOR_PERSISTED_JOB_FAILURE', 'source_locator' => 'JobStore:' . $jobId . ':before_operation', 'status' => 'CONFIRMED'];
+        }
         $facts = [
             $this->fact(1, 'EDIS resolved the exact persisted Job ' . $jobId . ' for this incident.', ['ev-001']),
             $this->fact(2, 'The persisted Job status was ' . $this->safeIdentifier($status, 'UNKNOWN') . ' with phase ' . $this->safeIdentifier($job['phase'] ?? null, 'UNKNOWN') . '.', ['ev-001']),
-            $this->fact(3, 'The persisted stable failure code was ' . $internalCode . '.', ['ev-001']),
+            $this->fact(3, ($persistedTransition ? 'The newly persisted transition' : 'The current caught operation') . ' supplied stable failure code ' . $internalCode . '.', [$persistedTransition ? 'ev-001' : 'ev-002']),
             $this->fact(4, 'The caught exception class was ' . $this->safeExceptionClass($exception::class) . '.', ['ev-002']),
         ];
+        if (!$persistedTransition && is_array($failureCursor['state'] ?? null)) {
+            $priorCode = $this->safeCode($failureCursor['state']['last_error_code'] ?? $failureCursor['state']['diagnostic_code'] ?? 'EDIS_PRIOR_FAILURE');
+            $facts[] = $this->fact(5, 'Prior persisted state contained failure code ' . $priorCode . '; it is labelled prior evidence and is not the current occurrence authority.', ['ev-003']);
+        }
         $classifications = [
-            $this->classification(1, 'EDIS_RULE_JOB_SCOPE_FROM_PERSISTED_DIAGNOSTIC', 'The Job failure scope is ' . $scope . '.', ['fact-002', 'fact-003']),
+            $this->classification(1, $persistedTransition ? 'EDIS_RULE_CURRENT_OCCURRENCE_FROM_CHANGED_PERSISTED_TRANSITION' : 'EDIS_RULE_CURRENT_OCCURRENCE_FROM_CAUGHT_OPERATION', 'The current occurrence source is ' . ($persistedTransition ? 'the changed persisted Job transition' : 'the caught operation exception') . '.', ['fact-003', 'fact-004']),
             $this->classification(2, 'EDIS_RULE_JOB_RETRYABILITY_FROM_PERSISTED_STATE', 'The deterministic retryability result is ' . $retryability . '.', ['fact-002', 'fact-003']),
             $this->classification(3, 'EDIS_RULE_TERMINAL_STATE_FROM_JOB_STATUS', 'The terminal-state result is ' . $terminal . '.', ['fact-002']),
         ];
@@ -332,7 +370,7 @@ final class DiagnosticRecordService
             $diagnosticId,
             in_array($recordType, ['JOB_FAILURE', 'WORKER_FAILURE'], true) ? $recordType : 'JOB_FAILURE',
             $createdAt,
-            $this->store->expiration(isset($job['expires_at']) && is_numeric($job['expires_at']) ? (int) $job['expires_at'] : null),
+            $expiresAt,
             $operation,
             $route,
             $jobId,

@@ -5,6 +5,7 @@ namespace EDIS\EvidenceExporter\Rest;
 
 use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
 use EDIS\EvidenceExporter\Application\ExportJobService;
+use EDIS\EvidenceExporter\Application\JobFailureCursor;
 use EDIS\EvidenceExporter\Infrastructure\Support\JobStore;
 
 final class DiagnosticExportJobController
@@ -110,8 +111,6 @@ final class DiagnosticExportJobController
                             'status' => 400,
                             'blockers' => array_slice((array) ($preflight['blockers'] ?? []), 0, 32),
                             'warnings' => array_slice((array) ($preflight['warnings'] ?? []), 0, 32),
-                            'diagnostic_available' => false,
-                            'diagnostic_id' => null,
                         ],
                     );
                 }
@@ -144,6 +143,7 @@ final class DiagnosticExportJobController
     public function advance(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         $jobId = (string) $request->get_param('job_id');
+        $failureCursor = $this->failureCursor($jobId);
         try {
             $revision = $request->get_param('revision');
             return new \WP_REST_Response($this->service->advance(
@@ -152,7 +152,7 @@ final class DiagnosticExportJobController
                 is_numeric($revision) ? (int) $revision : null,
             ), 200);
         } catch (\Throwable $exception) {
-            return $this->jobError('edis_export_advance_failed', 'EXPORT_ADVANCE', '/edis-evidence-exporter/v3/export-jobs/{job_id}/advance', $jobId, $exception, 409);
+            return $this->jobError('edis_export_advance_failed', 'EXPORT_ADVANCE', '/edis-evidence-exporter/v3/export-jobs/{job_id}/advance', $jobId, $exception, 409, $failureCursor);
         }
     }
 
@@ -174,10 +174,11 @@ final class DiagnosticExportJobController
     private function action(\WP_REST_Request $request, string $method, string $operation): \WP_REST_Response|\WP_Error
     {
         $jobId = (string) $request->get_param('job_id');
+        $failureCursor = $this->failureCursor($jobId);
         try {
             return new \WP_REST_Response($this->service->{$method}($jobId, get_current_user_id()), 200);
         } catch (\Throwable $exception) {
-            return $this->jobError('edis_export_action_failed', $operation, '/edis-evidence-exporter/v3/export-jobs/{job_id}/' . $method, $jobId, $exception, 409);
+            return $this->jobError('edis_export_action_failed', $operation, '/edis-evidence-exporter/v3/export-jobs/{job_id}/' . $method, $jobId, $exception, 409, $failureCursor);
         }
     }
 
@@ -210,6 +211,7 @@ final class DiagnosticExportJobController
         string $jobId,
         \Throwable $exception,
         int $status,
+        ?array $failureCursor = null,
     ): \WP_Error {
         $diagnostic = $this->diagnostics->captureJobFailure(
             get_current_user_id(),
@@ -218,6 +220,8 @@ final class DiagnosticExportJobController
             $route,
             $exception,
             $code,
+            'JOB_FAILURE',
+            $failureCursor,
         );
         return $this->error($code, $status, $diagnostic);
     }
@@ -225,25 +229,45 @@ final class DiagnosticExportJobController
     /** @param array{diagnostic_available:bool,diagnostic_id:?string,diagnostic_persistence_code:?string} $diagnostic */
     private function error(string $code, int $status, array $diagnostic): \WP_Error
     {
-        $available = $diagnostic['diagnostic_available'] === true && is_string($diagnostic['diagnostic_id']);
+        $available = $diagnostic['diagnostic_available'] === true
+            && is_string($diagnostic['diagnostic_id'])
+            && preg_match('/\Aedis-diag-[a-f0-9]{32}\z/D', $diagnostic['diagnostic_id']) === 1;
         $diagnosticId = $available ? $diagnostic['diagnostic_id'] : null;
+        $persistenceCode = !$available && is_string($diagnostic['diagnostic_persistence_code'] ?? null)
+            ? $diagnostic['diagnostic_persistence_code']
+            : null;
         $url = $available && function_exists('admin_url')
             ? add_query_arg('diagnostic_id', $diagnosticId, admin_url('admin.php?page=edis-evidence-diagnostics'))
             : null;
+        $message = $available
+            ? __('The export request could not be completed. Open EDIS Diagnostics with the returned diagnostic ID.', 'edis-evidence-exporter')
+            : ($persistenceCode === 'EDIS_DIAGNOSTIC_CAPACITY_REACHED'
+                ? __('The export request failed and the live diagnostic capacity is full. Existing diagnostic records were preserved.', 'edis-evidence-exporter')
+                : ($persistenceCode === 'EDIS_DIAGNOSTIC_AUTHORITY_EXPIRED'
+                    ? __('The export request failed after its Job authorization lifetime ended, so no diagnostic artifact was advertised.', 'edis-evidence-exporter')
+                    : __('The export request failed. EDIS could not persist a diagnostic artifact.', 'edis-evidence-exporter')));
         return new \WP_Error(
             $code,
-            $available
-                ? __('The export request could not be completed. Open EDIS Diagnostics with the returned diagnostic ID.', 'edis-evidence-exporter')
-                : __('The export request failed. EDIS could not persist a diagnostic artifact.', 'edis-evidence-exporter'),
+            $message,
             [
                 'status' => $status,
                 'diagnostic_available' => $available,
                 'diagnostic_id' => $diagnosticId,
                 'diagnostics_page' => 'edis-evidence-diagnostics',
                 'diagnostics_url' => $url,
-                'diagnostic_persistence_code' => $available ? null : 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED',
+                'diagnostic_persistence_code' => $available ? null : ($persistenceCode ?? 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED'),
             ],
         );
+    }
+
+    /** @return array{revision:int,signature:string,state:array<string,mixed>}|null */
+    private function failureCursor(string $jobId): ?array
+    {
+        $job = $this->jobs->get($jobId);
+        if (!is_array($job) || (int) ($job['owner_id'] ?? 0) !== get_current_user_id()) {
+            return null;
+        }
+        return JobFailureCursor::capture($job);
     }
 
     /** @return array<string,mixed>|\WP_Error */

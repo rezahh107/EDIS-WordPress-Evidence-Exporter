@@ -68,7 +68,7 @@ def fixture(root: Path) -> None:
     write(root / "plugin.manifest.json", json.dumps(manifest(), separators=(",", ":")) + "\n")
     write(root / "config/critical-files.json", json.dumps({"plugin_version": VERSION, "files": {}}) + "\n")
     write(root / "src/Application/ExportService.php", "<?php final class X { private const PRODUCER_VERSION = '3.7.16'; }\n")
-    write(root / "src/Application/ExportJobService.php", "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.16'; }\n")
+    write(root / "src/Application/ExportJobService.php", "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.15'; }\n")
     write(root / "composer.lock", "{}\n")
 
 
@@ -160,10 +160,6 @@ def test_t17_all_version_authorities_fail_closed() -> None:
             "<?php final class X { private const PRODUCER_VERSION = '3.7.13'; }\n",
         ),
         "critical_files_plugin_version": lambda root: mutate_json(root / "config/critical-files.json", lambda value: value.__setitem__("plugin_version", "3.7.13")),
-        "worker_implementation_version": lambda root: write(
-            root / "src/Application/ExportJobService.php",
-            "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.13'; }\n",
-        ),
     }
 
     for label, mutation in mutations.items():
@@ -175,6 +171,34 @@ def test_t17_all_version_authorities_fail_closed() -> None:
         finally:
             tmp.cleanup()
 
+
+
+def test_t17_worker_identity_is_independent_and_fail_closed() -> None:
+    tmp, root = fresh()
+    try:
+        source_paths = identity_paths(root)
+        identity = release.release_identity(root, source_paths)
+        assert identity["plugin_version"] == VERSION
+        assert identity["worker_implementation_version"] == "3.7.15"
+        write(root / "src/Application/ExportJobService.php", "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.14'; }\n")
+        identity = release.release_identity(root, source_paths)
+        assert identity["plugin_version"] == VERSION
+        assert identity["worker_implementation_version"] == "3.7.14"
+    finally:
+        tmp.cleanup()
+
+    for label, source in {
+        "missing": "<?php final class Y {}\n",
+        "empty": "<?php final class Y { private const IMPLEMENTATION_VERSION = ''; }\n",
+        "malformed": "<?php final class Y { private const IMPLEMENTATION_VERSION = 'not-a-version'; }\n",
+    }.items():
+        tmp, root = fresh()
+        try:
+            source_paths = identity_paths(root)
+            write(root / "src/Application/ExportJobService.php", source)
+            expect_failure(lambda: release.release_identity(root, source_paths), f"T17 worker {label}")
+        finally:
+            tmp.cleanup()
 
 def test_t17_package_lock_top_level_version_fails_closed() -> None:
     tmp, root = fresh()
@@ -230,7 +254,7 @@ def test_t18_clean_inventory_and_zip_are_deterministic() -> None:
         assert [path.relative_to(root).as_posix() for path in install_files] == expected_install
         identity = release.release_identity(root, source_paths)
         assert identity["plugin_version"] == VERSION
-        assert identity["worker_implementation_version"] == VERSION
+        assert identity["worker_implementation_version"] == "3.7.15"
 
         one = root / "one.zip"
         two = root / "two.zip"
@@ -248,6 +272,7 @@ def main() -> int:
         test_t15_unknown_ordinary_file_fails,
         test_t16_missing_unsafe_and_symlink_fail,
         test_t17_all_version_authorities_fail_closed,
+        test_t17_worker_identity_is_independent_and_fail_closed,
         test_t17_package_lock_top_level_version_fails_closed,
         test_t17_package_lock_root_version_fails_closed,
         test_t17_package_lock_missing_empty_and_malformed_fail_closed,

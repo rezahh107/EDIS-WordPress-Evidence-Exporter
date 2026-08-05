@@ -40,9 +40,15 @@ final class DiagnosticRecordStore
         return max(3600, min(604800, $this->retentionSeconds));
     }
 
-    public function expiration(?int $minimum = null): int
+    public function defaultExpiration(): int
     {
-        return max(time() + $this->retentionSeconds(), $minimum ?? 0);
+        return time() + $this->retentionSeconds();
+    }
+
+    public function expirationForJob(int $jobExpiresAt): ?int
+    {
+        $expiresAt = min($this->defaultExpiration(), $jobExpiresAt);
+        return $expiresAt > time() ? $expiresAt : null;
     }
 
     /** @param array<string,mixed> $record @return array{diagnostic_id:string,bytes:string,path:string} */
@@ -54,8 +60,8 @@ final class DiagnosticRecordStore
         $identity = is_array($record['diagnostic_identity'] ?? null) ? $record['diagnostic_identity'] : [];
         $diagnosticId = $this->safeId((string) ($identity['diagnostic_id'] ?? ''));
         $expiresAt = strtotime((string) ($identity['expires_at'] ?? ''));
-        if ($expiresAt === false || $expiresAt < time()) {
-            throw new \InvalidArgumentException('A future diagnostic expiry is required.');
+        if ($expiresAt <= time()) {
+            throw new \InvalidArgumentException('Diagnostic record is already expired.');
         }
         $bytes = CanonicalJson::encode($record);
         if (strlen($bytes) > self::MAX_BYTES) {
