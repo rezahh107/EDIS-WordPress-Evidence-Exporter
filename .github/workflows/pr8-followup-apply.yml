@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          fetch-depth: 40
+          fetch-depth: 48
           ref: ${{ github.sha }}
       - name: Verify bounded starting ancestry and staging-only delta
         run: |
@@ -107,51 +107,23 @@ jobs:
           quality_end = source.find('# Synchronize critical hashes after all production/asset/manifest bytes stabilize.')
           if quality_start < 0 or quality_end < 0:
               raise SystemExit('Bounded quality workflow block was not found.')
-          source = source[:quality_start] + '# Quality workflow is patched by the outer bounded job.\n\n' + source[quality_end:]
+          source = source[:quality_start] + '# Quality workflow is synchronized separately by the GitHub connector.\n\n' + source[quality_end:]
 
           namespace = {'__file__': str(payload_path), '__name__': '__main__'}
           exec(compile(source, str(payload_path), 'exec'), namespace, namespace)
           PY
-      - name: Wire exact live quality lanes
+      - name: Validate generated syntax and focused browser behavior
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('.github/workflows/quality.yml')
-          text = path.read_text(encoding='utf-8')
-          php_anchor = "      - if: matrix.php == '8.4'\n        run: npm run lint:js && npm run lint:css && npm run lint:workflows:strict\n"
-          php_step = """      - name: Verify separated release identities and two independent builds
-                  if: matrix.php == '8.4'
-                  run: |
-                    python tests/release-authority-314.py
-                    rm -rf /tmp/edis-release-a /tmp/edis-release-b
-                    python tools/release/build-release.py --root . --output /tmp/edis-release-a
-                    python tools/release/build-release.py --root . --output /tmp/edis-release-b
-                    diff -qr /tmp/edis-release-a /tmp/edis-release-b
-                    (cd /tmp/edis-release-a && sha256sum * | sort) > /tmp/edis-release-a.sha256
-                    (cd /tmp/edis-release-b && sha256sum * | sort) > /tmp/edis-release-b.sha256
-                    diff -u /tmp/edis-release-a.sha256 /tmp/edis-release-b.sha256
-          """
-          if text.count(php_anchor) != 1:
-              raise SystemExit('Live PHP quality anchor changed unexpectedly.')
-          text = text.replace(php_anchor, php_anchor + php_step, 1)
-          wp_anchor = "      - name: Verify Site Health, privacy hooks and filesystem preflight\n"
-          wp_step = """      - name: Verify exact canonical Diagnostic REST bytes and authorization
-                  if: matrix.wordpress == '7.0'
-                  run: wp eval-file /tmp/wordpress/wp-content/plugins/edis-evidence-exporter/tests/integration/canonical-diagnostic-rest.php --path=/tmp/wordpress
-          """
-          if text.count(wp_anchor) != 1:
-              raise SystemExit('Live WordPress quality anchor changed unexpectedly.')
-          text = text.replace(wp_anchor, wp_step + wp_anchor, 1)
-          path.write_text(text, encoding='utf-8')
+          for name in ('tools/release/build-release.py', 'tests/release-authority-314.py'):
+              compile(Path(name).read_text(encoding='utf-8'), name, 'exec')
           PY
-      - name: Remove bounded applicator from final tree
-        run: rm -f tools/ci/apply-pr8-followup.py .github/workflows/pr8-followup-apply.yml
-      - name: Validate generated syntax
-        run: |
-          python -m py_compile tools/release/build-release.py tests/release-authority-314.py
           find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
           node tests/diagnostics-envelope.test.mjs
-      - name: Commit repair to existing PR branch
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          find . -type f -name '*.pyc' -delete
+      - name: Commit production and test repair to existing PR branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
