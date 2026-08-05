@@ -72,7 +72,10 @@ final class DiagnosticsController
             );
         }
 
-        return new CanonicalDiagnosticResponse($resolved['bytes']);
+        return CanonicalDiagnosticResponseAdapter::bind(
+            $request,
+            new CanonicalDiagnosticResponse($resolved['bytes']),
+        );
     }
 
     private function notFound(): \WP_Error
