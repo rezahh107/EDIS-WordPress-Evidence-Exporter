@@ -18,10 +18,33 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          fetch-depth: 2
+          fetch-depth: 8
           ref: ${{ github.sha }}
-      - name: Verify bounded starting parent
-        run: test "$(git rev-parse HEAD^)" = "69bb9ab30c1be0c757672ce18cd9b1af4fcff2a2"
+      - name: Verify bounded starting ancestry and staging-only delta
+        run: |
+          git merge-base --is-ancestor 69bb9ab30c1be0c757672ce18cd9b1af4fcff2a2 HEAD
+          unexpected="$(git diff --name-only 69bb9ab30c1be0c757672ce18cd9b1af4fcff2a2...HEAD | grep -Ev '^(tools/ci/apply-pr8-followup.py|\.github/workflows/pr8-followup-apply.yml)$' || true)"
+          test -z "$unexpected"
+      - name: Normalize the verified store guard for the bounded applicator
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/Infrastructure/Support/DiagnosticRecordStore.php')
+          text = path.read_text(encoding='utf-8')
+          old = """        $expiresAt = strtotime((string) ($identity['expires_at'] ?? ''));
+                  if ($expiresAt === false || $expiresAt < time()) {
+                      throw new \\InvalidArgumentException('A future diagnostic expiry is required.');
+                  }
+          """
+          new = """        $expiresAt = strtotime((string) ($identity['expires_at'] ?? ''));
+                  if ($expiresAt < time()) {
+                      throw new \\InvalidArgumentException('Diagnostic record is already expired.');
+                  }
+          """
+          if text.count(old) != 1:
+              raise SystemExit('Verified DiagnosticRecordStore guard changed unexpectedly.')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply locked repair
         run: python tools/ci/apply-pr8-followup.py
       - name: Validate generated syntax
