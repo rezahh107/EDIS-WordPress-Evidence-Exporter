@@ -1,0 +1,39 @@
+name: PR8 follow-up applicator
+
+on:
+  push:
+    branches:
+      - agent/edis-canonical-llm-diagnostic-record-v1
+    paths:
+      - tools/ci/apply-pr8-followup.py
+      - .github/workflows/pr8-followup-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: contains(github.event.head_commit.message, '[apply-pr8-followup]')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 2
+          ref: ${{ github.sha }}
+      - name: Verify bounded starting parent
+        run: test "$(git rev-parse HEAD^)" = "69bb9ab30c1be0c757672ce18cd9b1af4fcff2a2"
+      - name: Apply locked repair
+        run: python tools/ci/apply-pr8-followup.py
+      - name: Validate generated syntax
+        run: |
+          python -m py_compile tools/release/build-release.py tests/release-authority-314.py
+          find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
+          node tests/diagnostics-envelope.test.mjs
+      - name: Commit repair to existing PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat: complete diagnostic authority follow-up"
+          git push origin HEAD:agent/edis-canonical-llm-diagnostic-record-v1
