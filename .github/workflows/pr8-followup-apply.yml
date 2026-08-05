@@ -46,7 +46,25 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
       - name: Apply locked repair
-        run: python tools/ci/apply-pr8-followup.py
+        run: |
+          python - <<'PY'
+          import ast
+          import base64
+          import re
+          import zlib
+          from pathlib import Path
+          bootstrap = Path('tools/ci/apply-pr8-followup.py').read_text(encoding='utf-8')
+          match = re.search(r"b64decode\((?P<literal>'[^']+')\)", bootstrap)
+          if match is None:
+              raise SystemExit('Bounded applicator payload was not found.')
+          source = zlib.decompress(base64.b64decode(ast.literal_eval(match.group('literal')))).decode('utf-8')
+          old = "updated, count = re.subn(pattern, replacement, content, count=1, flags=flags)"
+          new = "replacer = (lambda match: match.expand(replacement)) if '\\\\1' in replacement else (lambda match: replacement)\n    updated, count = re.subn(pattern, replacer, content, count=1, flags=flags)"
+          if source.count(old) != 1:
+              raise SystemExit('Bounded regex helper changed unexpectedly.')
+          source = source.replace(old, new, 1)
+          exec(compile(source, 'apply_pr8_followup.py', 'exec'))
+          PY
       - name: Validate generated syntax
         run: |
           python -m py_compile tools/release/build-release.py tests/release-authority-314.py
