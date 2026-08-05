@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          fetch-depth: 8
+          fetch-depth: 12
           ref: ${{ github.sha }}
       - name: Verify bounded starting ancestry and staging-only delta
         run: |
@@ -77,6 +77,19 @@ jobs:
           if source.count(old_expiry) != 1:
               raise SystemExit('Bounded Job expiry replacement changed unexpectedly.')
           source = source.replace(old_expiry, new_expiry, 1)
+          old_bootstrap = '''replace_once(
+              "src/Bootstrap.php",
+              """            add_action('rest_api_init', [$diagnosticExportJobs, 'registerRoutes']);\n            add_action('rest_api_init', [new DiagnosticsController($diagnostics), 'registerRoutes']);\n""",
+              """            add_action('rest_api_init', [$diagnosticExportJobs, 'registerRoutes']);\n            CanonicalDiagnosticResponseAdapter::register();\n            add_action('rest_api_init', [new DiagnosticsController($diagnostics), 'registerRoutes']);\n""",
+          )'''
+          new_bootstrap = '''replace_once(
+              "src/Bootstrap.php",
+              "\\t\\t\\tadd_action( 'rest_api_init', array( new DiagnosticsController( $diagnostics ), 'registerRoutes' ) );",
+              "\\t\\t\\tCanonicalDiagnosticResponseAdapter::register();\\n\\t\\t\\tadd_action( 'rest_api_init', array( new DiagnosticsController( $diagnostics ), 'registerRoutes' ) );",
+          )'''
+          if source.count(old_bootstrap) != 1:
+              raise SystemExit('Bounded Bootstrap adapter replacement changed unexpectedly.')
+          source = source.replace(old_bootstrap, new_bootstrap, 1)
           namespace = {'__file__': str(payload_path), '__name__': '__main__'}
           exec(compile(source, str(payload_path), 'exec'), namespace, namespace)
           PY
