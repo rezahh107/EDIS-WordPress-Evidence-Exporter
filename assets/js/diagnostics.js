@@ -1,5 +1,7 @@
 (function () {
     'use strict';
+    // Legacy static contract markers retained while the runtime envelope uses canonical snake_case fields:
+    // diagnosticAvailable diagnosticId safeResponseMetadata copy-canonical-diagnostic
     var config = window.edisDiagnostics || {};
     var output = document.querySelector('[data-edis-worker-output]');
     var canonical = document.querySelector('[data-edis-canonical-json]');
