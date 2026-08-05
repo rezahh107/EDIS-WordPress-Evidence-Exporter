@@ -271,7 +271,7 @@ final class DiagnosticRecordService
         $jobId = (string) ($job['job_id'] ?? '');
         $latestDiagnostic = $this->latestDiagnostic($job);
         $persistedContext = is_array($latestDiagnostic['context'] ?? null) ? $latestDiagnostic['context'] : [];
-        $persistedTransition = $failureCursor === null || JobFailureCursor::changed($failureCursor, $job);
+        $persistedTransition = JobFailureCursor::changed($failureCursor, $job);
         $fallbackCodes = [
             'EXPORT_ADVANCE' => 'EDIS_EXPORT_ADVANCE_FAILED',
             'EXPORT_RESUME' => 'EDIS_EXPORT_RESUME_FAILED',
@@ -299,6 +299,14 @@ final class DiagnosticRecordService
         $jobObservedAt = $persistedTransition && isset($job['last_error_at']) && is_numeric($job['last_error_at'])
             ? (int) $job['last_error_at']
             : $createdAt;
+        $occurrenceEvidenceIds = $persistedTransition ? ['ev-001'] : ['ev-002'];
+        $failureBoundary = $persistedTransition
+            ? 'The failure boundary is the changed persisted Job transition identified by lifecycle stage and stable code.'
+            : 'The failure boundary is the currently caught Job operation; no new persisted Job failure transition was observed.';
+        $timelineEventType = $persistedTransition ? 'JOB_FAILURE_RECORDED' : 'JOB_OPERATION_EXCEPTION_CAUGHT';
+        $observedInvariant = $persistedTransition
+            ? 'JobStore persisted status ' . $status . ' and stable code ' . $internalCode . '.'
+            : 'No new persisted Job failure transition was observed; the caught operation supplied stable code ' . $internalCode . ' while JobStore remained at status ' . $status . '.';
 
         $evidence = [
             ['evidence_id' => 'ev-001', 'source_type' => $persistedTransition ? 'PERSISTED_JOB_TRANSITION' : 'PERSISTED_JOB_RECORD', 'source_locator' => 'JobStore:' . $jobId, 'status' => 'CONFIRMED'],
@@ -310,7 +318,7 @@ final class DiagnosticRecordService
         $facts = [
             $this->fact(1, 'EDIS resolved the exact persisted Job ' . $jobId . ' for this incident.', ['ev-001']),
             $this->fact(2, 'The persisted Job status was ' . $this->safeIdentifier($status, 'UNKNOWN') . ' with phase ' . $this->safeIdentifier($job['phase'] ?? null, 'UNKNOWN') . '.', ['ev-001']),
-            $this->fact(3, ($persistedTransition ? 'The newly persisted transition' : 'The current caught operation') . ' supplied stable failure code ' . $internalCode . '.', [$persistedTransition ? 'ev-001' : 'ev-002']),
+            $this->fact(3, ($persistedTransition ? 'The newly persisted transition' : 'The current caught operation') . ' supplied stable failure code ' . $internalCode . '.', $occurrenceEvidenceIds),
             $this->fact(4, 'The caught exception class was ' . $this->safeExceptionClass($exception::class) . '.', ['ev-002']),
         ];
         if (!$persistedTransition && is_array($failureCursor['state'] ?? null)) {
@@ -323,7 +331,15 @@ final class DiagnosticRecordService
             $this->classification(3, 'EDIS_RULE_TERMINAL_STATE_FROM_JOB_STATUS', 'The terminal-state result is ' . $terminal . '.', ['fact-002']),
         ];
         $questions = [
-            $this->question(1, 'What lower-level condition produced the persisted failure code?', 'NOT_PROVEN', 'The Job record proves the boundary and state but not every external or filesystem cause beneath it.', 'Inspect the subsystem and expected-versus-observed entry named in this artifact before changing unrelated configuration.'),
+            $this->question(
+                1,
+                $persistedTransition ? 'What lower-level condition produced the persisted failure code?' : 'What lower-level condition caused the currently caught Job operation to fail?',
+                'NOT_PROVEN',
+                $persistedTransition
+                    ? 'The Job record proves the boundary and state but not every external or filesystem cause beneath it.'
+                    : 'The caught operation proves the current boundary, while the unchanged prior Job record does not prove the lower-level cause.',
+                'Inspect the subsystem and expected-versus-observed entry named in this artifact before changing unrelated configuration.',
+            ),
         ];
         if ($retryability === 'NOT_PROVEN') {
             $questions[] = $this->question(2, 'Is another attempt safe?', 'NOT_PROVEN', 'The persisted state does not prove a safe automatic recovery path.', 'Collect the smallest subsystem check named by the stable code before retrying.');
@@ -358,12 +374,12 @@ final class DiagnosticRecordService
         $timeline[] = [
             'sequence' => $sequence,
             'observed_at' => gmdate('Y-m-d\TH:i:s\Z', $jobObservedAt),
-            'event_type' => 'JOB_FAILURE_RECORDED',
+            'event_type' => $timelineEventType,
             'before_state' => $lastSuccessful,
             'after_state' => $status,
             'operation' => $this->safeIdentifier($operation, 'UNKNOWN_OPERATION'),
             'status' => 'CONFIRMED',
-            'evidence_ids' => ['ev-001', 'ev-002'],
+            'evidence_ids' => $occurrenceEvidenceIds,
         ];
 
         return $this->baseRecord(
@@ -382,7 +398,7 @@ final class DiagnosticRecordService
             $subsystem,
             'advance or recover the exact persisted export Job',
             $lastSuccessful,
-            'The failure boundary is the persisted Job transition identified by lifecycle stage and stable code.',
+            $failureBoundary,
             $publicCode,
             $internalCode,
             $exception,
@@ -395,10 +411,10 @@ final class DiagnosticRecordService
             [[
                 'invariant_id' => 'EDIS_JOB_OPERATION_COMPLETES_OR_PERSISTS_TRUTHFUL_FAILURE_STATE',
                 'expected' => 'The Job operation completes or persists a bounded truthful failure state.',
-                'observed' => 'JobStore persisted status ' . $status . ' and stable code ' . $internalCode . '.',
+                'observed' => $observedInvariant,
                 'mismatch' => $terminal === 'FAILED',
                 'status' => 'CONFIRMED',
-                'evidence_ids' => ['ev-001'],
+                'evidence_ids' => $occurrenceEvidenceIds,
             ]],
             $evidence,
             $this->safeContext($exception, $diagnosticContext + [
