@@ -64,6 +64,19 @@ jobs:
           if source.count(old) != 1:
               raise SystemExit('Bounded regex helper changed unexpectedly.')
           source = source.replace(old, new, 1)
+          old_expiry = '''regex_once(
+              "src/Application/DiagnosticRecordService.php",
+              r"(\\$diagnosticId,\\n            \\$recordType,\\n            \\$createdAt,\\n            )\\$this->store->expiration\\([^\\n]*\\),",
+              r"\\1$expiresAt,",
+          )'''
+          new_expiry = '''replace_once(
+              "src/Application/DiagnosticRecordService.php",
+              "$this->store->expiration(isset($job['expires_at']) && is_numeric($job['expires_at']) ? (int) $job['expires_at'] : null),",
+              "$expiresAt,",
+          )'''
+          if source.count(old_expiry) != 1:
+              raise SystemExit('Bounded Job expiry replacement changed unexpectedly.')
+          source = source.replace(old_expiry, new_expiry, 1)
           namespace = {'__file__': str(payload_path), '__name__': '__main__'}
           exec(compile(source, str(payload_path), 'exec'), namespace, namespace)
           PY
