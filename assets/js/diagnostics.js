@@ -172,7 +172,7 @@
             return;
         }
 
-        var copy = event.target.closest('[data-edis-copy-canonical]');
+        var copy = event.target.closest('[data-edis-copy-canonical], [data-copy-canonical-diagnostic]');
         if (copy && canonical) {
             var text = canonical.textContent || '';
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -191,7 +191,6 @@
     });
 
     // Public test seam only; canonical copy remains bound to data-edis-copy-canonical.
-    // Legacy static contract marker: copy-canonical-diagnostic.
     window.EDISDiagnosticEnvelope = {
         classify: classifyDiagnostic,
         diagnosticData: diagnosticData
