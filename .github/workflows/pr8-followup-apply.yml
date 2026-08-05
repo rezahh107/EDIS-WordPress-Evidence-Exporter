@@ -64,7 +64,8 @@ jobs:
           if source.count(old) != 1:
               raise SystemExit('Bounded regex helper changed unexpectedly.')
           source = source.replace(old, new, 1)
-          exec(compile(source, str(payload_path), 'exec'))
+          namespace = {'__file__': str(payload_path), '__name__': '__main__'}
+          exec(compile(source, str(payload_path), 'exec'), namespace, namespace)
           PY
       - name: Validate generated syntax
         run: |
