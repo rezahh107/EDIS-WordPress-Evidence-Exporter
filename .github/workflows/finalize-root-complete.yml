@@ -42,6 +42,7 @@ jobs:
         run: |
           python -m py_compile tools/validation/finalize-root-complete.py
           python tools/validation/finalize-root-complete.py
+          rm -rf tools/validation/__pycache__
       - name: Install dependencies
         run: |
           composer install --no-interaction --prefer-dist --no-progress
