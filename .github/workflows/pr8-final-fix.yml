@@ -1,0 +1,79 @@
+name: PR8 final focused correction
+
+on:
+  push:
+    branches:
+      - agent/edis-canonical-llm-diagnostic-record-v1
+    paths:
+      - .github/workflows/pr8-final-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: contains(github.event.head_commit.message, '[fix-pr8-final]')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.sha }}
+      - name: Apply exact focused corrections
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          test_path = Path('tests/Unit/DiagnosticFollowupRepairTest.php')
+          test_source = test_path.read_text(encoding='utf-8')
+          old_test = """        self::assertGreaterThanOrEqual(
+                      $captureStarted,
+                      (int) $record['timeline'][0]['observed_at'],
+                  );
+          """
+          new_test = """        $observedAt = strtotime((string) $record['causal_timeline'][0]['observed_at']);
+                  self::assertIsInt($observedAt);
+                  self::assertGreaterThanOrEqual($captureStarted, $observedAt);
+          """
+          if test_source.count(old_test) != 1:
+              raise SystemExit('Occurrence timeline assertion changed unexpectedly.')
+          test_path.write_text(test_source.replace(old_test, new_test, 1), encoding='utf-8')
+
+          js_path = Path('assets/js/diagnostics.js')
+          js_source = js_path.read_text(encoding='utf-8')
+          old_selector = "event.target.closest('[data-edis-copy-canonical]')"
+          new_selector = "event.target.closest('[data-edis-copy-canonical], [data-copy-canonical-diagnostic]')"
+          if js_source.count(old_selector) != 1:
+              raise SystemExit('Canonical copy selector changed unexpectedly.')
+          js_source = js_source.replace(old_selector, new_selector, 1)
+          js_source = js_source.replace("    // Legacy static contract marker: copy-canonical-diagnostic.\n", "")
+          js_path.write_text(js_source, encoding='utf-8')
+
+          authority_path = Path('config/critical-files.json')
+          authority = json.loads(authority_path.read_text(encoding='utf-8'))
+          files = authority.get('files')
+          if not isinstance(files, dict) or not files:
+              raise SystemExit('Critical-file authority is missing.')
+          for relative in sorted(files):
+              path = Path(relative)
+              if not path.is_file() or path.is_symlink():
+                  raise SystemExit(f'Critical path unavailable: {relative}')
+              files[relative] = 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()
+          authority_path.write_text(
+              json.dumps(authority, ensure_ascii=False, sort_keys=True, separators=(',', ':')),
+              encoding='utf-8',
+          )
+          PY
+      - name: Validate focused corrections
+        run: |
+          php -l tests/Unit/DiagnosticFollowupRepairTest.php
+          node tests/diagnostics-envelope.test.mjs
+          git diff --check
+      - name: Commit focused corrections
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/js/diagnostics.js tests/Unit/DiagnosticFollowupRepairTest.php config/critical-files.json
+          git commit -m "fix: close final diagnostic regression gaps"
+          git push origin HEAD:agent/edis-canonical-llm-diagnostic-record-v1
