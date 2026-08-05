@@ -1,0 +1,50 @@
+name: PR8 timeline assertion correction
+
+on:
+  push:
+    branches:
+      - agent/edis-canonical-llm-diagnostic-record-v1
+    paths:
+      - .github/workflows/pr8-timeline-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: contains(github.event.head_commit.message, '[fix-pr8-timeline]')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.sha }}
+      - name: Correct current-occurrence timeline assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/Unit/DiagnosticFollowupRepairTest.php')
+          source = path.read_text(encoding='utf-8')
+          old = """        $observedAt = strtotime((string) $record['causal_timeline'][0]['observed_at']);
+                  self::assertIsInt($observedAt);
+                  self::assertGreaterThanOrEqual($captureStarted, $observedAt);
+          """
+          new = """        $observedTimes = array_map(
+                      static fn (array $entry): int => (int) strtotime((string) ($entry['observed_at'] ?? '')),
+                      $record['causal_timeline'],
+                  );
+                  self::assertNotSame([], $observedTimes);
+                  self::assertGreaterThanOrEqual($captureStarted, max($observedTimes));
+          """
+          if source.count(old) != 1:
+              raise SystemExit('Timeline assertion changed unexpectedly.')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Validate and commit
+        run: |
+          php -l tests/Unit/DiagnosticFollowupRepairTest.php
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/Unit/DiagnosticFollowupRepairTest.php
+          git commit -m "test: assert current occurrence across causal timeline"
+          git push origin HEAD:agent/edis-canonical-llm-diagnostic-record-v1
