@@ -38,6 +38,7 @@ final class CanonicalDiagnosticResponseAdapter
             return false;
         }
         if ($method === 'GET') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Persisted EDIS-CJ-2 bytes must be emitted byte-for-byte.
             echo $result->canonicalBytes;
         }
         return true;
