@@ -35,9 +35,12 @@ final class PreflightProofTest extends TestCase
             'EDIS_PREFLIGHT_PROOF_REQUEST_MISMATCH',
             static fn (): array => $proof->verify($token, 7, $changed),
         );
+
+        [$payload, $signature] = explode('.', $token, 2);
+        $tamperedSignature = ($signature[0] === 'A' ? 'B' : 'A') . substr($signature, 1);
         $this->assertReason(
             'EDIS_PREFLIGHT_PROOF_SIGNATURE_INVALID',
-            static fn (): array => $proof->verify(substr($token, 0, -1) . 'x', 7, $request),
+            static fn (): array => $proof->verify($payload . '.' . $tamperedSignature, 7, $request),
         );
     }
 
@@ -80,7 +83,7 @@ final class PreflightProofTest extends TestCase
         );
     }
 
-    public function testProofFailureContextNeverContainsProofBytesOrSignatures(): void
+    public function testProofFailureContextNeverContainsProofBytesOrSecrets(): void
     {
         $proof = new PreflightProof(str_repeat('s', 32), 300);
         $request = [
@@ -94,11 +97,12 @@ final class PreflightProofTest extends TestCase
             $proof->verify('malformed.proof', 7, $request);
             self::fail('Expected proof failure.');
         } catch (ExportIntegrityException $exception) {
-            $encoded = CanonicalJson::encode($exception->diagnosticContext);
-            foreach (['malformed.proof', 'signature', 'hmac', 'token', 'request_body'] as $secret) {
-                self::assertStringNotContainsString($secret, strtolower($encoded));
+            $encoded = strtolower(CanonicalJson::encode($exception->diagnosticContext));
+            foreach (['malformed.proof', 'hmac', 'preflight_token', 'request_body', 'authorization_header'] as $secret) {
+                self::assertStringNotContainsString($secret, $encoded);
             }
             self::assertSame('preflight_proof_verification', $exception->diagnosticContext['failure_phase'] ?? null);
+            self::assertSame(['signature_encoding'], $exception->diagnosticContext['failed_checks'] ?? null);
         }
     }
 
