@@ -6,27 +6,41 @@ const diagnosticsSource = fs.readFileSync(new URL('../assets/js/diagnostics.js',
 const adminSources = ['admin.js', 'admin-options.js', 'admin-document-list.js', 'admin-preflight.js', 'admin-jobs.js', 'admin-bind.js'].map((name) => fs.readFileSync(new URL('../assets/js/' + name, import.meta.url), 'utf8'));
 
 function element(tag = 'div') {
-  return {
+  let innerHTML = '';
+  const listeners = {};
+  const node = {
     tag,
     children: [],
     className: '',
     textContent: '',
-    innerHTML: '',
     href: '',
     dataset: {},
     classList: { add() {}, remove() {}, toggle() {} },
     appendChild(child) { this.children.push(child); return child; },
-    replaceChildren(...children) { this.children = children; this.innerHTML = ''; },
-    addEventListener() {},
+    replaceChildren(...children) { this.children = children; innerHTML = ''; },
+    addEventListener(type, handler) { listeners[type] = handler; },
+    async click() { return listeners.click?.({ preventDefault() {} }); },
     querySelector() { return null; },
     querySelectorAll() { return []; },
     scrollIntoView() {},
   };
+  Object.defineProperty(node, 'innerHTML', {
+    get() { return innerHTML; },
+    set(value) { innerHTML = String(value); node.children = []; },
+  });
+  return node;
 }
 
+const workerButton = element('button');
+const workerOutput = element('section');
+const nodes = new Map([
+  ['[data-edis-action="worker-test"]', workerButton],
+  ['#edis-worker-test-result', workerOutput],
+]);
+let workerPayload = null;
 const document = {
-  readyState: 'loading',
-  querySelector: () => null,
+  readyState: 'complete',
+  querySelector: (selector) => nodes.get(selector) || null,
   querySelectorAll: () => [],
   addEventListener: () => {},
   createElement: (tag) => element(tag),
@@ -48,7 +62,7 @@ const context = {
   },
   document,
   navigator: { clipboard: { writeText: async () => {} } },
-  fetch() { throw new Error('not used'); },
+  fetch: async () => ({ ok: true, status: 200, json: async () => workerPayload }),
   URL,
   URLSearchParams,
   Map,
@@ -119,4 +133,71 @@ consumer.renderBoundedError(networkTarget, new Error('offline'), 'fallback');
 assert.equal(networkTarget.children.length, 0);
 assert.match(networkTarget.innerHTML, /offline/);
 
-console.log(JSON.stringify({ state: 'PASS', classifier: true, productionConsumer: true }));
+async function runWorkerTest(payload) {
+  workerPayload = payload;
+  workerOutput.replaceChildren();
+  workerOutput.innerHTML = '';
+  await workerButton.click();
+  return workerOutput;
+}
+
+function assertRawWorkerResult(target, state) {
+  assert.equal(target.children.length, 0);
+  assert.match(target.innerHTML, new RegExp(`&quot;state&quot;: &quot;${state}&quot;`));
+  assert.doesNotMatch(target.innerHTML, /edis-diagnostic-envelope|diagnostic_id=/);
+}
+
+const workerAvailable = await runWorkerTest({
+  state: 'FAIL',
+  diagnostic_available: true,
+  diagnostic_id: id,
+  diagnostic_persistence_code: null,
+  diagnostics_url: 'https://example.test/wp-admin/admin.php?page=edis-evidence-diagnostics',
+});
+assert.equal(workerAvailable.children.length, 2);
+assert.equal(workerAvailable.children[0].children[0].textContent, 'available');
+assert.equal(workerAvailable.children[0].children[1].children[0].textContent, id);
+assert.match(workerAvailable.children[0].children[2].href, new RegExp(`diagnostic_id=${id}$`));
+assert.match(workerAvailable.children[1].textContent, /"state": "FAIL"/);
+
+const workerCapacity = await runWorkerTest({
+  state: 'FAIL',
+  diagnostic_available: false,
+  diagnostic_id: null,
+  diagnostic_persistence_code: 'EDIS_DIAGNOSTIC_CAPACITY_REACHED',
+  diagnostics_url: null,
+});
+assert.equal(workerCapacity.children.length, 2);
+assert.equal(workerCapacity.children[0].children[0].textContent, 'capacity');
+assert.equal(workerCapacity.children[0].children[1].children[0].textContent, 'EDIS_DIAGNOSTIC_CAPACITY_REACHED');
+assert.equal(workerCapacity.children[0].children.some((child) => child.tag === 'a'), false);
+assert.match(workerCapacity.children[1].textContent, /"state": "FAIL"/);
+
+const workerUnavailable = await runWorkerTest({
+  state: 'FAIL',
+  diagnostic_available: false,
+  diagnostic_id: null,
+  diagnostic_persistence_code: 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED',
+  diagnostics_url: null,
+});
+assert.equal(workerUnavailable.children.length, 2);
+assert.equal(workerUnavailable.children[0].children[0].textContent, 'unavailable');
+assert.equal(workerUnavailable.children[0].children[1].children[0].textContent, 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED');
+assert.match(workerUnavailable.children[1].textContent, /"state": "FAIL"/);
+
+const malformedWorkerPayloads = [
+  { state: 'FAIL', diagnostic_available: true, diagnostic_id: 'bad', diagnostic_persistence_code: null, diagnostics_url: null },
+  { state: 'FAIL', diagnostic_available: true, diagnosticAvailable: false, diagnostic_id: id, diagnostic_persistence_code: null, diagnostics_url: null },
+  { state: 'FAIL', diagnostic_available: false, diagnostic_id: null, diagnostic_persistence_code: 'EDIS_DIAGNOSTIC_CAPACITY_REACHED', diagnostics_url: '/fabricated' },
+  { state: 'FAIL', diagnostic_available: false, diagnostic_id: null, diagnostic_persistence_code: 'invalid code!', diagnostics_url: null },
+  { state: 'FAIL', message: 'bounded worker failure' },
+];
+for (const payload of malformedWorkerPayloads) {
+  assertRawWorkerResult(await runWorkerTest(payload), 'FAIL');
+}
+
+for (const state of ['PASS', 'IN_PROGRESS', 'ABORTED', 'UNKNOWN']) {
+  assertRawWorkerResult(await runWorkerTest({ state, message: `worker ${state}` }), state);
+}
+
+console.log(JSON.stringify({ state: 'PASS', classifier: true, productionConsumer: true, fulfilledWorkerTest: true }));
