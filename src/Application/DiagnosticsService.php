@@ -26,6 +26,7 @@ final class DiagnosticsService
         private readonly ExportJobService $worker,
         private readonly string $pluginRoot,
         ?DeterministicFilesystem $filesystem = null,
+        private readonly ?DiagnosticRecordService $records = null,
     ) {
         $this->filesystem = $filesystem ?? new DeterministicFilesystem();
     }
@@ -100,7 +101,110 @@ final class DiagnosticsService
     /** @return array<string, mixed> */
     public function workerTest(int $ownerId): array
     {
-        return $this->worker->safeWorkerTest($ownerId);
+        try {
+            $result = $this->worker->safeWorkerTest($ownerId);
+            $job = is_array($result['job'] ?? null) ? $result['job'] : [];
+            $state = self::workerTestState((string) ($job['status'] ?? ''));
+            $result['state'] = $state;
+            if ($state === 'FAIL' && is_string($result['test_job_id'] ?? null)) {
+                $result += $this->records instanceof DiagnosticRecordService
+                    ? $this->records->captureJobFailure(
+                        $ownerId,
+                        (string) $result['test_job_id'],
+                        'SAFE_WORKER_TEST',
+                        '/edis-evidence-exporter/v3/diagnostics/worker-test',
+                        new \RuntimeException('The safe worker test reached a persisted terminal failure state.'),
+                        'edis_worker_test_failed',
+                        'WORKER_FAILURE',
+                    )
+                    : $this->diagnosticUnavailable();
+            }
+            return $result;
+        } catch (SafeWorkerPostCreateException $exception) {
+            $job = $this->jobs->get($exception->jobId);
+            $publicJob = is_array($job) && (int) ($job['owner_id'] ?? 0) === $ownerId
+                ? $this->jobs->publicView($job)
+                : null;
+            $cause = $exception->getPrevious() ?? $exception;
+            $diagnostic = $this->records instanceof DiagnosticRecordService
+                ? $this->records->captureJobFailure(
+                    $ownerId,
+                    $exception->jobId,
+                    'SAFE_WORKER_TEST',
+                    '/edis-evidence-exporter/v3/diagnostics/worker-test',
+                    $cause,
+                    'edis_worker_test_failed',
+                    'WORKER_FAILURE',
+                    $exception->failureCursor,
+                )
+                : $this->diagnosticUnavailable();
+            return ['test_job_id' => $exception->jobId, 'state' => 'FAIL', 'job' => $publicJob] + $diagnostic;
+        } catch (\Throwable $exception) {
+            $diagnostic = $this->records instanceof DiagnosticRecordService
+                ? $this->records->capturePreJobFailure(
+                    $ownerId,
+                    'SAFE_WORKER_TEST',
+                    '/edis-evidence-exporter/v3/diagnostics/worker-test',
+                    ['privacy_mode' => 'Strict', 'collectors' => ['environment'], 'document_ids' => [], 'options' => ['export_scope' => 'METADATA_ONLY']],
+                    $exception,
+                    [
+                        'lifecycle_stage' => 'worker_test_job_creation',
+                        'subsystem' => 'ExportJobService',
+                        'operation_immediately_attempted' => 'create and advance the bounded safe worker test Job',
+                        'last_successful_state' => 'REQUEST_AUTHORIZED',
+                    ],
+                    'edis_worker_test_failed',
+                )
+                : $this->diagnosticUnavailable();
+            return ['test_job_id' => null, 'state' => 'FAIL', 'job' => null] + $diagnostic;
+        }
+    }
+
+    public static function workerTestState(string $status): string
+    {
+        return match ($status) {
+            'completed' => 'PASS',
+            'queued', 'running' => 'IN_PROGRESS',
+            'failed' => 'FAIL',
+            'cancelled' => 'ABORTED',
+            default => 'UNKNOWN',
+        };
+    }
+
+    /** @return array{record:array<string,mixed>,bytes:string}|null */
+    public function resolveDiagnostic(int $ownerId, string $diagnosticId): ?array
+    {
+        if (!$this->records instanceof DiagnosticRecordService) {
+            return null;
+        }
+        return $this->records->resolveForOwner(
+            $ownerId,
+            $diagnosticId,
+            static fn (int $documentId): bool => current_user_can('edit_post', $documentId),
+        );
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function recentDiagnostics(int $ownerId, int $limit = 10): array
+    {
+        if (!$this->records instanceof DiagnosticRecordService) {
+            return [];
+        }
+        return $this->records->recentForOwner(
+            $ownerId,
+            static fn (int $documentId): bool => current_user_can('edit_post', $documentId),
+            $limit,
+        );
+    }
+
+    /** @return array{diagnostic_available:false,diagnostic_id:null,diagnostic_persistence_code:string} */
+    private function diagnosticUnavailable(): array
+    {
+        return [
+            'diagnostic_available' => false,
+            'diagnostic_id' => null,
+            'diagnostic_persistence_code' => 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED',
+        ];
     }
 
     /** @return array<string, mixed> */

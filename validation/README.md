@@ -1,4 +1,4 @@
-# EDIS 3.7.15 validation kit
+# EDIS 3.7.16 validation kit
 
 This source-only kit records validation scope and evidence states. It is excluded from the WordPress installation ZIP.
 
@@ -20,4 +20,4 @@ On Windows PowerShell:
 
 Command output is captured through private temporary files; evidence retains SHA-256, byte counts, and bounded tails rather than loading complete output into PHP memory. Generated validation evidence is written only below `release-build/validation-evidence/`; it is never repository/source authority and is not added to `plugin.manifest.json`. Report files are committed through verified atomic replacement.
 
-Release 3.7.15 closes the selected correctness mechanisms for privacy projection, observation truth, temporal provenance, manifest-authoritative release construction, generated-evidence placement, documentation synchronization, failure-state normalization, and exact-build qualification. Frozen public schema versions remain unchanged unless separately authorized.
+Release 3.7.16 validates the canonical `EDIS-DIAGNOSTIC-1` record, private bounded persistence, exact authorized resolution, positive-allowlist privacy, explicit uncertainty, browser/admin projection, truthful persistence fallback, and Safe Worker state mapping. Product/platform and package producer identity are 3.7.16; worker compatibility remains 3.7.15. Frozen public evidence and package schema versions remain unchanged.

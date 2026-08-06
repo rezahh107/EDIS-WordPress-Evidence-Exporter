@@ -15,11 +15,42 @@ return [
         ],
         [
             'dependencies' => [
+                'edis-evidence-diagnostics',
                 'wp-api-fetch',
                 'wp-i18n',
             ],
-            'handle' => 'edis-evidence-admin',
+            'handle' => 'edis-evidence-admin-core',
             'path' => 'assets/js/admin.js',
+            'type' => 'js',
+        ],
+        [
+            'dependencies' => ['edis-evidence-admin-core'],
+            'handle' => 'edis-evidence-admin-options',
+            'path' => 'assets/js/admin-options.js',
+            'type' => 'js',
+        ],
+        [
+            'dependencies' => ['edis-evidence-admin-options'],
+            'handle' => 'edis-evidence-admin-document-list',
+            'path' => 'assets/js/admin-document-list.js',
+            'type' => 'js',
+        ],
+        [
+            'dependencies' => ['edis-evidence-admin-document-list'],
+            'handle' => 'edis-evidence-admin-preflight',
+            'path' => 'assets/js/admin-preflight.js',
+            'type' => 'js',
+        ],
+        [
+            'dependencies' => ['edis-evidence-admin-preflight'],
+            'handle' => 'edis-evidence-admin-jobs',
+            'path' => 'assets/js/admin-jobs.js',
+            'type' => 'js',
+        ],
+        [
+            'dependencies' => ['edis-evidence-admin-jobs'],
+            'handle' => 'edis-evidence-admin',
+            'path' => 'assets/js/admin-bind.js',
             'type' => 'js',
         ],
     ],
@@ -81,53 +112,17 @@ return [
     ],
     'position' => 81,
     'routes' => [
-        [
-            'method' => 'POST',
-            'path' => '/export-preflight',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/export-jobs',
-        ],
-        [
-            'method' => 'GET',
-            'path' => '/export-jobs/{job_id}',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/export-jobs/{job_id}/advance',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/export-jobs/{job_id}/resume',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/export-jobs/{job_id}/retry',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/export-jobs/{job_id}/cancel',
-        ],
-        [
-            'method' => 'GET',
-            'path' => '/documents',
-        ],
-        [
-            'method' => 'GET',
-            'path' => '/diagnostics',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/diagnostics/worker-test',
-        ],
-        [
-            'method' => 'POST',
-            'path' => '/inspector-selections',
-        ],
-        [
-            'method' => 'GET',
-            'path' => '/site-health/storage',
-        ],
+        ['method' => 'POST', 'path' => '/export-preflight'],
+        ['method' => 'POST', 'path' => '/export-jobs'],
+        ['method' => 'GET', 'path' => '/export-jobs/{job_id}'],
+        ['method' => 'POST', 'path' => '/export-jobs/{job_id}/advance'],
+        ['method' => 'POST', 'path' => '/export-jobs/{job_id}/resume'],
+        ['method' => 'POST', 'path' => '/export-jobs/{job_id}/retry'],
+        ['method' => 'POST', 'path' => '/export-jobs/{job_id}/cancel'],
+        ['method' => 'GET', 'path' => '/documents'],
+        ['method' => 'GET', 'path' => '/diagnostics'],
+        ['method' => 'POST', 'path' => '/diagnostics/worker-test'],
+        ['method' => 'POST', 'path' => '/inspector-selections'],
+        ['method' => 'GET', 'path' => '/site-health/storage'],
     ],
 ];

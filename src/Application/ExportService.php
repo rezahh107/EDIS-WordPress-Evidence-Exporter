@@ -14,7 +14,7 @@ use EDIS\EvidenceExporter\Infrastructure\Support\JsonSchemaValidator;
 
 final class ExportService
 {
-    private const PRODUCER_VERSION = '3.7.15';
+    private const PRODUCER_VERSION = '3.7.16';
     private DeterministicFilesystem $filesystem;
     private readonly string $pluginRoot;
 

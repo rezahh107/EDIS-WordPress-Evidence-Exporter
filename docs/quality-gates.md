@@ -1,4 +1,4 @@
-# EDIS 3.7.13 Quality Gates
+# EDIS 3.7.16 Quality Gates
 
 A release claim is valid only for commands that actually ran and passed. A workflow definition is not itself verification evidence.
 
@@ -34,7 +34,7 @@ Both checks are release gates. Enable `WP_DEBUG`, `WP_DEBUG_LOG`, `SCRIPT_DEBUG`
 
 The repository workflow pins WordPress `7.0` and Elementor `4.1.3`, activates both plugins on PHP 8.2 through 8.5, verifies the Elementor load hook, executes the EDIS-CJ-2 runtime gate and requires the private-storage self-test to pass.
 
-On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.13`. Worker compatibility remains independently pinned to `ExportJobService::IMPLEMENTATION_VERSION = 3.7.12`.
+On the representative PHP 8.4 lane, `tests/integration/real-export-completion.php` additionally creates a fresh minimal saved Elementor document, composes the production `ExportJobService`, `ExportService`, `CollectorRegistry` and real private stores, executes the current default selectable collector set through its derived REQUIRED dependency plan, and requires the job to reach `completed`, `progress=100`, `validation_state=PASS`. The gate then verifies the deterministic ZIP through the existing `ExportFileStore` authorization/integrity boundary and checks the package manifest remains Bundle Schema `3.3.0` with producer version `3.7.16`. Worker compatibility remains independently pinned to `ExportJobService::IMPLEMENTATION_VERSION = 3.7.15`.
 
 This is a real application-path export-completion integration gate, not an Elementor Editor browser automation matrix. Legacy/editor-interaction, Windows/LocalWP, third-party addon and other browser-observed behaviors remain separate environment gates.
 
@@ -57,9 +57,21 @@ This gate must not weaken production storage checks or instantiate the normal Ad
 
 The active private-storage path must pass durable write, atomic replacement/rename, post-write SHA-256 verification, cleanup, two-handle lock exclusion and separate-PHP-process lock exclusion. The self-test field `atomic_replace` must be `true`. Independent-process lock exclusion must pass both the source regression test and the active deployment self-test. Production invokes the current `PHP_BINARY` through `proc_open` without a shell and requires the child lock attempt to be blocked. Shared/NFS/container-cluster storage requires an additional deployment-specific concurrency test. Failure is fail-closed.
 
+## Canonical diagnostic record gate
+
+The regression suite must prove schema validation, required fact/inference boundaries, rejection of unknown fields, 64 KiB and list bounds, visible truncation, secret/path/source redaction, pre-Job persistence, exact Job association, owner and object-authorization denial, expiry, cleanup safety, truthful persistence fallback, browser metadata preservation, exact copy/download bytes, human/canonical agreement, and Safe Worker PASS/IN_PROGRESS/FAIL/ABORTED mapping. Native Windows/LocalWP execution remains a separate environment gate.
+
+The WordPress 7.0 Plugin Check lane must additionally execute `tests/integration/canonical-diagnostic-rest.php` through the real `WP_REST_Server::serve_request` boundary. Authorized GET output must be byte-identical to the persisted EDIS-CJ-2 record, with the canonical media type, exact `Content-Length`, private `no-store` and `nosniff` headers. HEAD must emit no body. `_pretty`, `_embed`, `_envelope`, `rest_post_dispatch`, `rest_pre_echo_response` and `rest_json_encode_options` must not alter canonical bytes, while an ordinary Diagnostics route must continue through normal WordPress filtering and serialization. Wrong-owner, revoked-document, expired and nonexistent records must retain the same bounded non-disclosing 404 behavior.
+
+Synchronous advance, Resume, Retry and Cancel failure capture must take a pre-operation cursor containing the Job revision and a canonical signature of the relevant persisted failure state. A changed persisted transition is the current occurrence authority, including a repeated code with a new revision or observed time. When the cursor is unchanged, the caught operation exception or explicit operation fallback is authoritative; historical Job failure data may appear only as labelled prior-state evidence. Safe Worker must carry the exact cursor with its exact durable Job ID, and background Worker capture remains an explicit persisted-transition source.
+
+Job-bound Diagnostic expiry must be the smaller future bound between default Diagnostic retention and `job.expires_at`. When no future overlap exists, the service must return `EDIS_DIAGNOSTIC_AUTHORITY_EXPIRED` and advertise no artifact. Normal structured preflight blockers must omit all Diagnostic-attempt fields. Browser and PHP tests must distinguish absent metadata, valid availability, `EDIS_DIAGNOSTIC_CAPACITY_REACHED`, generic persistence failure and malformed or contradictory envelopes without fabricating an artifact.
+
 ## Package gate
 
 The runtime ZIP must use `EDIS-ZIP-1`: stored entries only, UTF-8 names, byte-sorted paths, fixed DOS timestamp, fixed Unix mode, no comments, no optional extra fields and no ZIP64. Rebuilding the same package twice must produce identical bytes and the same SHA-256.
+
+Product release identity and Worker compatibility identity are separate predicates. Product authorities must agree on `3.7.16`; `ExportJobService::IMPLEMENTATION_VERSION` must be independently parsed, validated and reported as `3.7.15`. Product/Worker inequality alone is valid. Missing or malformed Worker identity and disagreement among product authorities are release failures. The PHP 8.4 CI lane must run `tests/release-authority-314.py`, build two isolated release output directories, and compare every ZIP, build report and `SHA256SUMS` byte-for-byte and by SHA-256.
 
 ## Cross-product gate
 

@@ -22,6 +22,18 @@ use EDIS\EvidenceExporter\Infrastructure\Support\PreflightProof;
 use EDIS\EvidenceExporter\Infrastructure\Support\DocumentIdentity;
 use EDIS\EvidenceExporter\Infrastructure\Support\Uuid;
 
+final class SafeWorkerPostCreateException extends \RuntimeException
+{
+    /** @param array{revision:int,signature:string,state:array<string,mixed>} $failureCursor */
+    public function __construct(
+        public readonly string $jobId,
+        public readonly array $failureCursor,
+        \Throwable $previous,
+    ) {
+        parent::__construct('Safe Worker advancement failed after durable Job creation.', 0, $previous);
+    }
+}
+
 final class ExportJobService
 {
     private const TERMINAL = ['completed', 'failed', 'cancelled'];
@@ -360,7 +372,12 @@ final class ExportJobService
     {
         $job = $this->create($ownerId, ['privacy_mode' => 'Strict', 'collectors' => ['environment'], 'document_ids' => [], 'options' => ['include_original_documents' => false, 'worker_test' => true, 'export_scope' => 'METADATA_ONLY', 'dependency_scope' => 'SOURCE_ONLY']]);
         $jobId = (string) $job['job_id'];
-        $result = $this->advance($jobId, $ownerId, null, 10000);
+        $failureCursor = JobFailureCursor::capture($job);
+        try {
+            $result = $this->advance($jobId, $ownerId, null, 10000);
+        } catch (\Throwable $exception) {
+            throw new SafeWorkerPostCreateException($jobId, $failureCursor, $exception);
+        }
         return ['test_job_id' => $jobId, 'state' => ($result['status'] ?? '') === 'completed' ? 'PASS' : 'FAIL', 'job' => $result];
     }
 

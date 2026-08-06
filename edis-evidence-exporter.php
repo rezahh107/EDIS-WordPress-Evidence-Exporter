@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EDIS WordPress Evidence Exporter
  * Description: Deterministic local evidence export with explicit collector truth states and an accessible WordPress Admin workflow.
- * Version: 3.7.15
+ * Version: 3.7.16
  * Requires at least: 6.5
  * Requires PHP: 8.2
  * Text Domain: edis-evidence-exporter
@@ -17,8 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.15' );
-define( 'EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.15' );
+define( 'EDIS_EVIDENCE_EXPORTER_VERSION', '3.7.16' );
+define( 'EDIS_EVIDENCE_BUILD_PLATFORM_VERSION', '3.7.16' );
 define( 'EDIS_EVIDENCE_BUNDLE_SCHEMA_VERSION', '3.3.0' );
 define( 'EDIS_EVIDENCE_EXPORTER_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EDIS_EVIDENCE_EXPORTER_URL', plugin_dir_url( __FILE__ ) );
@@ -78,12 +78,22 @@ function edis_evidence_exporter_boot(): void {
 
 /** Display the deterministic-runtime compatibility notice. */
 function edis_evidence_exporter_runtime_notice(): void {
-	echo '<div class="notice notice-error"><p>' . esc_html__( 'EDIS Evidence Exporter is inactive because the current PHP runtime is outside the verified deterministic range (64-bit PHP 8.2–8.5 with fsync).', 'edis-evidence-exporter' ) . '</p></div>';
+	$message = sprintf(
+		/* translators: %s: stable EDIS diagnostic code. */
+		esc_html__( 'EDIS Evidence Exporter is inactive because the current PHP runtime is outside the verified deterministic range (64-bit PHP 8.2–8.5 with fsync). Diagnostic code: %s. No diagnostic artifact is available because the canonical runtime and private diagnostic store were not initialized.', 'edis-evidence-exporter' ),
+		'EDIS_UNSUPPORTED_RUNTIME'
+	);
+	echo '<div class="notice notice-error"><p>' . esc_html( $message ) . '</p><p><code>diagnostic_available=false</code></p></div>';
 }
 
 /** Display a privacy-safe boot failure notice. */
 function edis_evidence_exporter_boot_notice(): void {
-	echo '<div class="notice notice-error"><p>' . esc_html__( 'EDIS Evidence Exporter could not initialize. Review Site Health and the EDIS diagnostics page for storage or runtime failures.', 'edis-evidence-exporter' ) . '</p></div>';
+	$message = sprintf(
+		/* translators: %s: stable EDIS diagnostic code. */
+		esc_html__( 'EDIS Evidence Exporter could not initialize. Diagnostic code: %s. Review WordPress Site Health and the server configuration. No EDIS diagnostic artifact or Diagnostics page is guaranteed to be available for this boot failure.', 'edis-evidence-exporter' ),
+		'EDIS_BOOTSTRAP_FAILED'
+	);
+	echo '<div class="notice notice-error"><p>' . esc_html( $message ) . '</p><p><code>diagnostic_available=false</code></p></div>';
 }
 
 register_activation_hook( __FILE__, 'edis_evidence_exporter_activate' );

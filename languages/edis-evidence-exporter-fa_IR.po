@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.15\n"
+"Project-Id-Version: EDIS WordPress Evidence Exporter 3.7.16\n"
 "Language: fa_IR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -801,3 +801,144 @@ msgstr ""
 
 msgid "Run EDIS storage test again"
 msgstr ""
+
+msgid "EDIS Evidence Exporter is inactive because the current PHP runtime is outside the verified deterministic range (64-bit PHP 8.2–8.5 with fsync). Diagnostic code: %s. No diagnostic artifact is available because the canonical runtime and private diagnostic store were not initialized."
+msgstr ""
+
+msgid "EDIS Evidence Exporter could not initialize. Diagnostic code: %s. Review WordPress Site Health and the server configuration. No EDIS diagnostic artifact or Diagnostics page is guaranteed to be available for this boot failure."
+msgstr ""
+
+msgid "This recovery page intentionally provides bounded ephemeral recovery facts only. No canonical incident artifact is persisted while the normal operational graph remains disabled."
+msgstr "این صفحه بازیابی عمداً فقط واقعیت‌های موقت و محدود بازیابی را نمایش می‌دهد. تا زمانی که گراف عملیاتی عادی غیرفعال است، هیچ مصنوع معیار رخداد ذخیره نمی‌شود."
+
+msgid "Normal EDIS export and operational controls return automatically on a later request only after the existing startup gates pass."
+msgstr "صادرات عادی EDIS و کنترل‌های عملیاتی فقط پس از عبور دروازه‌های راه‌اندازی موجود، در یک درخواست بعدی به‌صورت خودکار بازمی‌گردند."
+
+msgid "Canonical diagnostic artifact:"
+msgstr "مصنوع تشخیصی معیار:"
+
+msgid "The normal private diagnostic store is not initialized in fail-closed recovery mode, so no incident-specific JSON artifact is promised or persisted."
+msgstr "در حالت بازیابی بسته، مخزن خصوصی عادی تشخیص مقداردهی نمی‌شود؛ بنابراین هیچ مصنوع JSON ویژه رخداد وعده داده یا ذخیره نمی‌شود."
+
+msgid "Diagnostic ID"
+msgstr "شناسه تشخیصی"
+
+msgid "Copy ID"
+msgstr "کپی شناسه"
+
+msgid "EDIS could not persist a diagnostic artifact for this failure."
+msgstr "EDIS نتوانست برای این شکست یک مصنوع تشخیصی ذخیره کند."
+
+msgid "Diagnostic ID copied."
+msgstr "شناسه تشخیصی کپی شد."
+
+msgid "Copy diagnostic JSON"
+msgstr "کپی JSON تشخیصی"
+
+msgid "You do not have permission to download EDIS diagnostics."
+msgstr ""
+
+msgid "The diagnostic artifact is unavailable or expired."
+msgstr ""
+
+msgid "Preflight found blocking issues. Correct the listed blockers and run preflight again."
+msgstr ""
+
+msgid "The export request could not be completed. Open EDIS Diagnostics with the returned diagnostic ID."
+msgstr ""
+
+msgid "The export request failed. EDIS could not persist a diagnostic artifact."
+msgstr ""
+
+msgid "You do not have permission to view EDIS diagnostics."
+msgstr ""
+
+msgid "Diagnostic artifact not found."
+msgstr ""
+
+msgid "Resolve one incident-specific, privacy-safe canonical JSON record for direct language-model analysis. The human summary below is rendered only from that same record."
+msgstr ""
+
+msgid "Find a diagnostic artifact"
+msgstr "یافتن مصنوع تشخیصی"
+
+msgid "Resolve diagnostic"
+msgstr "یافتن تشخیص"
+
+msgid "The diagnostic artifact is unavailable, expired, or not authorized for the current user and site."
+msgstr ""
+
+msgid "Recent authorized incidents"
+msgstr "رخدادهای مجاز اخیر"
+
+msgid "Incident summary"
+msgstr "خلاصه رخداد"
+
+msgid "Record type"
+msgstr ""
+
+msgid "Created"
+msgstr ""
+
+msgid "Expires"
+msgstr ""
+
+msgid "Operation"
+msgstr ""
+
+msgid "Failure stage"
+msgstr ""
+
+msgid "Not proven"
+msgstr ""
+
+msgid "Subsystem"
+msgstr ""
+
+msgid "Last confirmed state"
+msgstr ""
+
+msgid "Internal code"
+msgstr ""
+
+msgid "Scope"
+msgstr ""
+
+msgid "Retryability"
+msgstr ""
+
+msgid "Terminal state"
+msgstr ""
+
+msgid "Confirmed facts"
+msgstr ""
+
+msgid "Unresolved evidence"
+msgstr ""
+
+msgid "Safe next action"
+msgstr ""
+
+msgid "Download diagnostic JSON"
+msgstr "دانلود JSON تشخیصی"
+
+msgid "Canonical LLM diagnostic JSON"
+msgstr "JSON تشخیصی معیار برای مدل زبانی"
+
+msgid "Current environment health"
+msgstr "سلامت فعلی محیط"
+
+msgid "These current checks are separate from the immutable incident artifact and must not be treated as incident-time causal evidence."
+msgstr ""
+
+msgid "Copy health report"
+msgstr ""
+
+msgid "Privacy-safe current health JSON"
+msgstr "JSON امن از نظر حریم خصوصی برای سلامت فعلی"
+
+msgid "Canonical diagnostic JSON"
+msgstr "JSON تشخیصی معیار"
+
+msgid "When a material operation fails and diagnostic persistence succeeds, use the returned diagnostic ID on the Diagnostics page to copy or download one privacy-safe incident JSON record for language-model analysis."
+msgstr "هنگام شکست یک عملیات مهم و موفقیت ذخیره‌سازی تشخیص، از شناسه بازگشتی در صفحه تشخیص‌ها برای کپی یا دانلود یک رکورد JSON رخدادِ امن از نظر حریم خصوصی جهت تحلیل مدل زبانی استفاده کنید."

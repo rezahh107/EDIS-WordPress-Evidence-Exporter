@@ -2,6 +2,7 @@
 <phpunit bootstrap="autoload.php" colors="true" failOnEmptyTestSuite="true">
   <php>
     <const name="ABSPATH" value="/tmp/wordpress/"/>
+    <const name="EDIS_EVIDENCE_EXPORTER_VERSION" value="3.7.16"/>
   </php>
   <testsuites>
     <testsuite name="Unit">

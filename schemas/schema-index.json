@@ -51,6 +51,13 @@
       "schema_id": "urn:edis:schema:coverage:source",
       "schema_version": "1.0.0"
     },
+    "urn:edis:schema:diagnostic-record:1.0.0": {
+      "artifact_path": "diagnostics/{diagnostic_id}.json",
+      "artifact_type": "canonical_diagnostic_record",
+      "evidence_schema": "schemas/diagnostic-record.schema.json",
+      "schema_id": "urn:edis:schema:diagnostic-record:1.0.0",
+      "schema_version": "1.0.0"
+    },
     "urn:edis:schema:elementor:breakpoints@1.0.0": {
       "artifact_path": "sources/elementor/breakpoints.json",
       "artifact_type": "elementor_breakpoints",

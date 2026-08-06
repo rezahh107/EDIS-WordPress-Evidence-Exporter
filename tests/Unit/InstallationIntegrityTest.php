@@ -25,7 +25,7 @@ final class InstallationIntegrityTest extends TestCase
         file_put_contents($this->root . '/src/Bootstrap.php', 'version-a');
         $manifest = [
             'format' => 'EDIS-INTEGRITY-1',
-            'plugin_version' => '3.7.11',
+            'plugin_version' => '3.7.16',
             'files' => [
                 'src/Bootstrap.php' => 'sha256:' . hash('sha256', 'version-a'),
             ],
@@ -46,7 +46,7 @@ final class InstallationIntegrityTest extends TestCase
         $result = InstallationIntegrity::verify($root);
         self::assertSame('PASS', $result['state']);
         self::assertSame('EDIS_INSTALLATION_INTEGRITY_PASS', $result['code']);
-        self::assertSame('3.7.15', $result['version']);
+        self::assertSame('3.7.16', $result['version']);
     }
 
     public function testReportsReleaseCriticalHashesForIntegrityRegeneration(): void
@@ -55,9 +55,14 @@ final class InstallationIntegrityTest extends TestCase
         foreach ([
             'edis-evidence-exporter.php',
             'plugin.manifest.json',
+            'src/Application/DiagnosticRecordService.php',
+            'src/Application/DiagnosticsService.php',
+            'src/Application/ExportJobService.php',
             'src/Application/ExportService.php',
+            'src/Infrastructure/Support/DiagnosticRecordStore.php',
             'src/Infrastructure/Support/PrivateStorage.php',
             'src/WordPress/DegradedModeIntegration.php',
+            'src/WordPress/DiagnosticWorkerRunner.php',
         ] as $relative) {
             $digest = hash_file('sha256', $root . $relative);
             self::assertIsString($digest);

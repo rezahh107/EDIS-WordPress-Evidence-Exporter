@@ -1,4 +1,4 @@
-# کیت اعتبارسنجی EDIS 3.7.15
+# کیت اعتبارسنجی EDIS 3.7.16
 
 این کیت فقط در بستهٔ سورس قرار دارد و دامنه و وضعیت شواهد اعتبارسنجی را ثبت می‌کند. پوشه از ZIP نصب WordPress حذف شده است.
 
@@ -20,4 +20,4 @@ php tools/validation/run-local-validation.php --report=release-build/validation-
 
 خروجی فرمان‌ها در فایل‌های موقت خصوصی ثبت می‌شود و Evidence فقط SHA-256، تعداد بایت و Tail محدود را نگه می‌دارد. شواهد تولیدشدهٔ Validation فقط زیر `release-build/validation-evidence/` نوشته می‌شوند، هیچ‌گاه Source Authority نیستند و به `plugin.manifest.json` اضافه نمی‌شوند. فایل گزارش با جایگزینی اتمیک و بررسی مجدد SHA-256 ثبت می‌شود.
 
-نسخهٔ 3.7.15 مکانیزم‌های correctness انتخاب‌شده برای Privacy Projection، Observation Truth، Temporal Provenance، Release Authority، محل Generated Evidence، همگام‌سازی مستندات، Failure State و Exact-build Qualification را می‌بندد. نسخه‌های Schema عمومی frozen بدون مجوز جداگانه تغییر نمی‌کنند.
+نسخهٔ 3.7.16 رکورد معیار `EDIS-DIAGNOSTIC-1`، ذخیره‌سازی خصوصی و محدود، بازیابی دقیق و مجاز، حریم خصوصی مبتنی بر فهرست مجاز، نمایش صریح عدم‌قطعیت، Projection مشترک مرورگر و مدیریت، fallback صادقانهٔ ذخیره‌سازی و نگاشت وضعیت Safe Worker را اعتبارسنجی می‌کند. هویت محصول، پلتفرم و producer بسته 3.7.16 است؛ سازگاری worker روی 3.7.15 باقی می‌ماند. نسخه‌های عمومی Schema شواهد و بسته تغییر نمی‌کنند.

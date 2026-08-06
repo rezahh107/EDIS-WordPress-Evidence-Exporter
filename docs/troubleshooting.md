@@ -116,3 +116,12 @@ Local documents the public WordPress root as `<site>/app/public`; EDIS therefore
 ## `EDIS_INSTALLATION_MIXED_VERSION`
 
 The installed critical files do not match the bundled SHA-256 manifest or the plugin header version. This commonly results from extracting a ZIP over an existing directory, an interrupted deployment or a local modification. Deactivate the plugin if needed, delete its entire directory, reinstall one complete signed/verified package and create new incomplete Jobs. Do not copy individual PHP or schema files between releases.
+
+
+## Canonical incident diagnostics for language-model analysis
+
+Material EDIS failures return an occurrence-specific `edis-diag-*` identifier when the bounded private record can be persisted. Open **EDIS Evidence → Diagnostics**, resolve that exact identifier, then copy or download the canonical `application/vnd.edis.diagnostic+json` artifact. The human summary is a projection of the same JSON and is not a second diagnostic truth.
+
+The record separates `recorded_facts`, deterministic `plugin_classification`, `unresolved_questions`, `evidence_and_provenance`, recovery guidance, and `model_analysis_not_included`. It never includes raw exception messages, stack traces, credentials, tokens, cookies, nonces, request bodies, raw SQL, complete URLs, absolute paths, or complete Elementor documents.
+
+If diagnostic persistence fails or EDIS is in degraded/unsupported-runtime mode, the response states `diagnostic_available=false`; no artifact or normal Diagnostics resolver is promised. A Safe Worker Job in `queued` or `running` state reports `IN_PROGRESS`; only a persisted terminal worker failure reports `FAIL`.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.7.16 — Canonical LLM diagnostic records
+
+- Added one bounded, versioned `EDIS-DIAGNOSTIC-1` JSON incident record for pre-Job, Job-bound, and terminal worker failures.
+- Added owner- and multisite-isolated resolution, exact copy/download, positive-allowlist privacy redaction, explicit uncertainty, and truthful persistence fallbacks.
+- Corrected Safe Worker state mapping so queued and running Jobs report `IN_PROGRESS` rather than terminal `FAIL`.
+- Preserved `ExportJobService::IMPLEMENTATION_VERSION = 3.7.15`, `job_format_version`, evidence schemas, package schemas, and deterministic ZIP compatibility.
+
 ## 3.7.15
 
 - Adds a shared deterministic recursive/path-aware privacy projection before exported raw-value source artifacts are committed; private immutable snapshot bytes and their authoritative hashes remain exact.

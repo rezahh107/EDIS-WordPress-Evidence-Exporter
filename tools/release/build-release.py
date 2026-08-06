@@ -188,9 +188,6 @@ def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
         raise RuntimeError("Intended-equal release version authorities disagree: " + json.dumps(authorities, sort_keys=True))
     plugin_version = next(iter(values))
     worker_version = read_match(root / "src/Application/ExportJobService.php", r"IMPLEMENTATION_VERSION\s*=\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "worker implementation version")
-    if worker_version != plugin_version:
-        raise RuntimeError(f"This release requires worker implementation {plugin_version}; found {worker_version}.")
-
     return {
         "plugin_version": plugin_version,
         "worker_implementation_version": worker_version,

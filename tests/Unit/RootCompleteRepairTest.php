@@ -14,6 +14,8 @@ namespace {
 namespace EDIS\EvidenceExporter\Tests\Unit {
 
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
+use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
+use EDIS\EvidenceExporter\Application\DiagnosticsService;
 use EDIS\EvidenceExporter\Application\ExportJobService;
 use EDIS\EvidenceExporter\Application\ExportService;
 use EDIS\EvidenceExporter\Domain\ComponentType;
@@ -23,10 +25,13 @@ use EDIS\EvidenceExporter\Domain\TruthState;
 use EDIS\EvidenceExporter\Infrastructure\Bundle\BridgeContextProcessor;
 use EDIS\EvidenceExporter\Infrastructure\Collector\CollectorRegistry;
 use EDIS\EvidenceExporter\Infrastructure\Support\ArtifactStore;
+use EDIS\EvidenceExporter\Infrastructure\Support\DeterministicFilesystem;
+use EDIS\EvidenceExporter\Infrastructure\Support\DiagnosticRecordStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\ExportFileStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\ExportIntegrityException;
 use EDIS\EvidenceExporter\Infrastructure\Support\InputSnapshotStore;
 use EDIS\EvidenceExporter\Infrastructure\Support\JobStore;
+use EDIS\EvidenceExporter\WordPress\DiagnosticWorkerRunner;
 use PHPUnit\Framework\TestCase;
 
 final class RootCompleteRepairTest extends TestCase
@@ -354,6 +359,165 @@ final class RootCompleteRepairTest extends TestCase
 
         $normalizedExplicit = $method->invoke($service, $this->metadataRequest(['environment']));
         self::assertContains('environment', $normalizedExplicit['collectors']);
+    }
+
+    public function testAutomaticWorkerUsesCursorOccurrenceIdentityForDeduplicationAndRepetition(): void
+    {
+        $root = $this->tempRoot();
+        [$worker, , $jobs, $inputs] = $this->service($root);
+        $jobId = '12345678-1234-4234-8234-123456789abc';
+        $this->persistJob($jobs, $inputs, $jobId, [
+            'status' => 'queued',
+            'phase' => 'collecting',
+            'current_component' => 'environment',
+            'next_retry_at' => time() + 3600,
+        ]);
+        $filesystem = new DeterministicFilesystem();
+        $store = new DiagnosticRecordStore($root . '/diagnostics', $filesystem, 3600);
+        $records = new DiagnosticRecordService($store, $jobs, $this->realPluginRoot(), $filesystem);
+        $mode = 'initial';
+        $errorCode = 'EDIS_EXPORT_ADVANCE_FAILED';
+        $cycles = 0;
+        $runner = new DiagnosticWorkerRunner(
+            $worker,
+            $jobs,
+            $records,
+            static function (string $id) use ($jobs, &$mode, &$errorCode, &$cycles): void {
+                if ($mode === 'unchanged') {
+                    return;
+                }
+                $job = $jobs->get($id);
+                if (!is_array($job)) {
+                    return;
+                }
+                $cycles++;
+                $job['status'] = 'failed';
+                $job['phase'] = 'failed';
+                $job['current_component'] = 'environment';
+                $job['last_error_code'] = $errorCode;
+                $job['last_error_at'] = time() + $cycles;
+                $job['diagnostics'][] = [
+                    'code' => $errorCode,
+                    'severity' => 'ERROR',
+                    'scope' => 'OPERATIONAL',
+                    'message_key' => 'diagnostic.export.advance_failed',
+                    'context' => [
+                        'failure_phase' => $mode === 'same-code-new-occurrence'
+                            ? 'same_code_new_occurrence'
+                            : 'failed',
+                    ],
+                ];
+                $jobs->save($job);
+            },
+        );
+
+        $runner->process($jobId);
+        $mode = 'unchanged';
+        $runner->process($jobId);
+        $runner->process($jobId);
+        $paths = glob($root . '/diagnostics/user-7/edis-diag-*.json') ?: [];
+        self::assertCount(1, $paths);
+
+        $mode = 'same-code-new-occurrence';
+        $runner->process($jobId);
+        $paths = glob($root . '/diagnostics/user-7/edis-diag-*.json') ?: [];
+        self::assertCount(2, $paths);
+
+        $mode = 'changed-code';
+        $errorCode = 'EDIS_CHANGED_FAILURE_CODE';
+        $runner->process($jobId);
+        $paths = glob($root . '/diagnostics/user-7/edis-diag-*.json') ?: [];
+        self::assertCount(3, $paths);
+
+        $persisted = $jobs->get($jobId);
+        self::assertIsArray($persisted);
+        self::assertGreaterThan(time(), (int) $persisted['next_retry_at']);
+        $codes = [];
+        $phases = [];
+        foreach ($paths as $path) {
+            $record = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame($jobId, $record['operation_identity']['job_id']);
+            self::assertSame(
+                'EDIS_RULE_CURRENT_OCCURRENCE_FROM_CHANGED_PERSISTED_TRANSITION',
+                $record['plugin_classification'][0]['rule_id'],
+            );
+            $codes[] = $record['failure_classification']['internal_code'];
+            $phases[] = $record['safe_context']['failure_phase'] ?? null;
+        }
+        sort($codes, SORT_STRING);
+        self::assertSame(
+            ['EDIS_CHANGED_FAILURE_CODE', 'EDIS_EXPORT_ADVANCE_FAILED', 'EDIS_EXPORT_ADVANCE_FAILED'],
+            $codes,
+        );
+        self::assertContains('same_code_new_occurrence', $phases);
+    }
+
+    public function testSafeWorkerPostCreateFailureBindsExactJobDespiteCompetingNewerJob(): void
+    {
+        $root = $this->tempRoot();
+        $blocked = $root . '/blocked';
+        file_put_contents($blocked, 'not-a-directory');
+        $registry = $this->registry();
+        $settings = new SettingsRepository();
+        $filesystem = new DeterministicFilesystem();
+        $jobs = new JobStore($root . '/jobs', $filesystem);
+        $artifacts = new ArtifactStore($root . '/artifacts', $filesystem);
+        $inputs = new InputSnapshotStore($root . '/inputs', static fn (int $id): ?array => null, $filesystem);
+        $files = new ExportFileStore($settings, $blocked . '/bundles', $filesystem);
+        $worker = new ExportJobService(
+            $registry,
+            new ExportService($registry, $this->realPluginRoot()),
+            $jobs,
+            $artifacts,
+            $files,
+            $settings,
+            $inputs,
+        );
+        $competingId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+        $jobs->create([
+            'job_id' => $competingId,
+            'owner_id' => 7,
+            'status' => 'failed',
+            'phase' => 'failed',
+            'created_at' => time() + 3600,
+            'updated_at' => time() + 3600,
+            'expires_at' => time() + 7200,
+            'last_error_code' => 'EDIS_COMPETING_JOB',
+            'selected_components' => [],
+            'selected_document_count' => 0,
+            'config' => ['privacy_mode' => 'Strict', 'document_ids' => [], 'options' => ['export_scope' => 'METADATA_ONLY']],
+            'diagnostics' => [],
+        ]);
+        $store = new DiagnosticRecordStore($root . '/diagnostics', $filesystem, 3600);
+        $records = new DiagnosticRecordService($store, $jobs, $this->realPluginRoot(), $filesystem);
+        $diagnostics = new DiagnosticsService(
+            $registry,
+            $jobs,
+            $artifacts,
+            $files,
+            $settings,
+            $inputs,
+            $worker,
+            $this->realPluginRoot(),
+            $filesystem,
+            $records,
+        );
+
+        $result = $diagnostics->workerTest(7);
+        self::assertSame('FAIL', $result['state']);
+        self::assertIsString($result['test_job_id']);
+        self::assertNotSame($competingId, $result['test_job_id']);
+        self::assertSame($result['test_job_id'], $result['job']['job_id'] ?? null);
+        self::assertTrue($result['diagnostic_available']);
+        $resolved = $records->resolveForOwner(7, (string) $result['diagnostic_id']);
+        self::assertIsArray($resolved);
+        self::assertSame($result['test_job_id'], $resolved['record']['operation_identity']['job_id']);
+
+        $method = new \ReflectionMethod(DiagnosticsService::class, 'workerTest');
+        $source = file($method->getFileName());
+        self::assertIsArray($source);
+        $body = implode('', array_slice($source, $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1));
+        self::assertStringNotContainsString('latestForUser', $body);
     }
 
     /** T14 */
