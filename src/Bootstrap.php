@@ -122,7 +122,7 @@ final class Bootstrap {
             (new AdminModule($this->pluginRoot, $adminConfig, $registry, $settings, $settingsRegistrar, $jobStore, $diagnostics, $selectionTokens))->register();
             (new DiagnosticAdminAssets())->register();
             (new DiagnosticDownloadController($diagnosticRecords, $capability))->register();
-            (new InspectorModule($capability))->register();
+            (new InspectorModule( $capability ))->register();
 
             // ExportJobController is deliberately isolated as a download-only
             // adapter. REST registration belongs exclusively to
