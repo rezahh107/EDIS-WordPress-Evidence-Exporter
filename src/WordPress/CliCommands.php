@@ -27,12 +27,12 @@ final class CliCommands {
         if (!defined('WP_CLI') || !WP_CLI || !class_exists('\\WP_CLI')) {
             return;
         }
-        \WP_CLI::add_command('edis status', [$this, 'status']);
-        \WP_CLI::add_command('edis worker run', [$this, 'workerRun']);
-        \WP_CLI::add_command('edis worker status', [$this, 'workerStatus']);
-        \WP_CLI::add_command('edis jobs repair', [$this, 'jobsRepair']);
-        \WP_CLI::add_command('edis storage self-test', [$this, 'storageSelfTest']);
-        \WP_CLI::add_command('edis storage paths', [$this, 'storagePaths']);
+        \WP_CLI::add_command( 'edis status', [$this, 'status'] );
+        \WP_CLI::add_command( 'edis worker run', [$this, 'workerRun'] );
+        \WP_CLI::add_command( 'edis worker status', [$this, 'workerStatus'] );
+        \WP_CLI::add_command( 'edis jobs repair', [$this, 'jobsRepair'] );
+        \WP_CLI::add_command( 'edis storage self-test', [$this, 'storageSelfTest'] );
+        \WP_CLI::add_command( 'edis storage paths', [$this, 'storagePaths'] );
     }
 
     /** @param list<string> $args @param array<string,mixed> $assocArgs */
