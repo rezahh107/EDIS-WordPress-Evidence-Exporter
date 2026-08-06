@@ -1,0 +1,392 @@
+{
+  "schema_version": "1.0.0",
+  "architecture_id": "BOUNDED_HYBRID_SOURCE_FAILURE_CONTRACT_AND_OPERATION_BOUNDARY_POLICY",
+  "runtime_dependency": false,
+  "allowed_statuses": [
+    "CONFORMING",
+    "NOT_APPLICABLE",
+    "PARTIALLY_INSTRUMENTED",
+    "LEGACY_UNCLASSIFIED"
+  ],
+  "allowed_creation_policies": [
+    "NONE",
+    "PRE_JOB",
+    "JOB_BOUND",
+    "WORKER_BOUND",
+    "UNAVAILABLE_ONLY"
+  ],
+  "allowed_classifications": [
+    "EXPECTED_REJECTION",
+    "STRUCTURED_BLOCKER",
+    "AUTHORIZATION_DENIAL",
+    "MATERIAL_PRE_JOB_INCIDENT",
+    "MATERIAL_JOB_INCIDENT",
+    "MATERIAL_WORKER_INCIDENT",
+    "INTERNAL_EVIDENCE_FAILURE",
+    "AUTHORITY_UNAVAILABLE",
+    "UNEXPECTED_MATERIAL_FAILURE",
+    "PROGRAMMER_INVARIANT_FAILURE"
+  ],
+  "families": [
+    {
+      "id": "REST_REQUEST_VALIDATION",
+      "classification_owner": "WordPress REST argument schema",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Rest/DiagnosticExportJobController.php", "src/Rest/InspectorSelectionController.php"],
+      "required_tests": ["tests/Unit/FailureSurfaceConformanceTest.php"]
+    },
+    {
+      "id": "AUTHORIZATION_OWNERSHIP_DENIAL",
+      "classification_owner": "REST permission callbacks and object authorizers",
+      "classification": "AUTHORIZATION_DENIAL",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Rest/DiagnosticExportJobController.php", "src/Rest/DiagnosticsController.php", "src/Rest/InspectorSelectionController.php"],
+      "required_tests": ["tests/Unit/CanonicalDiagnosticRecordTest.php", "tests/integration/canonical-diagnostic-rest.php"]
+    },
+    {
+      "id": "PREFLIGHT_STRUCTURED_BLOCKERS",
+      "classification_owner": "ExportJobService::preflightNormalized",
+      "classification": "STRUCTURED_BLOCKER",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/ExportJobIntegrityTest.php"]
+    },
+    {
+      "id": "PREFLIGHT_EXCEPTIONAL_EXECUTION",
+      "classification_owner": "ExportJobService orchestration",
+      "classification": "MATERIAL_PRE_JOB_INCIDENT",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "EXPORT_CREATE_NORMALIZATION",
+      "classification_owner": "ExportJobService request normalization",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "PREFLIGHT_PROOF_VERIFICATION",
+      "classification_owner": "PreflightProof and ExportJobService orchestration",
+      "classification": "MATERIAL_PRE_JOB_INCIDENT",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Infrastructure/Support/PreflightProof.php", "src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "PREFLIGHT_SOURCE_REVALIDATION",
+      "classification_owner": "ExportJobService source revalidation",
+      "classification": "MATERIAL_PRE_JOB_INCIDENT",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "COLLECTOR_SELECTION",
+      "classification_owner": "ExportJobService collector selection",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "EXECUTION_PLAN_CONSTRUCTION",
+      "classification_owner": "CollectorRegistry",
+      "classification": "INTERNAL_EVIDENCE_FAILURE",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Infrastructure/Collector/CollectorRegistry.php", "src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "JOB_IDENTITY_PREPARATION",
+      "classification_owner": "ExportJobService orchestration",
+      "classification": "UNEXPECTED_MATERIAL_FAILURE",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "INPUT_SNAPSHOT_CAPTURE",
+      "classification_owner": "InputSnapshotStore",
+      "classification": "INTERNAL_EVIDENCE_FAILURE",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Infrastructure/Support/InputSnapshotStore.php", "src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/InputSnapshotStoreTest.php", "tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "SNAPSHOT_SELECTION_VALIDATION",
+      "classification_owner": "ExportJobService snapshot validator",
+      "classification": "INTERNAL_EVIDENCE_FAILURE",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "SELECTION_SNAPSHOT_CONSTRUCTION",
+      "classification_owner": "ExportJobService selection snapshot builder",
+      "classification": "INTERNAL_EVIDENCE_FAILURE",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "JOB_PERSISTENCE",
+      "classification_owner": "JobStore through ExportJobService durable boundary",
+      "classification": "MATERIAL_PRE_JOB_INCIDENT",
+      "creation_policy": "PRE_JOB",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Infrastructure/Support/JobStore.php", "src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "POST_CREATE_SCHEDULING",
+      "classification_owner": "ExportJobService durable Job boundary",
+      "classification": "MATERIAL_JOB_INCIDENT",
+      "creation_policy": "JOB_BOUND",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "JOB_ADVANCE",
+      "classification_owner": "ExportJobService and DiagnosticExportJobController",
+      "classification": "MATERIAL_JOB_INCIDENT",
+      "creation_policy": "JOB_BOUND",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "JOB_RESUME",
+      "classification_owner": "ExportJobService and DiagnosticExportJobController",
+      "classification": "MATERIAL_JOB_INCIDENT",
+      "creation_policy": "JOB_BOUND",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "JOB_RETRY",
+      "classification_owner": "ExportJobService and DiagnosticExportJobController",
+      "classification": "MATERIAL_JOB_INCIDENT",
+      "creation_policy": "JOB_BOUND",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "JOB_CANCEL",
+      "classification_owner": "ExportJobService and DiagnosticExportJobController",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Application/ExportJobService.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "CRON_WORKER",
+      "classification_owner": "DiagnosticWorkerRunner",
+      "classification": "MATERIAL_WORKER_INCIDENT",
+      "creation_policy": "WORKER_BOUND",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/WordPress/DiagnosticWorkerRunner.php", "src/Bootstrap.php"],
+      "required_tests": ["tests/Unit/RootCompleteRepairTest.php"]
+    },
+    {
+      "id": "WPCLI_WORKER",
+      "classification_owner": "DiagnosticWorkerRunner",
+      "classification": "MATERIAL_WORKER_INCIDENT",
+      "creation_policy": "WORKER_BOUND",
+      "status": "LEGACY_UNCLASSIFIED",
+      "production_entrypoints": ["src/WordPress/CliCommands.php", "src/WordPress/DiagnosticWorkerRunner.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "SAFE_WORKER_TEST",
+      "classification_owner": "DiagnosticsService and DiagnosticWorkerRunner",
+      "classification": "MATERIAL_WORKER_INCIDENT",
+      "creation_policy": "WORKER_BOUND",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Application/DiagnosticsService.php", "src/Application/ExportJobService.php"],
+      "required_tests": ["tests/diagnostics-envelope.test.mjs", "tests/Unit/RootCompleteRepairTest.php"]
+    },
+    {
+      "id": "INSPECTOR_SELECTION",
+      "classification_owner": "InspectorSelectionController",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "LEGACY_UNCLASSIFIED",
+      "production_entrypoints": ["src/Rest/InspectorSelectionController.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "INSPECTOR_BROWSER_CONSUMER",
+      "classification_owner": "window.EDISDiagnosticEnvelope",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["assets/js/elementor-inspector.js", "assets/js/diagnostics.js"],
+      "required_tests": ["tests/diagnostics-envelope.test.mjs"]
+    },
+    {
+      "id": "COMPONENT_EVIDENCE_COLLECTION",
+      "classification_owner": "CollectorRegistry and CollectionResult",
+      "classification": "INTERNAL_EVIDENCE_FAILURE",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Infrastructure/Collector/CollectorRegistry.php", "src/Application/ExportJobService.php"],
+      "required_tests": ["tests/Unit/CollectorRegistryTest.php", "tests/Unit/ExportJobIntegrityTest.php"]
+    },
+    {
+      "id": "DIAGNOSTIC_PROJECTION",
+      "classification_owner": "DiagnosticRecordService",
+      "classification": "INTERNAL_EVIDENCE_FAILURE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Application/DiagnosticRecordService.php"],
+      "required_tests": ["tests/Unit/CanonicalDiagnosticRecordTest.php"]
+    },
+    {
+      "id": "DIAGNOSTIC_PERSISTENCE",
+      "classification_owner": "DiagnosticRecordStore",
+      "classification": "AUTHORITY_UNAVAILABLE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Infrastructure/Support/DiagnosticRecordStore.php"],
+      "required_tests": ["tests/Unit/CanonicalDiagnosticRecordTest.php"]
+    },
+    {
+      "id": "DIAGNOSTIC_CAPACITY",
+      "classification_owner": "DiagnosticRecordStore",
+      "classification": "AUTHORITY_UNAVAILABLE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Infrastructure/Support/DiagnosticRecordStore.php"],
+      "required_tests": ["tests/Unit/CanonicalDiagnosticRecordTest.php"]
+    },
+    {
+      "id": "DIAGNOSTIC_EXPIRY",
+      "classification_owner": "DiagnosticRecordStore and DiagnosticRecordService",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Infrastructure/Support/DiagnosticRecordStore.php", "src/Application/DiagnosticRecordService.php"],
+      "required_tests": ["tests/Unit/CanonicalDiagnosticRecordTest.php", "tests/integration/canonical-diagnostic-rest.php"]
+    },
+    {
+      "id": "CANONICAL_REST_RETRIEVAL",
+      "classification_owner": "DiagnosticsController and CanonicalDiagnosticResponseAdapter",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Rest/DiagnosticsController.php", "src/Rest/CanonicalDiagnosticResponseAdapter.php"],
+      "required_tests": ["tests/integration/canonical-diagnostic-rest.php"]
+    },
+    {
+      "id": "ADMIN_EXPORT_BROWSER",
+      "classification_owner": "window.EDISDiagnosticEnvelope",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["assets/js/admin.js", "assets/js/admin-jobs.js", "assets/js/diagnostics.js"],
+      "required_tests": ["tests/diagnostics-envelope.test.mjs"]
+    },
+    {
+      "id": "DOWNLOAD_AUTHORIZATION_INTEGRITY",
+      "classification_owner": "download controller and ExportFileStore",
+      "classification": "AUTHORIZATION_DENIAL",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Rest/ExportJobController.php", "src/Admin/DiagnosticDownloadController.php", "src/Infrastructure/Support/ExportFileStore.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "UNSUPPORTED_RUNTIME",
+      "classification_owner": "Bootstrap deterministic runtime gate",
+      "classification": "AUTHORITY_UNAVAILABLE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Bootstrap.php", "edis-evidence-exporter.php"],
+      "required_tests": ["tests/runtime-smoke.php"]
+    },
+    {
+      "id": "DEGRADED_STORAGE",
+      "classification_owner": "PrivateStorage and DegradedModeIntegration",
+      "classification": "AUTHORITY_UNAVAILABLE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Infrastructure/Support/PrivateStorage.php", "src/WordPress/DegradedModeIntegration.php"],
+      "required_tests": ["tests/Unit/PrivateStorageTest.php"]
+    },
+    {
+      "id": "BOOTSTRAP_FAILURE",
+      "classification_owner": "plugin bootstrap boundary",
+      "classification": "AUTHORITY_UNAVAILABLE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["edis-evidence-exporter.php", "src/Bootstrap.php"],
+      "required_tests": ["tests/runtime-smoke.php"]
+    },
+    {
+      "id": "INSTALLATION_INTEGRITY",
+      "classification_owner": "InstallationIntegrity",
+      "classification": "AUTHORITY_UNAVAILABLE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/Infrastructure/Support/InstallationIntegrity.php", "src/Bootstrap.php"],
+      "required_tests": ["tests/Unit/InstallationIntegrityTest.php"]
+    },
+    {
+      "id": "ACTIVATION",
+      "classification_owner": "LifecycleManager",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/WordPress/LifecycleManager.php"],
+      "required_tests": ["tests/Unit/LifecycleManagerTest.php"]
+    },
+    {
+      "id": "MULTISITE_ACTIVATION_ROLLBACK",
+      "classification_owner": "LifecycleManager",
+      "classification": "PROGRAMMER_INVARIANT_FAILURE",
+      "creation_policy": "UNAVAILABLE_ONLY",
+      "status": "CONFORMING",
+      "production_entrypoints": ["src/WordPress/LifecycleManager.php"],
+      "required_tests": ["tests/Unit/LifecycleManagerTest.php"]
+    },
+    {
+      "id": "CLEANUP_RECOVERY_CALLBACKS",
+      "classification_owner": "WorkerRecovery and stores",
+      "classification": "EXPECTED_REJECTION",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/WordPress/WorkerRecovery.php", "src/Bootstrap.php"],
+      "required_tests": ["tests/Unit/FailureConformanceArchitectureTest.php"]
+    },
+    {
+      "id": "LEGACY_CONTROLLER_REGISTRATION",
+      "classification_owner": "Bootstrap composition root",
+      "classification": "PROGRAMMER_INVARIANT_FAILURE",
+      "creation_policy": "NONE",
+      "status": "PARTIALLY_INSTRUMENTED",
+      "production_entrypoints": ["src/Bootstrap.php", "src/Rest/ExportJobController.php", "src/Rest/DiagnosticExportJobController.php"],
+      "required_tests": ["tests/Unit/FailureSurfaceConformanceTest.php"]
+    }
+  ]
+}
