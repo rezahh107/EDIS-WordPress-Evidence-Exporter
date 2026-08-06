@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace EDIS\EvidenceExporter\Tests\Unit;
 
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
+use EDIS\EvidenceExporter\Application\ExpectedOperationRejection;
 use EDIS\EvidenceExporter\Application\ExportJobService;
 use EDIS\EvidenceExporter\Application\ExportService;
 use EDIS\EvidenceExporter\Infrastructure\Collector\CollectorRegistry;
@@ -135,7 +136,7 @@ final class ExportJobIntegrityTest extends TestCase
             $failed = false;
             try {
                 $service->resume('resume-atomic', 7);
-            } catch (\RuntimeException) {
+            } catch (ExpectedOperationRejection) {
                 $failed = true;
             }
             self::assertTrue($failed);
@@ -146,6 +147,89 @@ final class ExportJobIntegrityTest extends TestCase
         } finally {
             $store->releaseLock($lock);
         }
+    }
+
+    public function testActiveLeaseRejectionDoesNotFailOrMutateJob(): void
+    {
+        [$service, , $inputs, $root] = $this->service();
+        $store = new JobStore($root . '/jobs');
+        $jobId = '11111111-1111-4111-8111-111111111111';
+        $manifest = $inputs->capture($jobId, [], time() + 3600);
+        $store->create($this->queuedJob($jobId, $manifest, [
+            'lease_owner' => 'active-worker',
+            'lease_expires_at' => time() + 300,
+            'schedule_state' => 'SCHEDULED_RECOVERY',
+        ]));
+        $path = $root . '/jobs/' . $jobId . '.json';
+        $before = file_get_contents($path);
+
+        try {
+            $service->advance($jobId, 7, null, 500);
+            self::fail('Expected active lease rejection.');
+        } catch (ExpectedOperationRejection $exception) {
+            self::assertSame('edis_export_job_busy', $exception->publicCode);
+            self::assertSame(409, $exception->httpStatus);
+        }
+
+        self::assertSame($before, file_get_contents($path));
+        $after = $store->get($jobId);
+        self::assertSame('queued', $after['status']);
+        self::assertNull($after['last_error_code'] ?? null);
+        self::assertSame([], $after['diagnostics']);
+    }
+
+    public function testStaleRevisionRejectionDoesNotAcquireLeaseOrMutateJob(): void
+    {
+        [$service, , $inputs, $root] = $this->service();
+        $store = new JobStore($root . '/jobs');
+        $jobId = '22222222-2222-4222-8222-222222222222';
+        $manifest = $inputs->capture($jobId, [], time() + 3600);
+        $created = $store->create($this->queuedJob($jobId, $manifest));
+        $path = $root . '/jobs/' . $jobId . '.json';
+        $before = file_get_contents($path);
+        $staleRevision = (int) ($created['revision'] ?? 0) + 1;
+
+        try {
+            $service->advance($jobId, 7, $staleRevision, 500);
+            self::fail('Expected stale revision rejection.');
+        } catch (ExpectedOperationRejection $exception) {
+            self::assertSame('edis_export_revision_conflict', $exception->publicCode);
+            self::assertSame($staleRevision, $exception->publicData['expected_revision'] ?? null);
+            self::assertSame((int) ($created['revision'] ?? 0), $exception->publicData['actual_revision'] ?? null);
+        }
+
+        self::assertSame($before, file_get_contents($path));
+        $after = $store->get($jobId);
+        self::assertSame('queued', $after['status']);
+        self::assertNull($after['lease_owner'] ?? null);
+        self::assertNull($after['last_error_code'] ?? null);
+        self::assertSame([], $after['diagnostics']);
+    }
+
+    /** @return array<string,mixed> */
+    private function queuedJob(string $jobId, array $manifest, array $overrides = []): array
+    {
+        return array_replace([
+            'job_id' => $jobId,
+            'job_format_version' => '2.1.0',
+            'implementation_version' => '3.7.15',
+            'input_snapshot_format_version' => '2.0.0',
+            'input_snapshot_id' => $jobId,
+            'input_snapshot_sha256' => $manifest['snapshot_sha256'],
+            'owner_id' => 7,
+            'status' => 'queued',
+            'phase' => 'initializing',
+            'cursor' => 0,
+            'selected_components' => [],
+            'completed_components' => [],
+            'completed_step_records' => [],
+            'diagnostics' => [],
+            'lease_owner' => null,
+            'lease_expires_at' => null,
+            'schedule_state' => 'NOT_SCHEDULED',
+            'last_error_code' => null,
+            'expires_at' => time() + 3600,
+        ], $overrides);
     }
 
     /** @return array{ExportJobService,ArtifactStore,InputSnapshotStore,string} */
