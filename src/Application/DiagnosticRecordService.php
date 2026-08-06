@@ -169,9 +169,7 @@ final class DiagnosticRecordService
         $createdAt = time();
         $internalCode = $this->internalCode($exception, 'EDIS_PRE_JOB_FAILURE');
         $scope = $exception instanceof ExportIntegrityException ? 'SEMANTIC' : ($exception instanceof \InvalidArgumentException ? 'SEMANTIC' : 'OPERATIONAL');
-        $retryability = $exception instanceof ExportIntegrityException
-            ? 'NOT_RETRYABLE'
-            : ($exception instanceof \InvalidArgumentException ? 'NEW_JOB_REQUIRED' : 'NOT_PROVEN');
+        $retryability = $this->preJobRetryability($internalCode, $exception);
         [$selectedComponents, $truncation] = $this->boundedStrings((array) ($request['collectors'] ?? []), 64, 'operation_identity.selected_components');
         $documentIds = array_values(array_filter((array) ($request['document_ids'] ?? []), static fn (mixed $id): bool => is_numeric($id) && (int) $id > 0));
         $options = is_array($request['options'] ?? null) ? $request['options'] : [];
@@ -855,6 +853,36 @@ final class DiagnosticRecordService
             'completed' => 'COMPLETED',
             default => 'UNKNOWN',
         };
+    }
+
+    private function preJobRetryability(string $internalCode, \Throwable $exception): string
+    {
+        if ($internalCode === 'EDIS_EXPORT_CREATE_STAGE_UNAVAILABLE') {
+            return 'NOT_PROVEN';
+        }
+        foreach ([
+            'EDIS_PREFLIGHT_PROOF_',
+            'EDIS_PREFLIGHT_SOURCE_',
+            'EDIS_EXPORT_REQUEST_',
+            'EDIS_EXECUTION_PLAN_',
+        ] as $prefix) {
+            if (str_starts_with($internalCode, $prefix)) {
+                return 'NEW_JOB_REQUIRED';
+            }
+        }
+        if (in_array($internalCode, [
+            'EDIS_INPUT_SNAPSHOT_SOURCE_MISSING',
+            'EDIS_SOURCE_CHANGED_DURING_SNAPSHOT',
+            'EDIS_INSPECTOR_ELEMENT_NOT_FOUND',
+            'EDIS_INSPECTOR_ELEMENT_ID_AMBIGUOUS',
+            'EDIS_INSPECTOR_SELECTION_PERSISTENCE_FAILED',
+        ], true)) {
+            return 'NEW_JOB_REQUIRED';
+        }
+        if ($exception instanceof \InvalidArgumentException) {
+            return 'NEW_JOB_REQUIRED';
+        }
+        return $exception instanceof ExportIntegrityException ? 'NOT_RETRYABLE' : 'NOT_PROVEN';
     }
 
     private function internalCode(\Throwable $exception, string $fallback): string
