@@ -63,18 +63,43 @@ final class ExportJobService
             throw new \InvalidArgumentException('An authenticated owner is required.');
         }
         if (function_exists('get_option') && !(bool) get_option('edis_evidence_accept_new_jobs', true)) {
-            throw new \RuntimeException('EDIS is not accepting new export jobs during deactivation or maintenance.');
+            throw new ExpectedOperationRejection('edis_export_jobs_unavailable', 409, ['schedule_state' => 'MAINTENANCE']);
         }
-        $normalized = $this->normalizeRequest($request);
+
+        $normalized = $this->atStage(
+            'request_normalization',
+            'EDIS_EXPORT_REQUEST_NORMALIZATION_FAILED',
+            fn (): array => $this->normalizeRequest($request),
+            true,
+        );
         $token = is_string($request['preflight_token'] ?? null) ? trim($request['preflight_token']) : '';
         if ($token !== '') {
-            $proof = $this->preflightProof?->verify($token, $ownerId, $normalized);
-            if (!is_array($proof) || !$this->preflightProofStillValid($normalized, $proof)) {
-                throw new \InvalidArgumentException('Export preflight proof is invalid, expired, or no longer matches saved source. Run preflight again.');
+            if (!$this->preflightProof instanceof PreflightProof) {
+                throw new ExportIntegrityException(
+                    'EDIS_PREFLIGHT_PROOF_AUTHORITY_UNAVAILABLE',
+                    'Preflight proof authority is unavailable.',
+                    null,
+                    ['failure_phase' => 'preflight_proof_verification', 'store_check' => 'PROOF_AUTHORITY'],
+                );
             }
+            $proof = $this->atStage(
+                'preflight_proof_verification',
+                'EDIS_PREFLIGHT_PROOF_VERIFICATION_FAILED',
+                fn (): array => $this->preflightProof->verify($token, $ownerId, $normalized),
+            );
+            $this->atStage(
+                'preflight_source_revalidation',
+                'EDIS_PREFLIGHT_SOURCE_REVALIDATION_FAILED',
+                fn (): bool => $this->assertPreflightProofStillValid($normalized, $proof),
+            );
             $preflight = ['state' => 'PASS', 'blockers' => []];
         } else {
-            $preflight = $this->preflightNormalized($normalized, $ownerId);
+            $preflight = $this->atStage(
+                'preflight_execution',
+                'EDIS_PREFLIGHT_EXECUTION_FAILED',
+                fn (): array => $this->preflightNormalized($normalized, $ownerId),
+                true,
+            );
         }
         if (($preflight['state'] ?? 'FAIL') !== 'PASS') {
             $codes = array_map(static fn (array $item): string => (string) ($item['code'] ?? 'EDIS_PREFLIGHT_FAILED'), (array) ($preflight['blockers'] ?? []));
@@ -90,74 +115,98 @@ final class ExportJobService
             $includeOriginal = false;
         }
         $options['include_original_documents'] = $includeOriginal;
-        $plan = $this->registry->executionPlan($selected, (string) $options['dependency_scope']);
+        $plan = $this->atStage(
+            'execution_plan_construction',
+            'EDIS_EXECUTION_PLAN_CONSTRUCTION_FAILED',
+            fn (): array => $this->registry->executionPlan($selected, (string) $options['dependency_scope']),
+        );
         $now = time();
         $retention = $this->settings->retentionHours() * $this->hourSeconds();
         $expiresAt = $now + $retention;
-        $jobId = Uuid::v4();
+        $jobId = $this->atStage(
+            'job_identity_preparation',
+            'EDIS_JOB_IDENTITY_PREPARATION_FAILED',
+            static fn (): string => Uuid::v4(),
+        );
 
         try {
-            $inputSnapshot = $this->inputs->capture($jobId, $documents, $expiresAt);
-            $this->assertSnapshotSelection($jobId, $documents, $options);
+            $inputSnapshot = $this->atStage(
+                'input_snapshot_capture',
+                'EDIS_INPUT_SNAPSHOT_CAPTURE_FAILED',
+                fn (): array => $this->inputs->capture($jobId, $documents, $expiresAt),
+            );
+            $this->atStage(
+                'snapshot_selection_validation',
+                'EDIS_SNAPSHOT_SELECTION_VALIDATION_FAILED',
+                fn (): bool => $this->assertSnapshotSelectionResult($jobId, $documents, $options),
+            );
             $options['input_snapshot_id'] = $jobId;
             $options['input_snapshot_sha256'] = (string) ($inputSnapshot['snapshot_sha256'] ?? '');
-            $selectionSnapshot = $this->selectionSnapshot($documents, $options, $inputSnapshot);
+            $selectionSnapshot = $this->atStage(
+                'selection_snapshot_construction',
+                'EDIS_SELECTION_SNAPSHOT_CONSTRUCTION_FAILED',
+                fn (): array => $this->selectionSnapshot($documents, $options, $inputSnapshot),
+            );
             $capturedAt = (string) ($inputSnapshot['captured_at'] ?? gmdate('Y-m-d\TH:i:s\Z', $now));
 
-            $job = $this->jobs->create([
-                'job_id' => $jobId,
-                'job_format_version' => '2.1.0',
-                'implementation_version' => self::IMPLEMENTATION_VERSION,
-                'input_snapshot_format_version' => (string) ($inputSnapshot['snapshot_format_version'] ?? '2.0.0'),
-                'input_snapshot_id' => $jobId,
-                'input_snapshot_sha256' => (string) ($inputSnapshot['snapshot_sha256'] ?? ''),
-                'owner_id' => $ownerId,
-                'status' => 'queued',
-                'phase' => 'initializing',
-                'progress' => 0,
-                'analysis_set_id' => Uuid::v4(),
-                'wordpress_bundle_id' => Uuid::v4(),
-                'created_at' => $now,
-                'updated_at' => $now,
-                'expires_at' => $expiresAt,
-                'executor_mode' => 'HYBRID_REST_WITH_CRON_RECOVERY',
-                'cursor' => 0,
-                'current_component' => null,
-                'last_heartbeat' => $now,
-                'last_successful_step_at' => null,
-                'attempt_count' => 0,
-                'last_error_code' => null,
-                'last_error_at' => null,
-                'next_retry_at' => null,
-                'packaging_started_at' => null,
-                'stale_after' => 120,
-                'lease_owner' => null,
-                'lease_acquired_at' => null,
-                'lease_expires_at' => null,
-                'schedule_state' => 'NOT_SCHEDULED',
-                'schedule_error' => null,
-                'selected_components' => $plan,
-                'selected_document_count' => count($documents),
-                'export_scope' => (string) $options['export_scope'],
-                'dependency_scope' => (string) $options['dependency_scope'],
-                'selection_snapshot' => $selectionSnapshot,
-                'completed_components' => [],
-                'completed_step_records' => (object) [],
-                'truth_summary' => ['VERIFIED' => 0, 'PARTIAL' => 0, 'UNKNOWN' => 0, 'UNSUPPORTED' => 0],
-                'availability_summary' => ['AVAILABLE' => 0, 'PARTIAL' => 0, 'INSUFFICIENT' => 0, 'DISABLED' => 0, 'UNAVAILABLE' => 0, 'NOT_APPLICABLE' => 0, 'ERROR' => 0],
-                'diagnostics' => [],
-                'validation_state' => 'NOT_RUN',
-                'config' => [
-                    'privacy_mode' => $privacyMode,
-                    'document_ids' => $documents,
-                    'include_original_documents' => $includeOriginal,
-                    'options' => $options,
-                    'captured_at' => $capturedAt,
-                    'selection_snapshot' => $selectionSnapshot,
+            $job = $this->atStage(
+                'job_persistence',
+                'EDIS_JOB_PERSISTENCE_FAILED',
+                fn (): array => $this->jobs->create([
+                    'job_id' => $jobId,
+                    'job_format_version' => '2.1.0',
+                    'implementation_version' => self::IMPLEMENTATION_VERSION,
+                    'input_snapshot_format_version' => (string) ($inputSnapshot['snapshot_format_version'] ?? '2.0.0'),
                     'input_snapshot_id' => $jobId,
                     'input_snapshot_sha256' => (string) ($inputSnapshot['snapshot_sha256'] ?? ''),
-                ],
-            ]);
+                    'owner_id' => $ownerId,
+                    'status' => 'queued',
+                    'phase' => 'initializing',
+                    'progress' => 0,
+                    'analysis_set_id' => Uuid::v4(),
+                    'wordpress_bundle_id' => Uuid::v4(),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                    'expires_at' => $expiresAt,
+                    'executor_mode' => 'HYBRID_REST_WITH_CRON_RECOVERY',
+                    'cursor' => 0,
+                    'current_component' => null,
+                    'last_heartbeat' => $now,
+                    'last_successful_step_at' => null,
+                    'attempt_count' => 0,
+                    'last_error_code' => null,
+                    'last_error_at' => null,
+                    'next_retry_at' => null,
+                    'packaging_started_at' => null,
+                    'stale_after' => 120,
+                    'lease_owner' => null,
+                    'lease_acquired_at' => null,
+                    'lease_expires_at' => null,
+                    'schedule_state' => 'NOT_SCHEDULED',
+                    'schedule_error' => null,
+                    'selected_components' => $plan,
+                    'selected_document_count' => count($documents),
+                    'export_scope' => (string) $options['export_scope'],
+                    'dependency_scope' => (string) $options['dependency_scope'],
+                    'selection_snapshot' => $selectionSnapshot,
+                    'completed_components' => [],
+                    'completed_step_records' => (object) [],
+                    'truth_summary' => ['VERIFIED' => 0, 'PARTIAL' => 0, 'UNKNOWN' => 0, 'UNSUPPORTED' => 0],
+                    'availability_summary' => ['AVAILABLE' => 0, 'PARTIAL' => 0, 'INSUFFICIENT' => 0, 'DISABLED' => 0, 'UNAVAILABLE' => 0, 'NOT_APPLICABLE' => 0, 'ERROR' => 0],
+                    'diagnostics' => [],
+                    'validation_state' => 'NOT_RUN',
+                    'config' => [
+                        'privacy_mode' => $privacyMode,
+                        'document_ids' => $documents,
+                        'include_original_documents' => $includeOriginal,
+                        'options' => $options,
+                        'captured_at' => $capturedAt,
+                        'selection_snapshot' => $selectionSnapshot,
+                        'input_snapshot_id' => $jobId,
+                        'input_snapshot_sha256' => (string) ($inputSnapshot['snapshot_sha256'] ?? ''),
+                    ],
+                ]),
+            );
         } catch (\Throwable $exception) {
             $this->inputs->remove($jobId);
             throw $exception;
@@ -172,7 +221,7 @@ final class ExportJobService
     {
         $lock = $this->jobs->acquireLock($jobId, 1);
         if (!is_resource($lock)) {
-            throw new \RuntimeException('The export job is currently being processed.');
+            throw new ExpectedOperationRejection('edis_export_job_busy', 409, ['schedule_state' => 'LOCKED']);
         }
         try {
             return $this->advanceUnderLock($jobId, $ownerId, $expectedRevision, $budgetMs);
@@ -202,14 +251,19 @@ final class ExportJobService
             $now = time();
             $existingLeaseExpiry = (int) ($job['lease_expires_at'] ?? 0);
             if ($existingLeaseExpiry > $now && is_string($job['lease_owner'] ?? null) && $job['lease_owner'] !== '') {
-                throw new \RuntimeException('The export job has an active worker lease.');
+                throw new ExpectedOperationRejection('edis_export_job_busy', 409, [
+                    'schedule_state' => is_string($job['schedule_state'] ?? null) ? $job['schedule_state'] : null,
+                ]);
+            }
+            if ($expectedRevision !== null && (int) ($job['revision'] ?? 0) !== $expectedRevision) {
+                throw new ExpectedOperationRejection('edis_export_revision_conflict', 409, [
+                    'expected_revision' => $expectedRevision,
+                    'actual_revision' => (int) ($job['revision'] ?? 0),
+                ]);
             }
             $job['lease_owner'] = $leaseOwner;
             $job['lease_acquired_at'] = $now;
             $job['lease_expires_at'] = $now + max(30, (int) ($job['stale_after'] ?? 120));
-            if ($expectedRevision !== null && (int) ($job['revision'] ?? 0) !== $expectedRevision) {
-                throw new \RuntimeException('The export job changed; refresh its state before advancing it.');
-            }
             $job['status'] = 'running';
             $job['attempt_count'] = (int) ($job['attempt_count'] ?? 0) + 1;
             $job['last_heartbeat'] = time();
@@ -235,6 +289,9 @@ final class ExportJobService
             $this->jobs->save($job);
             return $this->jobs->publicView($job);
         } catch (\Throwable $exception) {
+            if ($exception instanceof ExpectedOperationRejection) {
+                throw $exception;
+            }
             $job = $this->jobs->get($jobId);
             if (is_array($job) && !in_array((string) ($job['status'] ?? ''), ['cancelled', 'completed'], true)) {
                 $failurePhase = (string) ($job['phase'] ?? 'unknown');
@@ -291,15 +348,21 @@ final class ExportJobService
     {
         $lock = $this->jobs->acquireLock($jobId, 1);
         if (!is_resource($lock)) {
-            throw new \RuntimeException('The export job is currently being processed.');
+            throw new ExpectedOperationRejection('edis_export_job_busy', 409, ['schedule_state' => 'LOCKED']);
         }
         try {
             $job = $this->requireOwnedJob($jobId, $ownerId);
-            $this->assertJobCompatible($job);
-            $this->assertCurrentResumeState($job);
-            if (($job['status'] ?? '') === 'cancelled' || ($job['status'] ?? '') === 'completed') {
+            $status = (string) ($job['status'] ?? '');
+            if (in_array($status, ['completed', 'cancelled'], true)) {
                 return $this->jobs->publicView($job);
             }
+            if (!in_array($status, ['failed', 'queued'], true)) {
+                throw new ExpectedOperationRejection('edis_export_action_not_allowed', 409, [
+                    'schedule_state' => is_string($job['schedule_state'] ?? null) ? $job['schedule_state'] : null,
+                ]);
+            }
+            $this->assertJobCompatible($job);
+            $this->assertCurrentResumeState($job);
             $job['status'] = 'queued';
             if (($job['phase'] ?? '') === 'failed') {
                 $job['phase'] = (int) ($job['cursor'] ?? 0) < count((array) ($job['selected_components'] ?? [])) ? 'collecting' : 'packaging';
@@ -325,7 +388,7 @@ final class ExportJobService
     {
         $lock = $this->jobs->acquireLock($jobId, 1);
         if (!is_resource($lock)) {
-            throw new \RuntimeException('The export job is currently locked.');
+            throw new ExpectedOperationRejection('edis_export_job_busy', 409, ['schedule_state' => 'LOCKED']);
         }
         try {
             $job = $this->requireOwnedJob($jobId, $ownerId);
@@ -362,8 +425,10 @@ final class ExportJobService
                 return;
             }
             $this->advance($jobId, (int) ($job['owner_id'] ?? 0), null, 8000);
+        } catch (ExpectedOperationRejection) {
+            // Expected lease, state, or concurrency rejection creates no incident.
         } catch (\Throwable) {
-            // Failure is persisted by advance()/resume(). Cron remains a recovery path only.
+            // Material failure is persisted by advance()/resume(). Cron remains a recovery path only.
         }
     }
 
@@ -645,6 +710,13 @@ final class ExportJobService
         }
     }
 
+    /** @param list<int> $documents @param array<string,mixed> $options */
+    private function assertSnapshotSelectionResult(string $snapshotId, array $documents, array $options): bool
+    {
+        $this->assertSnapshotSelection($snapshotId, $documents, $options);
+        return true;
+    }
+
     /** @param array<string,mixed> $job */
     private function context(array $job): CollectionContext
     {
@@ -889,11 +961,15 @@ final class ExportJobService
     }
 
     /** @param array<string,mixed> $normalized @param array{source_raw_sha256:array<string,string>,expires_at:int} $proof */
-    private function preflightProofStillValid(array $normalized,array $proof):bool
+    private function assertPreflightProofStillValid(array $normalized,array $proof):bool
     {
-        if($this->privateStorage instanceof PrivateStorage&&!$this->privateStorage->acceptsSelfTestResult($this->privateStorage->selfTest(false))){return false;}
-        $expected=$proof['source_raw_sha256'];$documents=array_map('strval',$normalized['document_ids']);sort($documents,SORT_STRING);$proofIds=array_keys($expected);sort($proofIds,SORT_STRING);if($documents!==$proofIds){return false;}
-        foreach($expected as $documentId=>$hash){$raw=$this->currentRawSourceBytes((int)$documentId);if($raw===null||!hash_equals($hash,'sha256:'.hash('sha256',$raw))){return false;}}
+        if($this->privateStorage instanceof PrivateStorage&&!$this->privateStorage->acceptsSelfTestResult($this->privateStorage->selfTest(false))){
+            throw new ExportIntegrityException('EDIS_PREFLIGHT_STORAGE_REVALIDATION_FAILED','Private storage no longer satisfies the bounded Preflight contract.',null,['failure_phase'=>'preflight_source_revalidation','store_check'=>'PRIVATE_STORAGE_SELF_TEST']);
+        }
+        $expected=$proof['source_raw_sha256'];$documents=array_map('strval',$normalized['document_ids']);sort($documents,SORT_STRING);$proofIds=array_map('strval',array_keys($expected));sort($proofIds,SORT_STRING);if($documents!==$proofIds){
+            throw new ExportIntegrityException('EDIS_PREFLIGHT_PROOF_DOCUMENT_SET_MISMATCH','The selected document set no longer matches the Preflight proof.',null,['failure_phase'=>'preflight_source_revalidation','selected_document_count'=>count($documents)]);
+        }
+        foreach($expected as $documentId=>$hash){$raw=$this->currentRawSourceBytes((int)$documentId);if($raw===null){throw new ExportIntegrityException('EDIS_PREFLIGHT_SOURCE_MISSING','Saved Elementor source is unavailable during Preflight revalidation.',null,['failure_phase'=>'preflight_source_revalidation','selected_document_count'=>count($documents)]);}if(!hash_equals($hash,'sha256:'.hash('sha256',$raw))){throw new ExportIntegrityException('EDIS_PREFLIGHT_SOURCE_CHANGED','Saved Elementor source changed after Preflight.',null,['failure_phase'=>'preflight_source_revalidation','selected_document_count'=>count($documents)]);}}
         return true;
     }
 
@@ -1040,6 +1116,42 @@ final class ExportJobService
         ksort($summaries,SORT_STRING);return $summaries;
     }
     /** @return array{element_count:int,responsive_declaration_count:int,reference_count:int} */ private function emptySourceSummary():array{return ['element_count'=>0,'responsive_declaration_count'=>0,'reference_count'=>0];}
+
+    /** @template T @param callable():T $operation @return T */
+    private function atStage(string $stage, string $fallbackCode, callable $operation, bool $invalidArgumentIsExpected = false): mixed
+    {
+        try {
+            return $operation();
+        } catch (ExpectedOperationRejection $exception) {
+            throw $exception;
+        } catch (ExportIntegrityException $exception) {
+            $context = $exception->diagnosticContext;
+            $context['failure_phase'] = $context['failure_phase'] ?? $stage;
+            throw new ExportIntegrityException(
+                $exception->diagnosticCode,
+                'EDIS observed a bounded failure at a known operation stage.',
+                $exception,
+                $context,
+            );
+        } catch (\InvalidArgumentException $exception) {
+            if ($invalidArgumentIsExpected) {
+                throw $exception;
+            }
+            throw new ExportIntegrityException(
+                $fallbackCode,
+                'EDIS observed a bounded failure at a known operation stage.',
+                $exception,
+                ['failure_phase' => $stage, 'validation_stage' => $stage],
+            );
+        } catch (\Throwable $exception) {
+            throw new ExportIntegrityException(
+                $fallbackCode,
+                'EDIS observed a bounded failure at a known operation stage.',
+                $exception,
+                ['failure_phase' => $stage],
+            );
+        }
+    }
 
     private function hourSeconds(): int
     {
