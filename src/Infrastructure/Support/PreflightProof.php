@@ -53,7 +53,7 @@ final class PreflightProof
             'issued_at' => $issuedAt,
             'expires_at' => $issuedAt + max(30, min(900, $this->ttlSeconds)),
             'request_sha256' => $this->requestSha256($normalizedRequest),
-            'source_raw_sha256' => $sourceHashes === [] ? (object) [] : $sourceHashes,
+            'source_raw_sha256' => $sourceHashes === [] ? (object) [] : (object) $sourceHashes,
         ];
         $bytes = CanonicalJson::encode($payload);
         $encoded = $this->base64UrlEncode($bytes);
@@ -135,7 +135,7 @@ final class PreflightProof
             }
         }
         sort($documents, SORT_STRING);
-        $proofIds = array_keys($sourceHashes);
+        $proofIds = array_map('strval', array_keys($sourceHashes));
         sort($proofIds, SORT_STRING);
         if ($documents !== $proofIds) {
             return $this->failure('EDIS_PREFLIGHT_PROOF_DOCUMENT_SET_MISMATCH', 'preflight_source_revalidation', [
