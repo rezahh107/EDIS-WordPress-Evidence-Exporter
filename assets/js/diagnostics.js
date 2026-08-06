@@ -10,6 +10,14 @@ const pick=(value,snake,camel)=>{
 const validId=value=>typeof value==='string'&&/^edis-diag-[a-f0-9]{32}$/.test(value);
 const validCode=value=>typeof value==='string'&&/^[A-Z0-9_:-]{1,128}$/.test(value);
 const validUrl=value=>value===null||value===undefined||value===''||typeof value==='string';
+const sameOriginUrl=value=>{
+  if(value===null||value===undefined||value==='')return true;
+  if(typeof value!=='string')return false;
+  try{
+    const url=new URL(value,window.location?.href||'http://localhost/');
+    return !window.location?.origin||url.origin===window.location.origin;
+  }catch(error){return false;}
+};
 function diagnosticData(payload){
   if(!object(payload))return null;
   const outer=payload,data=object(payload.data)?payload.data:payload;
@@ -36,7 +44,7 @@ function diagnosticData(payload){
 function classify(payload){
   const data=diagnosticData(payload);if(!data)return null;
   if(data.diagnosticAvailable===true){
-    if(!validId(data.diagnosticId)||data.diagnosticPersistenceCode!==null)return null;
+    if(!validId(data.diagnosticId)||data.diagnosticPersistenceCode!==null||!sameOriginUrl(data.diagnosticsUrl))return null;
     return{state:'AVAILABLE',...data};
   }
   if(data.diagnosticId!==null||data.diagnosticsUrl!==null||!validCode(data.diagnosticPersistenceCode))return null;
