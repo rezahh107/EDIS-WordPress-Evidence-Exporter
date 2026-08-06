@@ -16,7 +16,17 @@ spl_autoload_register(static function (string $class): void {
             return;
         }
     }
-    $path = __DIR__ . '/src/' . implode('/', $parts) . '.php';
+    $sharedApplicationContracts = [
+        'Application\\JobFailureCursor',
+        'Application\\FailureObservation',
+        'Application\\FailureObservationException',
+        'Application\\ExpectedOperationRejection',
+        'Application\\DurableJobFailureException',
+        'Application\\ExportCreateConformance',
+    ];
+    $path = in_array($relative, $sharedApplicationContracts, true)
+        ? __DIR__ . '/src/Application/JobFailureCursor.php'
+        : __DIR__ . '/src/' . implode('/', $parts) . '.php';
     if (is_file($path)) {
         require_once $path;
     }
