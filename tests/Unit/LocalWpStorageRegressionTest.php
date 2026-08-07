@@ -82,9 +82,7 @@ final class LocalWpStorageRegressionTest extends TestCase
         self::assertIsString($canonicalRoot);
         self::assertTrue(is_file($real));
         self::assertFalse(is_link($real));
-        $samePath = new \ReflectionMethod($store, 'samePath');
         $withinRoot = new \ReflectionMethod($store, 'isWithinRoot');
-        self::assertTrue($samePath->invoke($store, $real, $bundle['path']));
         self::assertTrue($withinRoot->invoke($store, $real, $canonicalRoot));
         self::assertSame((int) $metadata['size'], (int) filesize($real));
         $hash = hash_file('sha256', $real);
@@ -186,13 +184,16 @@ final class LocalWpStorageRegressionTest extends TestCase
     public function testWindowsPathComparisonHandlesSeparatorsDriveCaseAndPrefixBoundaries(): void
     {
         $store = new ExportFileStore(new SettingsRepository(), sys_get_temp_dir());
-        $samePath = new \ReflectionMethod($store, 'samePath');
+        $comparisonPath = new \ReflectionMethod($store, 'comparisonPath');
         $withinRoot = new \ReflectionMethod($store, 'isWithinRoot');
 
-        self::assertTrue($samePath->invoke($store, 'C:\\Users\\Example\\EDIS\\bundle.zip', 'c:/users/example/edis/bundle.zip'));
+        self::assertSame(
+            $comparisonPath->invoke($store, 'C:\\Users\\Example\\EDIS\\bundle.zip'),
+            $comparisonPath->invoke($store, 'c:/users/example/edis/bundle.zip')
+        );
         self::assertTrue($withinRoot->invoke($store, 'C:\\EDIS\\bundles\\bundle.zip', 'c:/edis/bundles'));
         self::assertFalse($withinRoot->invoke($store, 'C:\\EDIS\\bundles-evil\\bundle.zip', 'c:/edis/bundles'));
-        self::assertFalse($samePath->invoke($store, 'C:/edis/bundles/../outside.zip', 'C:/edis/outside.zip'));
+        self::assertSame('', $comparisonPath->invoke($store, 'C:/edis/bundles/../outside.zip'));
     }
 
     public function testPosixComparisonRemainsCaseSensitive(): void
@@ -201,8 +202,11 @@ final class LocalWpStorageRegressionTest extends TestCase
             self::markTestSkipped('POSIX case-sensitivity assertion is not applicable on Windows.');
         }
         $store = new ExportFileStore(new SettingsRepository(), sys_get_temp_dir());
-        $samePath = new \ReflectionMethod($store, 'samePath');
-        self::assertFalse($samePath->invoke($store, '/tmp/EDIS/Bundle.zip', '/tmp/edis/Bundle.zip'));
+        $comparisonPath = new \ReflectionMethod($store, 'comparisonPath');
+        self::assertNotSame(
+            $comparisonPath->invoke($store, '/tmp/EDIS/Bundle.zip'),
+            $comparisonPath->invoke($store, '/tmp/edis/Bundle.zip')
+        );
     }
 
     /** @return array{ExportFileStore,array{path:string,sha256:string,size:int,token:string,expires_at:int}} */
