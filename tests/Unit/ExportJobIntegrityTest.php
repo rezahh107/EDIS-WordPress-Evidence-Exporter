@@ -297,8 +297,8 @@ namespace {
                 $record = is_array($resolved['record'] ?? null) ? $resolved['record'] : [];
                 $jobId = is_string($record['operation_identity']['job_id'] ?? null) ? $record['operation_identity']['job_id'] : '';
                 $job = $jobId !== '' ? $jobs->get($jobId) : null;
-                $evidenceTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['source_type'] ?? null) ? $item['source_type'] : null, (array) ($record['evidence'] ?? []))));
-                $timelineTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['event_type'] ?? null) ? $item['event_type'] : null, (array) ($record['timeline'] ?? []))));
+                $evidenceTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['source_type'] ?? null) ? $item['source_type'] : null, (array) ($record['evidence_and_provenance'] ?? []))));
+                $timelineTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['event_type'] ?? null) ? $item['event_type'] : null, (array) ($record['causal_timeline'] ?? []))));
                 $persistedDiagnostics = is_array($job['diagnostics'] ?? null) ? $job['diagnostics'] : [];
                 $persistedCodes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['code'] ?? null) ? $item['code'] : null, $persistedDiagnostics)));
                 $emit([
@@ -346,8 +346,8 @@ namespace {
                 $diagnosticId = is_string($capture['diagnostic_id'] ?? null) ? $capture['diagnostic_id'] : '';
                 $resolved = $diagnosticId !== '' ? $diagnostics->resolveForOwner(7, $diagnosticId, static fn (int $documentId): bool => true) : null;
                 $record = is_array($resolved['record'] ?? null) ? $resolved['record'] : [];
-                $evidenceTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['source_type'] ?? null) ? $item['source_type'] : null, (array) ($record['evidence'] ?? []))));
-                $timelineTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['event_type'] ?? null) ? $item['event_type'] : null, (array) ($record['timeline'] ?? []))));
+                $evidenceTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['source_type'] ?? null) ? $item['source_type'] : null, (array) ($record['evidence_and_provenance'] ?? []))));
+                $timelineTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['event_type'] ?? null) ? $item['event_type'] : null, (array) ($record['causal_timeline'] ?? []))));
                 $emit([
                     'scenario' => $scenario,
                     'job_id' => $jobId,
