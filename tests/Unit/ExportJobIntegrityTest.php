@@ -309,7 +309,7 @@ namespace {
                     'failure_stage' => $record['failure_location']['lifecycle_stage'] ?? null,
                     'has_persisted_job_record' => in_array('PERSISTED_JOB_RECORD', $evidenceTypes, true),
                     'has_persisted_transition' => in_array('PERSISTED_JOB_TRANSITION', $evidenceTypes, true),
-                    'timeline_event' => $timelineTypes[0] ?? null,
+                    'timeline_event' => in_array('JOB_OPERATION_EXCEPTION_CAUGHT', $timelineTypes, true) ? 'JOB_OPERATION_EXCEPTION_CAUGHT' : null,
                     'persisted_has_cron_diagnostic' => in_array('EDIS_WP_CRON_INTERNAL_TRIGGER_DISABLED', $persistedCodes, true),
                     'diagnostic_count' => $diagnosticCount(),
                 ]);
@@ -353,7 +353,7 @@ namespace {
                     'job_id' => $jobId,
                     'cursor_changed' => is_array($persisted) && \EDIS\EvidenceExporter\Application\JobFailureCursor::changed($failureCursor, $persisted),
                     'has_persisted_transition' => in_array('PERSISTED_JOB_TRANSITION', $evidenceTypes, true),
-                    'timeline_event' => $timelineTypes[0] ?? null,
+                    'timeline_event' => in_array('JOB_FAILURE_RECORDED', $timelineTypes, true) ? 'JOB_FAILURE_RECORDED' : null,
                     'internal_code' => $record['failure_classification']['internal_code'] ?? null,
                     'diagnostic_count' => $diagnosticCount(),
                 ]);
