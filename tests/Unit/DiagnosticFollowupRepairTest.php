@@ -217,10 +217,15 @@ final class DiagnosticFollowupRepairTest extends TestCase
         self::assertStringContainsString('failureCursor', $service);
         self::assertStringContainsString('expirationForJob', $service);
         self::assertStringNotContainsString('worker_version != plugin_version', $builder);
-        self::assertStringNotContainsString(
-            "'diagnostic_available' => false,\n                            'diagnostic_id' => null",
-            $exportController,
-        );
+
+        // Expected rejections must use the explicit no-artifact contract rather
+        // than entering canonical projection. These semantic assertions replace
+        // the former indentation-sensitive substring check.
+        self::assertStringContainsString('catch (ExpectedOperationRejection', $exportController);
+        self::assertStringContainsString('private function expectedError', $exportController);
+        self::assertStringContainsString("'diagnostic_available' => false", $exportController);
+        self::assertStringContainsString("'diagnostic_id' => null", $exportController);
+        self::assertStringContainsString("'diagnostic_persistence_code' => null", $exportController);
     }
 
     /** @return array{DiagnosticRecordService,JobStore,string} */

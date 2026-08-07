@@ -15,12 +15,46 @@ final class InspectorModule
 
     public function enqueueScripts(): void
     {
-        if (!$this->allowed()) { return; }
+        if (!$this->allowed()) {
+            return;
+        }
         $documentId = $this->currentDocumentId();
-        if ($documentId !== null && !current_user_can('edit_post', $documentId)) { return; }
+        if ($documentId !== null && !current_user_can('edit_post', $documentId)) {
+            return;
+        }
+
+        $diagnosticHandle = 'edis-evidence-diagnostics';
+        wp_enqueue_script(
+            $diagnosticHandle,
+            EDIS_EVIDENCE_EXPORTER_URL . 'assets/js/diagnostics.js',
+            [],
+            EDIS_EVIDENCE_EXPORTER_VERSION,
+            true,
+        );
+        wp_localize_script($diagnosticHandle, 'EDISDiagnosticAdmin', [
+            'restPrefix' => rest_url('edis-evidence-exporter/v3'),
+            'diagnosticsUrl' => admin_url('admin.php?page=edis-evidence-diagnostics'),
+            'strings' => [
+                'diagnosticId' => __('Diagnostic ID', 'edis-evidence-exporter'),
+                'copyId' => __('Copy ID', 'edis-evidence-exporter'),
+                'openDiagnostics' => __('Open Diagnostics', 'edis-evidence-exporter'),
+                'diagnosticAvailable' => __('A canonical Diagnostic record is available for this failure.', 'edis-evidence-exporter'),
+                'diagnosticCapacity' => __('Diagnostic capacity was reached; no artifact was created.', 'edis-evidence-exporter'),
+                'diagnosticUnavailable' => __('EDIS could not persist a Diagnostic artifact for this failure.', 'edis-evidence-exporter'),
+                'artifactUnavailable' => __('EDIS could not persist a Diagnostic artifact for this failure.', 'edis-evidence-exporter'),
+                'copied' => __('Diagnostic ID copied.', 'edis-evidence-exporter'),
+            ],
+        ]);
+
         /* translators: %d: Number of Elementor elements currently selected for export. */
         $selectionCount = __('EDIS selection: %d', 'edis-evidence-exporter');
-        wp_enqueue_script('edis-elementor-inspector', EDIS_EVIDENCE_EXPORTER_URL . 'assets/js/elementor-inspector.js', [], EDIS_EVIDENCE_EXPORTER_VERSION, true);
+        wp_enqueue_script(
+            'edis-elementor-inspector',
+            EDIS_EVIDENCE_EXPORTER_URL . 'assets/js/elementor-inspector.js',
+            [$diagnosticHandle],
+            EDIS_EVIDENCE_EXPORTER_VERSION,
+            true,
+        );
         wp_localize_script('edis-elementor-inspector', 'EDISElementorInspector', [
             'selectionEndpoint' => esc_url_raw(rest_url('edis-evidence-exporter/v3/inspector-selections')),
             'restNonce' => wp_create_nonce('wp_rest'),
@@ -58,7 +92,9 @@ final class InspectorModule
 
     public function enqueueStyles(): void
     {
-        if (!$this->allowed()) { return; }
+        if (!$this->allowed()) {
+            return;
+        }
         wp_enqueue_style('edis-elementor-inspector', EDIS_EVIDENCE_EXPORTER_URL . 'assets/css/elementor-inspector.css', [], EDIS_EVIDENCE_EXPORTER_VERSION);
     }
 

@@ -87,6 +87,20 @@
     node.classList.toggle('edis-inspector-error', Boolean(isError));
   }
 
+  function renderFailure(payload) {
+    const target = tray().querySelector('[data-edis-status]');
+    const shared = window.EDISDiagnosticEnvelope;
+    const result = shared && typeof shared.classify === 'function' ? shared.classify(payload) : null;
+    if (result && typeof shared.render === 'function' && shared.render(target, result)) {
+      target.classList.add('edis-inspector-error');
+      return true;
+    }
+    const code = typeof payload?.code === 'string' ? payload.code : '';
+    const message = typeof payload?.message === 'string' ? payload.message : (strings.requestFailed || 'Request failed.');
+    status([code, message].filter(Boolean).join(' — '), true);
+    return false;
+  }
+
   function synchronizeDocument() {
     const current = currentDocumentId();
     if (activeDocumentId === null) activeDocumentId = current;
@@ -126,7 +140,8 @@
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.create_export_url) {
-        throw new Error(payload?.message || strings.requestFailed || 'Request failed.');
+        renderFailure(payload);
+        return;
       }
       window.open(payload.create_export_url, '_blank', 'noopener');
     } catch (error) {
@@ -195,14 +210,9 @@
     if (installed || !window.elementor?.hooks?.addFilter) return;
     installed = true;
     activeDocumentId = currentDocumentId();
-
-    // These official legacy hooks provide the element View as the second argument.
     ['section', 'column', 'widget'].forEach((elementType) => {
       registerViewAwareHook(`elements/${elementType}/contextMenuGroups`);
     });
-
-    // The documented generic hook normally supplies elementType, not a View. Keep a guarded
-    // adapter for versions/add-ons that provide a third view argument; never treat elementType as identity.
     window.elementor.hooks.addFilter('elements/context-menu/groups', (groups, elementType, maybeView) => {
       const view = isElementView(maybeView) ? maybeView : null;
       return view ? appendInspectorGroup(groups, view) : groups;

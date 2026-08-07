@@ -3,11 +3,17 @@ declare(strict_types=1);
 
 namespace EDIS\EvidenceExporter\Rest;
 
+use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
+use EDIS\EvidenceExporter\Infrastructure\Support\ExportIntegrityException;
 use EDIS\EvidenceExporter\Infrastructure\Support\SelectionTokenStore;
 
 final class InspectorSelectionController
 {
-    public function __construct(private readonly SelectionTokenStore $tokens, private readonly string $capability = 'edis_export_evidence') {}
+    public function __construct(
+        private readonly SelectionTokenStore $tokens,
+        private readonly DiagnosticRecordService $diagnostics,
+        private readonly string $capability = 'edis_export_evidence',
+    ) {}
 
     public function registerRoutes(): void
     {
@@ -44,48 +50,101 @@ final class InspectorSelectionController
     {
         return current_user_can($this->capability)
             ? true
-            : new \WP_Error('edis_inspector_forbidden', __('You do not have permission to export inspector selections.', 'edis-evidence-exporter'), ['status' => 403]);
+            : new \WP_Error('edis_inspector_forbidden', __('You do not have permission to export Inspector selections.', 'edis-evidence-exporter'), ['status' => 403]);
     }
 
     public function create(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
+        $documentId = (int) $request->get_param('document_id');
+        if ($documentId <= 0 || !current_user_can('edit_post', $documentId)) {
+            return $this->expectedError(
+                'edis_inspector_forbidden',
+                403,
+                __('You cannot export evidence for this document.', 'edis-evidence-exporter'),
+                'EDIS_INSPECTOR_DOCUMENT_AUTHORIZATION_DENIED',
+            );
+        }
+
+        $raw = $request->get_param('selection');
+        if (!$this->validateSelection($raw)) {
+            return $this->expectedError(
+                'edis_invalid_inspector_selection',
+                400,
+                __('The Inspector selection shape is invalid.', 'edis-evidence-exporter'),
+                'EDIS_INSPECTOR_SELECTION_SHAPE_REJECTED',
+            );
+        }
+
+        $selection = [];
+        foreach ($raw as $item) {
+            $itemDocument = (string) ($item['document_id'] ?? '');
+            $elementId = (string) ($item['elementor_element_id'] ?? '');
+            if ($itemDocument !== (string) $documentId || !$this->validElementId($elementId)) {
+                return $this->expectedError(
+                    'edis_invalid_inspector_selection',
+                    400,
+                    __('The Inspector selection does not match the authorized document.', 'edis-evidence-exporter'),
+                    'EDIS_INSPECTOR_SELECTION_IDENTITY_REJECTED',
+                );
+            }
+            $selection[$elementId] = [
+                'document_id' => (string) $documentId,
+                'elementor_element_id' => $elementId,
+                'include_descendants' => !empty($item['include_descendants']),
+                'selection_reason' => 'USER_SELECTED',
+                'element_type' => sanitize_key((string) ($item['element_type'] ?? 'unknown')),
+            ];
+        }
+        ksort($selection, SORT_STRING);
+        $state = strtoupper((string) $request->get_param('editor_unsaved_changes_state'));
+        if (!in_array($state, ['TRUE', 'FALSE', 'UNAVAILABLE', 'ERROR'], true)) {
+            $state = 'UNAVAILABLE';
+        }
+
         try {
-            $documentId = (int) $request->get_param('document_id');
-            if ($documentId <= 0 || !current_user_can('edit_post', $documentId)) {
-                return new \WP_Error('edis_inspector_forbidden', __('You cannot export evidence for this document.', 'edis-evidence-exporter'), ['status' => 403]);
-            }
-            $raw = $request->get_param('selection');
-            if (!$this->validateSelection($raw)) {
-                throw new \InvalidArgumentException('invalid_inspector_selection_shape');
-            }
-            $selection = [];
-            foreach ($raw as $item) {
-                $itemDocument = (string) ($item['document_id'] ?? '');
-                $elementId = (string) ($item['elementor_element_id'] ?? '');
-                if ($itemDocument !== (string) $documentId || !$this->validElementId($elementId)) {
-                    throw new \InvalidArgumentException('invalid_inspector_selection_identity');
-                }
-                $selection[$elementId] = [
-                    'document_id' => (string) $documentId,
-                    'elementor_element_id' => $elementId,
-                    'include_descendants' => !empty($item['include_descendants']),
-                    'selection_reason' => 'USER_SELECTED',
-                    'element_type' => sanitize_key((string) ($item['element_type'] ?? 'unknown')),
-                ];
-            }
-            ksort($selection, SORT_STRING);
-            $state = strtoupper((string) $request->get_param('editor_unsaved_changes_state'));
-            if (!in_array($state, ['TRUE', 'FALSE', 'UNAVAILABLE', 'ERROR'], true)) {
-                $state = 'UNAVAILABLE';
-            }
             $issued = $this->tokens->issue(get_current_user_id(), $documentId, array_values($selection), $state);
-            $url = add_query_arg(['page' => 'edis-evidence-create', 'selection_token' => $issued['token'], 'export_scope' => 'SINGLE_DOCUMENT'], admin_url('admin.php'));
-            return new \WP_REST_Response(['selection_token' => $issued['token'], 'expires_at' => $issued['expires_at'], 'create_export_url' => $url], 201);
+            $url = add_query_arg([
+                'page' => 'edis-evidence-create',
+                'selection_token' => $issued['token'],
+                'export_scope' => 'SINGLE_DOCUMENT',
+            ], admin_url('admin.php'));
+            return new \WP_REST_Response([
+                'selection_token' => $issued['token'],
+                'expires_at' => $issued['expires_at'],
+                'create_export_url' => $url,
+            ], 201);
         } catch (\Throwable $exception) {
-            return new \WP_Error('edis_invalid_inspector_selection', __('The inspector selection could not be accepted. Review EDIS diagnostics for details.', 'edis-evidence-exporter'), [
-                'status' => 400,
-                'diagnostic_id' => 'edis-' . substr(hash('sha256', 'edis_invalid_inspector_selection|' . $exception::class . '|' . $exception->getMessage()), 0, 16),
-            ]);
+            $integrity = $exception instanceof ExportIntegrityException
+                ? $exception
+                : new ExportIntegrityException(
+                    'EDIS_INSPECTOR_SELECTION_PERSISTENCE_FAILED',
+                    'The bounded Inspector selection could not be persisted.',
+                    $exception,
+                    [
+                        'failure_phase' => 'inspector_selection_persistence',
+                        'selected_document_count' => 1,
+                    ],
+                );
+            $diagnostic = $this->diagnostics->capturePreJobFailure(
+                get_current_user_id(),
+                'INSPECTOR_SELECTION',
+                '/edis-evidence-exporter/v3/inspector-selections',
+                [
+                    'privacy_mode' => null,
+                    'collectors' => [],
+                    'document_ids' => [$documentId],
+                    'options' => ['export_scope' => 'SINGLE_DOCUMENT'],
+                ],
+                $integrity,
+                [
+                    'lifecycle_stage' => 'inspector_selection_persistence',
+                    'subsystem' => 'SelectionTokenStore',
+                    'operation_immediately_attempted' => 'persist one bounded Inspector selection token',
+                    'last_successful_state' => 'INSPECTOR_REQUEST_VALIDATED',
+                ],
+                'edis_inspector_selection_failed',
+            );
+            return $this->diagnosticError($diagnostic);
         }
     }
 
@@ -108,6 +167,46 @@ final class InspectorSelectionController
             }
         }
         return true;
+    }
+
+    private function expectedError(string $code, int $status, string $message, string $reasonCode): \WP_Error
+    {
+        return new \WP_Error($code, $message, [
+            'status' => $status,
+            'reason_code' => $reasonCode,
+            'diagnostic_available' => false,
+            'diagnostic_id' => null,
+            'diagnostics_url' => null,
+            'diagnostic_persistence_code' => null,
+        ]);
+    }
+
+    /** @param array{diagnostic_available:bool,diagnostic_id:?string,diagnostic_persistence_code:?string} $diagnostic */
+    private function diagnosticError(array $diagnostic): \WP_Error
+    {
+        $available = $diagnostic['diagnostic_available'] === true
+            && is_string($diagnostic['diagnostic_id'])
+            && preg_match('/\Aedis-diag-[a-f0-9]{32}\z/D', $diagnostic['diagnostic_id']) === 1;
+        $diagnosticId = $available ? $diagnostic['diagnostic_id'] : null;
+        $persistenceCode = !$available && is_string($diagnostic['diagnostic_persistence_code'] ?? null)
+            ? $diagnostic['diagnostic_persistence_code']
+            : null;
+        $url = $available
+            ? add_query_arg('diagnostic_id', $diagnosticId, admin_url('admin.php?page=edis-evidence-diagnostics'))
+            : null;
+        return new \WP_Error(
+            'edis_inspector_selection_failed',
+            $available
+                ? __('The Inspector operation failed. Open EDIS Diagnostics with the returned diagnostic ID.', 'edis-evidence-exporter')
+                : __('The Inspector operation failed and no Diagnostic artifact is available.', 'edis-evidence-exporter'),
+            [
+                'status' => 500,
+                'diagnostic_available' => $available,
+                'diagnostic_id' => $diagnosticId,
+                'diagnostics_url' => $url,
+                'diagnostic_persistence_code' => $available ? null : ($persistenceCode ?? 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED'),
+            ],
+        );
     }
 
     private function validElementId(string $value): bool

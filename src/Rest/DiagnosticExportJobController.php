@@ -4,14 +4,21 @@ declare(strict_types=1);
 namespace EDIS\EvidenceExporter\Rest;
 
 use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
+use EDIS\EvidenceExporter\Application\DurableJobFailureException;
+use EDIS\EvidenceExporter\Application\ExpectedOperationRejection;
+use EDIS\EvidenceExporter\Application\ExportCreateConformance;
 use EDIS\EvidenceExporter\Application\ExportJobService;
+use EDIS\EvidenceExporter\Application\FailureObservation;
+use EDIS\EvidenceExporter\Application\FailureObservationException;
 use EDIS\EvidenceExporter\Application\JobFailureCursor;
+use EDIS\EvidenceExporter\Infrastructure\Support\ExportIntegrityException;
 use EDIS\EvidenceExporter\Infrastructure\Support\JobStore;
 
 final class DiagnosticExportJobController
 {
     public function __construct(
         private readonly ExportJobService $service,
+        private readonly ExportCreateConformance $createBoundary,
         private readonly JobStore $jobs,
         private readonly DiagnosticRecordService $diagnostics,
         private readonly string $capability = 'edis_export_evidence',
@@ -78,20 +85,46 @@ final class DiagnosticExportJobController
     {
         try {
             return new \WP_REST_Response($this->service->preflight(get_current_user_id(), $this->request($request)), 200);
-        } catch (\Throwable $exception) {
-            return $this->preJobError(
+        } catch (\InvalidArgumentException) {
+            return $this->expectedError(
+                'edis_invalid_export_preflight',
+                400,
+                __('The export Preflight request is invalid. Correct the request and run Preflight again.', 'edis-evidence-exporter'),
+                ['reason_code' => 'EDIS_PREFLIGHT_REQUEST_REJECTED', 'lifecycle_stage' => 'preflight_execution'],
+            );
+        } catch (ExportIntegrityException $exception) {
+            return $this->preJobObservation(
                 'edis_invalid_export_preflight',
                 'EXPORT_PREFLIGHT',
                 '/edis-evidence-exporter/v3/export-preflight',
                 $request,
+                new FailureObservation(
+                    $exception->diagnosticCode,
+                    $this->exceptionStage($exception, 'preflight_execution'),
+                    'INTERNAL_EVIDENCE_FAILURE',
+                    'PRE_JOB',
+                    'NEW_JOB_REQUIRED',
+                    $this->boundedContext($exception),
+                ),
                 $exception,
                 400,
-                [
-                    'lifecycle_stage' => 'preflight_execution',
-                    'subsystem' => 'ExportJobService',
-                    'operation_immediately_attempted' => 'execute the bounded export preflight',
-                    'last_successful_state' => 'REQUEST_AUTHORIZED',
-                ],
+            );
+        } catch (\Throwable $exception) {
+            return $this->preJobObservation(
+                'edis_invalid_export_preflight',
+                'EXPORT_PREFLIGHT',
+                '/edis-evidence-exporter/v3/export-preflight',
+                $request,
+                new FailureObservation(
+                    'EDIS_PREFLIGHT_EXECUTION_FAILED',
+                    'preflight_execution',
+                    'UNEXPECTED_MATERIAL_FAILURE',
+                    'PRE_JOB',
+                    'NOT_PROVEN',
+                    ['exception_class' => $exception::class],
+                ),
+                $exception,
+                400,
             );
         }
     }
@@ -106,30 +139,70 @@ final class DiagnosticExportJobController
                 if (($preflight['state'] ?? 'FAIL') !== 'PASS') {
                     return new \WP_Error(
                         'edis_export_preflight_blocked',
-                        __('Preflight found blocking issues. Correct the listed blockers and run preflight again.', 'edis-evidence-exporter'),
+                        __('Preflight found blocking issues. Correct the listed blockers and run Preflight again.', 'edis-evidence-exporter'),
                         [
                             'status' => 400,
+                            'diagnostic_available' => false,
+                            'diagnostic_id' => null,
+                            'diagnostic_persistence_code' => null,
                             'blockers' => array_slice((array) ($preflight['blockers'] ?? []), 0, 32),
                             'warnings' => array_slice((array) ($preflight['warnings'] ?? []), 0, 32),
                         ],
                     );
                 }
             }
-            return new \WP_REST_Response($this->service->create(get_current_user_id(), $requestData), 202);
-        } catch (\Throwable $exception) {
-            return $this->preJobError(
+            return new \WP_REST_Response($this->createBoundary->create(get_current_user_id(), $requestData), 202);
+        } catch (ExpectedOperationRejection $rejection) {
+            return $this->expectedError(
+                $rejection->publicCode,
+                $rejection->httpStatus,
+                __('The export request was rejected. Correct the bounded request condition and run Preflight again.', 'edis-evidence-exporter'),
+                $rejection->publicData,
+            );
+        } catch (DurableJobFailureException $exception) {
+            return $this->jobObservation(
+                'edis_export_post_create_failed',
+                'EXPORT_CREATE',
+                '/edis-evidence-exporter/v3/export-jobs',
+                $exception->jobId,
+                $exception->observation,
+                $exception,
+                500,
+                $exception->failureCursor,
+            );
+        } catch (FailureObservationException $exception) {
+            return $this->preJobObservation(
                 'edis_invalid_export_request',
                 'EXPORT_CREATE',
                 '/edis-evidence-exporter/v3/export-jobs',
                 $request,
+                $exception->observation,
                 $exception,
                 400,
-                [
-                    'lifecycle_stage' => null,
-                    'subsystem' => 'ExportJobService',
-                    'operation_immediately_attempted' => 'validate, snapshot, and persist a new export Job',
-                    'last_successful_state' => 'REQUEST_AUTHORIZED',
-                ],
+            );
+        } catch (\InvalidArgumentException) {
+            return $this->expectedError(
+                'edis_invalid_export_request',
+                400,
+                __('The export request is invalid. Correct the request and run Preflight again.', 'edis-evidence-exporter'),
+                ['reason_code' => 'EDIS_EXPORT_REQUEST_REJECTED', 'lifecycle_stage' => 'request_normalization'],
+            );
+        } catch (\Throwable $exception) {
+            return $this->preJobObservation(
+                'edis_invalid_export_request',
+                'EXPORT_CREATE',
+                '/edis-evidence-exporter/v3/export-jobs',
+                $request,
+                new FailureObservation(
+                    'EDIS_EXPORT_CREATE_STAGE_UNAVAILABLE',
+                    null,
+                    'UNEXPECTED_MATERIAL_FAILURE',
+                    'PRE_JOB',
+                    'NOT_PROVEN',
+                    ['exception_class' => $exception::class],
+                ),
+                $exception,
+                500,
             );
         }
     }
@@ -142,92 +215,213 @@ final class DiagnosticExportJobController
 
     public function advance(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        $jobId = (string) $request->get_param('job_id');
-        $failureCursor = $this->failureCursor($jobId);
-        try {
-            $revision = $request->get_param('revision');
-            return new \WP_REST_Response($this->service->advance(
-                $jobId,
-                get_current_user_id(),
-                is_numeric($revision) ? (int) $revision : null,
-            ), 200);
-        } catch (\Throwable $exception) {
-            return $this->jobError('edis_export_advance_failed', 'EXPORT_ADVANCE', '/edis-evidence-exporter/v3/export-jobs/{job_id}/advance', $jobId, $exception, 409, $failureCursor);
-        }
+        return $this->runAction($request, 'advance', 'EXPORT_ADVANCE', true);
     }
 
     public function resume(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->action($request, 'resume', 'EXPORT_RESUME');
+        return $this->runAction($request, 'resume', 'EXPORT_RESUME', false);
     }
 
     public function retry(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->action($request, 'retry', 'EXPORT_RETRY');
+        return $this->runAction($request, 'retry', 'EXPORT_RETRY', false);
     }
 
     public function cancel(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->action($request, 'cancel', 'EXPORT_CANCEL');
+        return $this->runAction($request, 'cancel', 'EXPORT_CANCEL', false);
     }
 
-    private function action(\WP_REST_Request $request, string $method, string $operation): \WP_REST_Response|\WP_Error
+    private function runAction(\WP_REST_Request $request, string $method, string $operation, bool $withRevision): \WP_REST_Response|\WP_Error
     {
         $jobId = (string) $request->get_param('job_id');
-        $failureCursor = $this->failureCursor($jobId);
+        $owned = $this->owned($jobId);
+        if ($owned instanceof \WP_Error) {
+            return $owned;
+        }
+        $expected = $this->expectedActionResult($owned, $method, $withRevision ? $request->get_param('revision') : null);
+        if ($expected instanceof \WP_REST_Response || $expected instanceof \WP_Error) {
+            return $expected;
+        }
+
+        $failureCursor = JobFailureCursor::capture($owned);
         try {
-            return new \WP_REST_Response($this->service->{$method}($jobId, get_current_user_id()), 200);
+            $result = $method === 'advance'
+                ? $this->service->advance(
+                    $jobId,
+                    get_current_user_id(),
+                    is_numeric($request->get_param('revision')) ? (int) $request->get_param('revision') : null,
+                )
+                : $this->service->{$method}($jobId, get_current_user_id());
+            return new \WP_REST_Response($result, 200);
+        } catch (ExpectedOperationRejection $rejection) {
+            return $this->expectedError(
+                $rejection->publicCode,
+                $rejection->httpStatus,
+                __('The export Job operation was rejected. Refresh the bounded Job state before retrying.', 'edis-evidence-exporter'),
+                $rejection->publicData,
+            );
         } catch (\Throwable $exception) {
-            return $this->jobError('edis_export_action_failed', $operation, '/edis-evidence-exporter/v3/export-jobs/{job_id}/' . $method, $jobId, $exception, 409, $failureCursor);
+            $after = $this->jobs->get($jobId);
+            if (is_array($after)
+                && (int) ($after['owner_id'] ?? 0) === get_current_user_id()
+                && (string) ($after['status'] ?? '') !== 'failed'
+                && !JobFailureCursor::changed($failureCursor, $after)
+            ) {
+                return $this->expectedError(
+                    'edis_export_operation_conflict',
+                    409,
+                    __('The export Job changed or is already being processed. Refresh the Job state before retrying.', 'edis-evidence-exporter'),
+                    [
+                        'reason_code' => 'EDIS_EXPECTED_OPERATION_CONFLICT',
+                        'actual_revision' => (int) ($after['revision'] ?? 0),
+                        'schedule_state' => is_string($after['schedule_state'] ?? null) ? $after['schedule_state'] : null,
+                    ],
+                );
+            }
+            $stage = match ($method) {
+                'advance' => 'job_advance',
+                'resume' => 'job_resume',
+                'retry' => 'job_retry',
+                'cancel' => 'job_cancel',
+                default => 'job_action',
+            };
+            $observation = new FailureObservation(
+                $exception instanceof ExportIntegrityException ? $exception->diagnosticCode : 'EDIS_' . $operation . '_FAILED',
+                $stage,
+                'MATERIAL_JOB_INCIDENT',
+                'JOB_BOUND',
+                $exception instanceof ExportIntegrityException ? 'NOT_RETRYABLE' : 'NOT_PROVEN',
+                $exception instanceof ExportIntegrityException ? $this->boundedContext($exception) : ['exception_class' => $exception::class],
+            );
+            return $this->jobObservation(
+                'edis_export_action_failed',
+                $operation,
+                '/edis-evidence-exporter/v3/export-jobs/{job_id}/' . $method,
+                $jobId,
+                $observation,
+                $exception,
+                409,
+                $failureCursor,
+            );
         }
     }
 
-    /** @param array<string,mixed> $boundary */
-    private function preJobError(
-        string $code,
+    /** @param array<string,mixed> $job */
+    private function expectedActionResult(array $job, string $method, mixed $requestedRevision): \WP_REST_Response|\WP_Error|null
+    {
+        $now = time();
+        $status = (string) ($job['status'] ?? '');
+        $leaseActive = (int) ($job['lease_expires_at'] ?? 0) > $now
+            && is_string($job['lease_owner'] ?? null)
+            && $job['lease_owner'] !== '';
+        if ($leaseActive) {
+            return $this->expectedError(
+                'edis_export_job_busy',
+                409,
+                __('The export Job already has an active Worker lease. Refresh its state after the current Worker finishes.', 'edis-evidence-exporter'),
+                ['reason_code' => 'EDIS_ACTIVE_WORKER_LEASE', 'schedule_state' => is_string($job['schedule_state'] ?? null) ? $job['schedule_state'] : null],
+            );
+        }
+        if ($method === 'advance' && is_numeric($requestedRevision) && (int) $requestedRevision !== (int) ($job['revision'] ?? 0)) {
+            return $this->expectedError(
+                'edis_export_revision_conflict',
+                409,
+                __('The export Job revision is stale. Refresh the Job state before advancing it.', 'edis-evidence-exporter'),
+                [
+                    'reason_code' => 'EDIS_STALE_JOB_REVISION',
+                    'expected_revision' => (int) $requestedRevision,
+                    'actual_revision' => (int) ($job['revision'] ?? 0),
+                ],
+            );
+        }
+        if (in_array($status, ['completed', 'cancelled'], true)) {
+            if (in_array($method, ['advance', 'cancel'], true)) {
+                return new \WP_REST_Response($this->jobs->publicView($job), 200);
+            }
+            return $this->expectedError(
+                'edis_export_action_not_allowed',
+                409,
+                __('This terminal export Job does not allow the requested action.', 'edis-evidence-exporter'),
+                ['reason_code' => 'EDIS_TERMINAL_JOB_ACTION_REJECTED'],
+            );
+        }
+        if (in_array($method, ['resume', 'retry'], true) && !in_array($status, ['failed', 'queued'], true)) {
+            return $this->expectedError(
+                'edis_export_action_not_allowed',
+                409,
+                __('The requested recovery action is not valid for the current Job state.', 'edis-evidence-exporter'),
+                ['reason_code' => 'EDIS_JOB_ACTION_STATE_REJECTED'],
+            );
+        }
+        return null;
+    }
+
+    private function preJobObservation(
+        string $publicCode,
         string $operation,
         string $route,
         \WP_REST_Request $request,
+        FailureObservation $observation,
         \Throwable $exception,
         int $status,
-        array $boundary,
     ): \WP_Error {
         $diagnostic = $this->diagnostics->capturePreJobFailure(
             get_current_user_id(),
             $operation,
             $route,
             $this->request($request),
-            $exception,
-            $boundary,
-            $code,
+            $observation->asIntegrityException($exception),
+            [
+                'lifecycle_stage' => $observation->lifecycleStage,
+                'subsystem' => 'ExportJobService',
+                'operation_immediately_attempted' => 'complete the bounded ' . strtolower($operation) . ' operation',
+                'last_successful_state' => 'REQUEST_AUTHORIZED',
+            ],
+            $publicCode,
         );
-        return $this->error($code, $status, $diagnostic);
+        return $this->diagnosticError($publicCode, $status, $diagnostic);
     }
 
-    private function jobError(
-        string $code,
+    /** @param array{revision:int,signature:string,state:array<string,mixed>}|null $failureCursor */
+    private function jobObservation(
+        string $publicCode,
         string $operation,
         string $route,
         string $jobId,
+        FailureObservation $observation,
         \Throwable $exception,
         int $status,
-        ?array $failureCursor = null,
+        ?array $failureCursor,
     ): \WP_Error {
         $diagnostic = $this->diagnostics->captureJobFailure(
             get_current_user_id(),
             $jobId,
             $operation,
             $route,
-            $exception,
-            $code,
+            $observation->asIntegrityException($exception),
+            $publicCode,
             'JOB_FAILURE',
             $failureCursor,
         );
-        return $this->error($code, $status, $diagnostic);
+        return $this->diagnosticError($publicCode, $status, $diagnostic);
+    }
+
+    /** @param array<string,scalar|null> $data */
+    private function expectedError(string $code, int $status, string $message, array $data = []): \WP_Error
+    {
+        return new \WP_Error($code, $message, [
+            'status' => $status,
+            'diagnostic_available' => false,
+            'diagnostic_id' => null,
+            'diagnostics_url' => null,
+            'diagnostic_persistence_code' => null,
+        ] + $data);
     }
 
     /** @param array{diagnostic_available:bool,diagnostic_id:?string,diagnostic_persistence_code:?string} $diagnostic */
-    private function error(string $code, int $status, array $diagnostic): \WP_Error
+    private function diagnosticError(string $code, int $status, array $diagnostic): \WP_Error
     {
         $available = $diagnostic['diagnostic_available'] === true
             && is_string($diagnostic['diagnostic_id'])
@@ -240,45 +434,29 @@ final class DiagnosticExportJobController
             ? add_query_arg('diagnostic_id', $diagnosticId, admin_url('admin.php?page=edis-evidence-diagnostics'))
             : null;
         $message = $available
-            ? __('The export request could not be completed. Open EDIS Diagnostics with the returned diagnostic ID.', 'edis-evidence-exporter')
+            ? __('The export operation failed. Open EDIS Diagnostics with the returned diagnostic ID.', 'edis-evidence-exporter')
             : ($persistenceCode === 'EDIS_DIAGNOSTIC_CAPACITY_REACHED'
-                ? __('The export request failed and the live diagnostic capacity is full. Existing diagnostic records were preserved.', 'edis-evidence-exporter')
-                : ($persistenceCode === 'EDIS_DIAGNOSTIC_AUTHORITY_EXPIRED'
-                    ? __('The export request failed after its Job authorization lifetime ended, so no diagnostic artifact was advertised.', 'edis-evidence-exporter')
-                    : __('The export request failed. EDIS could not persist a diagnostic artifact.', 'edis-evidence-exporter')));
-        return new \WP_Error(
-            $code,
-            $message,
-            [
-                'status' => $status,
-                'diagnostic_available' => $available,
-                'diagnostic_id' => $diagnosticId,
-                'diagnostics_page' => 'edis-evidence-diagnostics',
-                'diagnostics_url' => $url,
-                'diagnostic_persistence_code' => $available ? null : ($persistenceCode ?? 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED'),
-            ],
-        );
-    }
-
-    /** @return array{revision:int,signature:string,state:array<string,mixed>}|null */
-    private function failureCursor(string $jobId): ?array
-    {
-        $job = $this->jobs->get($jobId);
-        if (!is_array($job) || (int) ($job['owner_id'] ?? 0) !== get_current_user_id()) {
-            return null;
-        }
-        return JobFailureCursor::capture($job);
+                ? __('The export operation failed and live Diagnostic capacity is full. Existing records were preserved.', 'edis-evidence-exporter')
+                : __('The export operation failed. EDIS could not persist a Diagnostic artifact.', 'edis-evidence-exporter'));
+        return new \WP_Error($code, $message, [
+            'status' => $status,
+            'diagnostic_available' => $available,
+            'diagnostic_id' => $diagnosticId,
+            'diagnostics_page' => 'edis-evidence-diagnostics',
+            'diagnostics_url' => $url,
+            'diagnostic_persistence_code' => $available ? null : ($persistenceCode ?? 'EDIS_DIAGNOSTIC_PERSISTENCE_FAILED'),
+        ]);
     }
 
     /** @return array<string,mixed>|\WP_Error */
     private function owned(string $jobId): array|\WP_Error
     {
         if (!$this->isUuid($jobId)) {
-            return new \WP_Error('edis_export_job_not_found', __('Export job not found.', 'edis-evidence-exporter'), ['status' => 404]);
+            return new \WP_Error('edis_export_job_not_found', __('Export Job not found.', 'edis-evidence-exporter'), ['status' => 404]);
         }
         $job = $this->jobs->get($jobId);
         if (!is_array($job) || (int) ($job['owner_id'] ?? 0) !== get_current_user_id()) {
-            return new \WP_Error('edis_export_job_not_found', __('Export job not found.', 'edis-evidence-exporter'), ['status' => 404]);
+            return new \WP_Error('edis_export_job_not_found', __('Export Job not found.', 'edis-evidence-exporter'), ['status' => 404]);
         }
         foreach ((array) ($job['document_ids'] ?? $job['config']['document_ids'] ?? []) as $value) {
             $documentId = (int) $value;
@@ -404,6 +582,29 @@ final class DiagnosticExportJobController
             }
         }
         return array_values(array_unique($out));
+    }
+
+    /** @return array<string,scalar|list<scalar>|null> */
+    private function boundedContext(ExportIntegrityException $exception): array
+    {
+        $allowed = [
+            'validation_stage', 'failed_checks', 'failure_phase', 'component_id', 'source_kind',
+            'document_count', 'selected_document_count', 'filesystem_operation', 'path_role',
+            'store_check', 'expected_revision', 'actual_revision', 'schedule_state', 'schedule_error',
+        ];
+        $context = [];
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $exception->diagnosticContext)) {
+                $context[$key] = $exception->diagnosticContext[$key];
+            }
+        }
+        return $context;
+    }
+
+    private function exceptionStage(ExportIntegrityException $exception, ?string $fallback): ?string
+    {
+        $stage = $exception->diagnosticContext['failure_phase'] ?? null;
+        return is_string($stage) && preg_match('/\A[a-z][a-z0-9_]{2,95}\z/D', $stage) === 1 ? $stage : $fallback;
     }
 
     private function isUuid(string $value): bool
