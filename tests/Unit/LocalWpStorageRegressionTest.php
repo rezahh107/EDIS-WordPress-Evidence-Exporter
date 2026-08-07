@@ -69,7 +69,7 @@ final class LocalWpStorageRegressionTest extends TestCase
     public function testBundleAuthorizationAcceptsEquivalentCanonicalPathRepresentation(): void
     {
         $base = $this->temporaryDirectory();
-        $root = str_replace('\\', '/', $base) . '//bundles';
+        $root = str_replace('\\', '/', $base) . '/bundles';
         $store = new ExportFileStore(new SettingsRepository(), $root);
         $bundle = $store->createBundle('path-equivalence', ['proof.txt' => 'EDIS'], time() + 3600);
 
