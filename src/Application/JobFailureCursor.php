@@ -7,7 +7,6 @@ use EDIS\EvidenceExporter\Domain\Contracts\CollectionContext;
 use EDIS\EvidenceExporter\Infrastructure\Collector\CollectorRegistry;
 use EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson;
 use EDIS\EvidenceExporter\Infrastructure\Support\ExportIntegrityException;
-use EDIS\EvidenceExporter\Infrastructure\Support\JobStore;
 
 final class JobFailureCursor
 {
@@ -212,7 +211,6 @@ final class ExportCreateConformance
     public function __construct(
         private readonly ExportJobService $service,
         private readonly CollectorRegistry $registry,
-        private readonly JobStore $jobs,
     ) {
     }
 
@@ -221,38 +219,13 @@ final class ExportCreateConformance
     {
         $validated = $this->validateExpectedRequest($ownerId, $request);
         $this->validateExecutionPlan($validated['collectors'], $validated['dependency_scope']);
-        $before = $this->jobIdsForOwner($ownerId);
-        $startedAt = time();
         try {
             return $this->service->create($ownerId, $request);
+        } catch (ExpectedOperationRejection $exception) {
+            throw $exception;
+        } catch (DurableJobFailureException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
-            $durable = $this->resolveSingleNewDurableJob(
-                $ownerId,
-                $before,
-                $startedAt,
-                $validated['selected_document_count'],
-            );
-            if (is_array($durable)) {
-                $observation = new FailureObservation(
-                    $exception instanceof ExportIntegrityException
-                        ? $exception->diagnosticCode
-                        : 'EDIS_POST_CREATE_SCHEDULING_FAILED',
-                    'post_create_scheduling',
-                    'MATERIAL_JOB_INCIDENT',
-                    'JOB_BOUND',
-                    'RETRY_ALLOWED',
-                    [
-                        'schedule_state' => $this->safeIdentifier($durable['schedule_state'] ?? null, 'UNAVAILABLE'),
-                        'schedule_error' => $this->safeIdentifier($durable['schedule_error'] ?? null, 'UNAVAILABLE'),
-                    ],
-                );
-                throw new DurableJobFailureException(
-                    (string) $durable['job_id'],
-                    $observation,
-                    JobFailureCursor::capture($durable),
-                    $exception,
-                );
-            }
             if ($exception instanceof ExportIntegrityException) {
                 throw new FailureObservationException(new FailureObservation(
                     $exception->diagnosticCode,
@@ -276,7 +249,7 @@ final class ExportCreateConformance
 
     /**
      * @param array<string,mixed> $request
-     * @return array{collectors:list<string>,dependency_scope:string,selected_document_count:int}
+     * @return array{collectors:list<string>,dependency_scope:string}
      */
     private function validateExpectedRequest(int $ownerId, array $request): array
     {
@@ -337,7 +310,6 @@ final class ExportCreateConformance
         return [
             'collectors' => array_keys($collectors),
             'dependency_scope' => $dependencyScope,
-            'selected_document_count' => $scope === 'METADATA_ONLY' ? 0 : count($documentIds),
         ];
     }
 
@@ -365,40 +337,6 @@ final class ExportCreateConformance
                 ['validation_stage' => 'execution_plan_construction'],
             ), $exception);
         }
-    }
-
-    /** @return array<string,bool> */
-    private function jobIdsForOwner(int $ownerId): array
-    {
-        $ids = [];
-        foreach ($this->jobs->jobsForUser($ownerId) as $job) {
-            $id = is_string($job['job_id'] ?? null) ? $job['job_id'] : '';
-            if ($id !== '') {
-                $ids[$id] = true;
-            }
-        }
-        return $ids;
-    }
-
-    /** @param array<string,bool> $before @return array<string,mixed>|null */
-    private function resolveSingleNewDurableJob(int $ownerId, array $before, int $startedAt, int $selectedDocumentCount): ?array
-    {
-        $candidates = [];
-        foreach ($this->jobs->jobsForUser($ownerId) as $view) {
-            $id = is_string($view['job_id'] ?? null) ? $view['job_id'] : '';
-            if ($id === '' || isset($before[$id])) {
-                continue;
-            }
-            $job = $this->jobs->get($id);
-            if (!is_array($job)
-                || (int) ($job['owner_id'] ?? 0) !== $ownerId
-                || (int) ($job['created_at'] ?? 0) < $startedAt - 1
-                || (int) ($job['selected_document_count'] ?? -1) !== $selectedDocumentCount) {
-                continue;
-            }
-            $candidates[] = $job;
-        }
-        return count($candidates) === 1 ? $candidates[0] : null;
     }
 
     private function stageForIntegrityFailure(ExportIntegrityException $exception): ?string
@@ -438,13 +376,5 @@ final class ExportCreateConformance
             }
         }
         return $context;
-    }
-
-    private function safeIdentifier(mixed $value, string $fallback): string
-    {
-        if (!is_string($value) || preg_match('/\A[A-Z0-9_:-]{2,128}\z/D', strtoupper($value)) !== 1) {
-            return $fallback;
-        }
-        return strtoupper($value);
     }
 }
