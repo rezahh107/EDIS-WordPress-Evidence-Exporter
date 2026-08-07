@@ -212,7 +212,37 @@ final class ExportJobService
             throw $exception;
         }
 
-        $this->scheduleRecovery($job);
+        try {
+            $this->scheduleRecovery($job);
+        } catch (ExpectedOperationRejection $exception) {
+            throw $exception;
+        } catch (DurableJobFailureException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            $safeContext = [];
+            foreach (['schedule_state', 'schedule_error'] as $key) {
+                $value = $job[$key] ?? null;
+                if (is_string($value) && preg_match('/\A[A-Za-z0-9_.:-]{1,128}\z/D', $value) === 1) {
+                    $safeContext[$key] = $value;
+                }
+            }
+            $observation = new FailureObservation(
+                $exception instanceof ExportIntegrityException
+                    ? $exception->diagnosticCode
+                    : 'EDIS_POST_CREATE_SCHEDULING_FAILED',
+                'post_create_scheduling',
+                'MATERIAL_JOB_INCIDENT',
+                'JOB_BOUND',
+                'RETRY_ALLOWED',
+                $safeContext,
+            );
+            throw new DurableJobFailureException(
+                (string) $job['job_id'],
+                $observation,
+                JobFailureCursor::capture($job),
+                $exception,
+            );
+        }
         return $this->jobs->publicView($job);
     }
 
