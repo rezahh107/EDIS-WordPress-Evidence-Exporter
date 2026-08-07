@@ -73,10 +73,28 @@ final class LocalWpStorageRegressionTest extends TestCase
         $store = new ExportFileStore(new SettingsRepository(), $root);
         $bundle = $store->createBundle('path-equivalence', ['proof.txt' => 'EDIS'], time() + 3600);
 
+        $metadata = $store->metadata('path-equivalence');
+        self::assertIsArray($metadata);
+        self::assertSame($bundle['path'], $metadata['path']);
+        $real = realpath($bundle['path']);
+        $canonicalRoot = realpath($root);
+        self::assertIsString($real);
+        self::assertIsString($canonicalRoot);
+        self::assertTrue(is_file($real));
+        self::assertFalse(is_link($real));
+        $samePath = new \ReflectionMethod($store, 'samePath');
+        $withinRoot = new \ReflectionMethod($store, 'isWithinRoot');
+        self::assertTrue($samePath->invoke($store, $real, $bundle['path']));
+        self::assertTrue($withinRoot->invoke($store, $real, $canonicalRoot));
+        self::assertSame((int) $metadata['size'], (int) filesize($real));
+        $hash = hash_file('sha256', $real);
+        self::assertIsString($hash);
+        self::assertSame((string) $metadata['sha256'], 'sha256:' . $hash);
+
         $authorized = $store->authorize('path-equivalence', $bundle['token']);
 
         self::assertIsString($authorized);
-        self::assertSame(realpath($bundle['path']), $authorized);
+        self::assertSame($real, $authorized);
         self::assertFileExists($authorized);
     }
 
