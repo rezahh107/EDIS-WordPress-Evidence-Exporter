@@ -82,10 +82,13 @@ final class ExportFileStore
         $expected = $this->bundlePath($jobId);
         if ($this->containsParentTraversal($expected) || is_link($this->root) || is_link($expected)) { return null; }
 
+        // realpath() remains the filesystem authority for the exact constructed target.
+        // The lexical path may use a different Windows representation (separator style,
+        // drive-letter case, short-name alias) than the canonical path returned here.
         $real = realpath($expected);
         $root = realpath($this->root);
         if (!is_string($real) || !is_string($root)) { return null; }
-        if (!$this->samePath($real, $expected) || !$this->isWithinRoot($real, $root)) { return null; }
+        if (!$this->isWithinRoot($real, $root)) { return null; }
         if (!is_file($real) || is_link($real)) { return null; }
         if ((int) ($metadata['size'] ?? -1) !== (int) filesize($real)) { return null; }
         $hash = hash_file('sha256', $real);
@@ -119,13 +122,6 @@ final class ExportFileStore
 
     private function bundlePath(string $jobId): string { return $this->root . '/edis-source-evidence-' . $this->safeName($jobId) . '.zip'; }
     private function metadataPath(string $jobId): string { return $this->bundlePath($jobId) . '.json'; }
-
-    private function samePath(string $left, string $right): bool
-    {
-        $left = $this->comparisonPath($left);
-        $right = $this->comparisonPath($right);
-        return $left !== '' && $right !== '' && hash_equals($left, $right);
-    }
 
     private function isWithinRoot(string $path, string $root): bool
     {
