@@ -160,7 +160,8 @@ final class ExportFileStore
 
     private function containsParentTraversal(string $path): bool
     {
-        return preg_match('~(?:\A|[\\/])\.\.(?:[\\/]|\z)~', $path) === 1;
+        $normalized = str_replace('\\', '/', $path);
+        return preg_match('~(?:\A|/)\.\.(?:/|\z)~', $normalized) === 1;
     }
 
     private function safeName(string $value): string
