@@ -265,6 +265,99 @@ namespace {
                     ]);
                 }
             }
+            if ($scenario === 'cursor_truth_unpersisted_mutation') {
+                if (!defined('DISABLE_WP_CRON')) { define('DISABLE_WP_CRON', true); }
+                $GLOBALS['edis_fixture_schedule_mode'] = 'throw';
+                try { $boundary->create(7, $metadataRequest()); throw new \RuntimeException('Expected durable failure.'); }
+                catch (\EDIS\EvidenceExporter\Application\DurableJobFailureException $exception) {
+                    $job = $jobs->get($exception->jobId);
+                    $cursorState = is_array($exception->failureCursor['state'] ?? null) ? $exception->failureCursor['state'] : [];
+                    $persistedDiagnostics = is_array($job['diagnostics'] ?? null) ? $job['diagnostics'] : [];
+                    $persistedCodes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['code'] ?? null) ? $item['code'] : null, $persistedDiagnostics)));
+                    $emit([
+                        'scenario' => $scenario,
+                        'job_id' => $exception->jobId,
+                        'job_exists' => is_array($job),
+                        'cursor_matches_persisted' => is_array($job) && $exception->failureCursor === \EDIS\EvidenceExporter\Application\JobFailureCursor::capture($job),
+                        'cursor_diagnostic_code' => $cursorState['diagnostic_code'] ?? null,
+                        'persisted_has_cron_diagnostic' => in_array('EDIS_WP_CRON_INTERNAL_TRIGGER_DISABLED', $persistedCodes, true),
+                        'creation_policy' => $exception->observation->creationPolicy,
+                        'stage' => $exception->observation->lifecycleStage,
+                    ]);
+                }
+            }
+            if ($scenario === 'cursor_truth_controller') {
+                if (!defined('DISABLE_WP_CRON')) { define('DISABLE_WP_CRON', true); }
+                $GLOBALS['edis_fixture_schedule_mode'] = 'throw';
+                $response = $controller->create(new \WP_REST_Request($metadataRequest()));
+                if (!$response instanceof \WP_Error) { throw new \RuntimeException('Expected WP_Error.'); }
+                $error = $errorResult($response);
+                $diagnosticId = is_string($error['data']['diagnostic_id'] ?? null) ? $error['data']['diagnostic_id'] : '';
+                $resolved = $diagnosticId !== '' ? $diagnostics->resolveForOwner(7, $diagnosticId, static fn (int $documentId): bool => true) : null;
+                $record = is_array($resolved['record'] ?? null) ? $resolved['record'] : [];
+                $jobId = is_string($record['operation_identity']['job_id'] ?? null) ? $record['operation_identity']['job_id'] : '';
+                $job = $jobId !== '' ? $jobs->get($jobId) : null;
+                $evidenceTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['source_type'] ?? null) ? $item['source_type'] : null, (array) ($record['evidence'] ?? []))));
+                $timelineTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['event_type'] ?? null) ? $item['event_type'] : null, (array) ($record['timeline'] ?? []))));
+                $persistedDiagnostics = is_array($job['diagnostics'] ?? null) ? $job['diagnostics'] : [];
+                $persistedCodes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['code'] ?? null) ? $item['code'] : null, $persistedDiagnostics)));
+                $emit([
+                    'scenario' => $scenario,
+                    'error' => $error,
+                    'job_id' => $jobId,
+                    'job_exists' => is_array($job),
+                    'failure_stage' => $record['failure_location']['lifecycle_stage'] ?? null,
+                    'has_persisted_job_record' => in_array('PERSISTED_JOB_RECORD', $evidenceTypes, true),
+                    'has_persisted_transition' => in_array('PERSISTED_JOB_TRANSITION', $evidenceTypes, true),
+                    'timeline_event' => $timelineTypes[0] ?? null,
+                    'persisted_has_cron_diagnostic' => in_array('EDIS_WP_CRON_INTERNAL_TRIGGER_DISABLED', $persistedCodes, true),
+                    'diagnostic_count' => $diagnosticCount(),
+                ]);
+            }
+            if ($scenario === 'cursor_truth_persisted_transition') {
+                $jobId = '55555555-5555-4555-8555-555555555555';
+                $created = $jobs->create($baseJob($jobId, 'queued'));
+                $failureCursor = \EDIS\EvidenceExporter\Application\JobFailureCursor::capture($created);
+                $changed = $jobs->get($jobId);
+                if (!is_array($changed)) { throw new \RuntimeException('Persisted fixture Job missing.'); }
+                $changed['status'] = 'failed';
+                $changed['phase'] = 'failed';
+                $changed['last_error_code'] = 'EDIS_REAL_PERSISTED_FAILURE';
+                $changed['last_error_at'] = time();
+                $changed['diagnostics'][] = [
+                    'code' => 'EDIS_REAL_PERSISTED_FAILURE',
+                    'severity' => 'ERROR',
+                    'scope' => 'OPERATIONAL',
+                    'message_key' => 'diagnostic.fixture.persisted_failure',
+                    'context' => ['failure_phase' => 'fixture_persisted_failure'],
+                ];
+                $jobs->save($changed);
+                $persisted = $jobs->get($jobId);
+                $capture = $diagnostics->captureJobFailure(
+                    7,
+                    $jobId,
+                    'EXPORT_ADVANCE',
+                    '/fixture/persisted-transition',
+                    new \RuntimeException('fixture persisted failure'),
+                    'edis_export_action_failed',
+                    'JOB_FAILURE',
+                    $failureCursor,
+                );
+                $diagnosticId = is_string($capture['diagnostic_id'] ?? null) ? $capture['diagnostic_id'] : '';
+                $resolved = $diagnosticId !== '' ? $diagnostics->resolveForOwner(7, $diagnosticId, static fn (int $documentId): bool => true) : null;
+                $record = is_array($resolved['record'] ?? null) ? $resolved['record'] : [];
+                $evidenceTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['source_type'] ?? null) ? $item['source_type'] : null, (array) ($record['evidence'] ?? []))));
+                $timelineTypes = array_values(array_filter(array_map(static fn (mixed $item): ?string => is_array($item) && is_string($item['event_type'] ?? null) ? $item['event_type'] : null, (array) ($record['timeline'] ?? []))));
+                $emit([
+                    'scenario' => $scenario,
+                    'job_id' => $jobId,
+                    'cursor_changed' => is_array($persisted) && \EDIS\EvidenceExporter\Application\JobFailureCursor::changed($failureCursor, $persisted),
+                    'has_persisted_transition' => in_array('PERSISTED_JOB_TRANSITION', $evidenceTypes, true),
+                    'timeline_event' => $timelineTypes[0] ?? null,
+                    'internal_code' => $record['failure_classification']['internal_code'] ?? null,
+                    'diagnostic_count' => $diagnosticCount(),
+                ]);
+            }
             if ($scenario === 'durable_entire_site') {
                 $GLOBALS['edis_fixture_schedule_mode'] = 'throw';
                 $request = $metadataRequest(['document_ids' => [999], 'options' => ['export_scope' => 'ENTIRE_SITE', 'dependency_scope' => 'SOURCE_ONLY', 'document_inventory_limit' => 50]]);
@@ -641,6 +734,73 @@ final class ExportJobIntegrityTest extends TestCase
         self::assertSame('SCHEDULED_RECOVERY', $result['schedule_state']);
         self::assertSame(0, $result['diagnostic_count']);
         self::assertSame(1, $result['job_count']);
+    }
+
+    /** T-CUR-001 */
+    public function testUnpersistedSchedulingMutationCannotContaminateFailureCursor(): void
+    {
+        $result = $this->fixture('cursor_truth_unpersisted_mutation');
+        self::assertMatchesRegularExpression('/\A[a-f0-9-]{36}\z/D', $result['job_id']);
+        self::assertTrue($result['job_exists']);
+        self::assertTrue($result['cursor_matches_persisted']);
+        self::assertNull($result['cursor_diagnostic_code']);
+        self::assertFalse($result['persisted_has_cron_diagnostic']);
+        self::assertSame('JOB_BOUND', $result['creation_policy']);
+        self::assertSame('post_create_scheduling', $result['stage']);
+    }
+
+    /** T-CUR-002 */
+    public function testControllerDiagnosticDoesNotInventPersistedTransitionFromUncommittedMutation(): void
+    {
+        $result = $this->fixture('cursor_truth_controller');
+        self::assertSame('edis_export_post_create_failed', $result['error']['code']);
+        self::assertSame(500, $result['error']['data']['status']);
+        self::assertTrue($result['error']['data']['diagnostic_available']);
+        self::assertMatchesRegularExpression('/\Aedis-diag-[a-f0-9]{32}\z/D', $result['error']['data']['diagnostic_id']);
+        self::assertMatchesRegularExpression('/\A[a-f0-9-]{36}\z/D', $result['job_id']);
+        self::assertTrue($result['job_exists']);
+        self::assertSame('post_create_scheduling', $result['failure_stage']);
+        self::assertTrue($result['has_persisted_job_record']);
+        self::assertFalse($result['has_persisted_transition']);
+        self::assertSame('JOB_OPERATION_EXCEPTION_CAUGHT', $result['timeline_event']);
+        self::assertFalse($result['persisted_has_cron_diagnostic']);
+        self::assertSame(1, $result['diagnostic_count']);
+    }
+
+    /** T-CUR-003 */
+    public function testRealPersistedTransitionStillProducesPersistedTransitionEvidence(): void
+    {
+        $result = $this->fixture('cursor_truth_persisted_transition');
+        self::assertMatchesRegularExpression('/\A[a-f0-9-]{36}\z/D', $result['job_id']);
+        self::assertTrue($result['cursor_changed']);
+        self::assertTrue($result['has_persisted_transition']);
+        self::assertSame('JOB_FAILURE_RECORDED', $result['timeline_event']);
+        self::assertSame('EDIS_REAL_PERSISTED_FAILURE', $result['internal_code']);
+        self::assertSame(1, $result['diagnostic_count']);
+    }
+
+    /** T-DEV-001 */
+    public function testPreoperationPersistedCursorMethodLockIsStructurallyEnforced(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $source = (string) file_get_contents($root . '/src/Application/ExportJobService.php');
+        $createStart = strpos($source, 'public function create(int $ownerId, array $request): array');
+        $advanceStart = strpos($source, 'public function advance(string $jobId');
+        self::assertIsInt($createStart);
+        self::assertIsInt($advanceStart);
+        $create = substr($source, $createStart, $advanceStart - $createStart);
+
+        $persistence = strpos($create, "'job_persistence'");
+        $baseline = strpos($create, '$failureCursor = JobFailureCursor::capture($job);');
+        $schedule = strpos($create, '$this->scheduleRecovery($job);');
+        self::assertIsInt($persistence);
+        self::assertIsInt($baseline);
+        self::assertIsInt($schedule);
+        self::assertLessThan($baseline, $persistence);
+        self::assertLessThan($schedule, $baseline);
+        self::assertSame(1, substr_count($create, 'JobFailureCursor::capture($job)'));
+        self::assertStringContainsString('                $failureCursor,', $create);
+        self::assertStringNotContainsString('$this->jobs->get(', $create);
     }
 
     public function testSelectedMethodDeviationGuardsRejectHeuristicOrUntypedRegression(): void
