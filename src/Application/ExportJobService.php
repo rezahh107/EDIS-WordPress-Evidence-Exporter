@@ -212,6 +212,7 @@ final class ExportJobService
             throw $exception;
         }
 
+        $failureCursor = JobFailureCursor::capture($job);
         try {
             $this->scheduleRecovery($job);
         } catch (ExpectedOperationRejection $exception) {
@@ -239,7 +240,7 @@ final class ExportJobService
             throw new DurableJobFailureException(
                 (string) $job['job_id'],
                 $observation,
-                JobFailureCursor::capture($job),
+                $failureCursor,
                 $exception,
             );
         }
@@ -964,7 +965,7 @@ final class ExportJobService
         foreach($documents as $id){
             $rawBytes=$this->currentRawSourceBytes($id);
             if($rawBytes===null){$sourceAvailable=false;$blockers[]=['code'=>'EDIS_PREFLIGHT_SOURCE_MISSING','message'=>'Saved Elementor source is missing for document '.$id.'.'];continue;}
-            $inspection=DocumentIdentity::inspectSource($rawBytes);$stats=$this->elementSourceStats($inspection['processing_value']);$elementCount=$stats['count'];$occurrences=$stats['occurrences'];foreach((array)($options['element_selection']??[]) as $selection){if((string)($selection['document_id']??'')!==(string)$id){continue;}$elementId=(string)($selection['elementor_element_id']??'');$count=(int)($occurrences[$elementId]??0);if($count===0){$blockers[]=['code'=>'EDIS_INSPECTOR_ELEMENT_NOT_FOUND','message'=>'The selected Elementor element '.$elementId.' is not present in the last saved source for document '.$id.'.'];}elseif($count>1){$blockers[]=['code'=>'EDIS_INSPECTOR_ELEMENT_ID_AMBIGUOUS','message'=>'The selected Elementor element '.$elementId.' is duplicated in document '.$id.'.'];}}
+            $inspection=DocumentIdentity::inspectSource($rawBytes);$stats=$this->elementSourceStats($inspection['processing_value']);$elementCount=$stats['count'];$occurrences=$stats['occurrences'];foreach((array)($options['element_selection']??[]) as $selection){if((string)($selection['document_id']??'')!==(string)$id){continue;}$elementId=(string)($selection['elementor_element_id']??'');$count=(int)($occurrences[$elementId]??0);if($count===0){$blockers[]=['code'=>'EDIS_INSPECTOR_ELEMENT_NOT_FOUND','message'=>'The selected Elementor element '.$elementId.' is not present in the last saved source for document '.$id.'.'];}elseif($count>1){$blockers[]=['code'=>'EDIS_INSPECTOR_ELEMENT_ID_AMBIGUOUS','message'=>'The selected Elementor element ID is duplicated in document '.$id.'.'];}}
             $estimatedRawBytes+=strlen($rawBytes);$estimatedElements+=$elementCount;$sourceHashes[(string)$id]='sha256:'.hash('sha256',$rawBytes);
             $selectedRecords[]=['document_id'=>(string)$id,'title'=>function_exists('get_the_title')?(string)get_the_title($id):'','raw_source_bytes'=>strlen($rawBytes),'estimated_element_count'=>$elementCount];
         }
