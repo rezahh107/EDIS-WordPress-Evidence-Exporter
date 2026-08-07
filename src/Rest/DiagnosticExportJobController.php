@@ -255,6 +255,13 @@ final class DiagnosticExportJobController
                 )
                 : $this->service->{$method}($jobId, get_current_user_id());
             return new \WP_REST_Response($result, 200);
+        } catch (ExpectedOperationRejection $rejection) {
+            return $this->expectedError(
+                $rejection->publicCode,
+                $rejection->httpStatus,
+                __('The export Job operation was rejected. Refresh the bounded Job state before retrying.', 'edis-evidence-exporter'),
+                $rejection->publicData,
+            );
         } catch (\Throwable $exception) {
             $after = $this->jobs->get($jobId);
             if (is_array($after)
