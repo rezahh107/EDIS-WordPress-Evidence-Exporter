@@ -1,0 +1,41 @@
+name: EDIS Windows download authorization
+
+'on':
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edis-windows-download-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-download-authorization:
+    name: Windows bundle download authorization
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout identity
+        shell: pwsh
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          Write-Output "EXPECTED_HEAD_SHA=$env:EXPECTED_HEAD_SHA"
+          Write-Output "ACTUAL_HEAD_SHA=$actual"
+          if ($actual -ne $env:EXPECTED_HEAD_SHA) { exit 1 }
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+          extensions: json, iconv
+      - name: Install development dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Run focused Windows path-authorization regression
+        run: vendor/bin/phpunit --configuration phpunit.xml.dist --filter LocalWpStorageRegressionTest
