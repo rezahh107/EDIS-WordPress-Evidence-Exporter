@@ -59,8 +59,11 @@ final class InstallationIntegrityTest extends TestCase
             'src/Application/DiagnosticsService.php',
             'src/Application/ExportJobService.php',
             'src/Application/ExportService.php',
+            'src/Application/JobFailureCursor.php',
+            'src/Bootstrap.php',
             'src/Infrastructure/Support/DiagnosticRecordStore.php',
             'src/Infrastructure/Support/PrivateStorage.php',
+            'src/Rest/DiagnosticExportJobController.php',
             'src/WordPress/DegradedModeIntegration.php',
             'src/WordPress/DiagnosticWorkerRunner.php',
         ] as $relative) {
