@@ -4,7 +4,6 @@ declare(strict_types=1);
 use EDIS\EvidenceExporter\Admin\Settings\SettingsRepository;
 use EDIS\EvidenceExporter\Application\DiagnosticRecordService;
 use EDIS\EvidenceExporter\Application\DurableJobFailureException;
-use EDIS\EvidenceExporter\Application\ExpectedOperationRejection;
 use EDIS\EvidenceExporter\Application\ExportCreateConformance;
 use EDIS\EvidenceExporter\Application\ExportJobService;
 use EDIS\EvidenceExporter\Application\ExportService;
@@ -321,6 +320,7 @@ try {
             throw new RuntimeException('Expected durable failure.');
         } catch (DurableJobFailureException $exception) {
             $job = $jobs->get($exception->jobId);
+            $previous = $exception->getPrevious();
             emitResult([
                 'scenario' => $scenario,
                 'exception_class' => $exception::class,
@@ -330,7 +330,7 @@ try {
                 'creation_policy' => $exception->observation->creationPolicy,
                 'stage' => $exception->observation->lifecycleStage,
                 'reason_code' => $exception->observation->reasonCode,
-                'previous_class' => $exception->getPrevious()?::class,
+                'previous_class' => $previous !== null ? $previous::class : null,
                 'job_count' => count($jobs->jobsForUser(7)),
             ]);
         }
