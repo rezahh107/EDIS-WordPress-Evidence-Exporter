@@ -188,6 +188,7 @@ final class ExpectedOperationRejection extends \RuntimeException
     }
 }
 
+/** Exact JOB_BOUND carrier for failures after durable Job persistence, including post_create_scheduling. */
 final class DurableJobFailureException extends \RuntimeException
 {
     /** @param array{revision:int,signature:string,state:array<string,mixed>}|null $failureCursor */
