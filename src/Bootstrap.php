@@ -107,7 +107,7 @@ final class Bootstrap {
         $diagnosticRecords = new DiagnosticRecordService($diagnosticStore, $jobStore, $this->pluginRoot, $filesystem);
         $exportService = new ExportService($registry, $this->pluginRoot);
         $jobService = new ExportJobService($registry, $exportService, $jobStore, $artifactStore, $fileStore, $settings, $inputSnapshots, $privateStorage);
-        $createBoundary = new ExportCreateConformance($jobService, $registry, $jobStore);
+        $createBoundary = new ExportCreateConformance($jobService, $registry);
         $documentService = new DocumentQueryService();
         $diagnostics = new DiagnosticsService($registry, $jobStore, $artifactStore, $fileStore, $settings, $inputSnapshots, $jobService, $this->pluginRoot, $filesystem, $diagnosticRecords);
         $capability = (string) $adminConfig['capability'];
