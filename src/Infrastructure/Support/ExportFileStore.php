@@ -78,9 +78,18 @@ final class ExportFileStore
         if (!is_array($metadata) || (int) ($metadata['expires_at'] ?? 0) < time()) { return null; }
         if (!hash_equals((string) ($metadata['token_hash'] ?? ''), hash('sha256', $token))) { return null; }
         if (($metadata['zip_profile'] ?? null) !== 'EDIS-ZIP-1' || ($metadata['compression_method'] ?? null) !== 'STORE') { return null; }
+
         $expected = $this->bundlePath($jobId);
-        $real = realpath($expected); $root = realpath($this->root);
-        if ($real === false || $root === false || $real !== $expected || !str_starts_with($real, $root . DIRECTORY_SEPARATOR) || !is_file($real) || is_link($real)) { return null; }
+        if ($this->containsParentTraversal($expected) || is_link($this->root) || is_link($expected)) { return null; }
+
+        // realpath() remains the filesystem authority for the exact constructed target.
+        // The lexical path may use a different Windows representation (separator style,
+        // drive-letter case, short-name alias) than the canonical path returned here.
+        $real = realpath($expected);
+        $root = realpath($this->root);
+        if (!is_string($real) || !is_string($root)) { return null; }
+        if (!$this->isWithinRoot($real, $root)) { return null; }
+        if (!is_file($real) || is_link($real)) { return null; }
         if ((int) ($metadata['size'] ?? -1) !== (int) filesize($real)) { return null; }
         $hash = hash_file('sha256', $real);
         if (!is_string($hash) || !hash_equals((string) ($metadata['sha256'] ?? ''), 'sha256:' . $hash)) { return null; }
@@ -113,6 +122,48 @@ final class ExportFileStore
 
     private function bundlePath(string $jobId): string { return $this->root . '/edis-source-evidence-' . $this->safeName($jobId) . '.zip'; }
     private function metadataPath(string $jobId): string { return $this->bundlePath($jobId) . '.json'; }
+
+    private function isWithinRoot(string $path, string $root): bool
+    {
+        $path = $this->comparisonPath($path);
+        $root = $this->comparisonPath($root);
+        return $path !== '' && $root !== '' && $path !== $root && str_starts_with($path, $root . '/');
+    }
+
+    private function comparisonPath(string $path): string
+    {
+        if ($path === '' || str_contains($path, "\0") || $this->containsParentTraversal($path)) {
+            return '';
+        }
+
+        $normalized = rtrim(str_replace('\\', '/', $path), '/');
+        if (str_starts_with($normalized, '//?/UNC/')) {
+            $normalized = '//' . substr($normalized, 8);
+        } elseif (str_starts_with($normalized, '//?/')) {
+            $normalized = substr($normalized, 4);
+        }
+
+        $isUnc = str_starts_with($normalized, '//');
+        $normalized = preg_replace('~/+~', '/', $normalized) ?? $normalized;
+        if ($isUnc) {
+            $normalized = '//' . ltrim($normalized, '/');
+        }
+
+        $windowsPath = PHP_OS_FAMILY === 'Windows'
+            || preg_match('/\A[A-Za-z]:\//', $normalized) === 1
+            || $isUnc;
+        if ($windowsPath) {
+            $normalized = strtolower($normalized);
+        }
+        return $normalized;
+    }
+
+    private function containsParentTraversal(string $path): bool
+    {
+        $normalized = str_replace('\\', '/', $path);
+        return preg_match('~(?:\A|/)\.\.(?:/|\z)~', $normalized) === 1;
+    }
+
     private function safeName(string $value): string
     {
         if ($value === '' || str_contains($value, '..') || preg_match('/^[A-Za-z0-9._-]+$/D', $value) !== 1) { throw new \InvalidArgumentException('Unsafe bundle identifier.'); }
