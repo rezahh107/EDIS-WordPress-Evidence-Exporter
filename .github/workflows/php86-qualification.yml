@@ -138,6 +138,24 @@ jobs:
               if source.count(old) != 1:
                   raise SystemExit(f'expected exactly one bounded PHP 8.6 admission predicate in {path}')
               path.write_text(source.replace(old, new), encoding='utf-8')
+
+          import hashlib
+          import re
+
+          root = Path('/tmp/edis-php86-capability')
+          manifest_path = root / 'config/critical-files.json'
+          manifest = manifest_path.read_text(encoding='utf-8')
+          for relative in [
+              'edis-evidence-exporter.php',
+              'src/Infrastructure/Support/CanonicalJson.php',
+              'src/WordPress/LifecycleManager.php',
+          ]:
+              digest = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+              pattern = re.compile(r'("' + re.escape(relative) + r'":"sha256:)[0-9a-f]{64}(")')
+              manifest, count = pattern.subn(r'\\1' + digest + r'\\2', manifest)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one integrity entry for {relative}')
+          manifest_path.write_text(manifest, encoding='utf-8')
           PY
           diff -u /tmp/edis-final-under-test/src/Infrastructure/Support/CanonicalJson.php /tmp/edis-php86-capability/src/Infrastructure/Support/CanonicalJson.php || true
           diff -u /tmp/edis-final-under-test/edis-evidence-exporter.php /tmp/edis-php86-capability/edis-evidence-exporter.php || true
@@ -145,7 +163,7 @@ jobs:
       - name: Execute deterministic runtime smoke with only version admission predicates bypassed
         working-directory: /tmp/edis-php86-capability
         run: php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php
-      - name: Re-run full PHPUnit with only version admission predicates bypassed
+      - name: Re-run full PHPUnit with version predicates bypassed and test-only integrity hashes refreshed
         working-directory: /tmp/edis-php86-capability
         run: vendor/bin/phpunit --configuration phpunit.xml.dist
       - name: Install verified WP-CLI 2.12.0
