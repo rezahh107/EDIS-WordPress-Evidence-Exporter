@@ -571,7 +571,7 @@ jobs:
             ! grep -E 'EDIS|edis-evidence-exporter' /tmp/wordpress/wp-content/debug.log
           fi
 
-php86-qualification:
+  php86-qualification:
     name: PHP 8.6 RC capability qualification
     runs-on: ubuntu-latest
     timeout-minutes: 30
