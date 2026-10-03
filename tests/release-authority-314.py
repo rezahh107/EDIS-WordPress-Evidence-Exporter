@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -18,6 +19,8 @@ SPEC.loader.exec_module(release)
 
 VERSION = "3.7.16"
 BASE_PATHS = [
+    "CHANGELOG.md",
+    "SECURITY.md",
     "config/critical-files.json",
     "edis-evidence-exporter.php",
     "package-lock.json",
@@ -25,6 +28,7 @@ BASE_PATHS = [
     "plugin.manifest.json",
     "src/Application/ExportJobService.php",
     "src/Application/ExportService.php",
+    "templates/admin/help.php",
 ]
 NON_INSTALLABLE_PATHS = {
     "config/critical-files.json",
@@ -69,6 +73,16 @@ def fixture(root: Path) -> None:
     write(root / "config/critical-files.json", json.dumps({"plugin_version": VERSION, "files": {}}) + "\n")
     write(root / "src/Application/ExportService.php", "<?php final class X { private const PRODUCER_VERSION = '3.7.16'; }\n")
     write(root / "src/Application/ExportJobService.php", "<?php final class Y { private const IMPLEMENTATION_VERSION = '3.7.15'; }\n")
+    write(
+        root / "SECURITY.md",
+        "# Security Policy\n\n## Supported release\n\n"
+        "EDIS Evidence Exporter 3.7.16 is the currently supported degraded-admin recovery release in this package.\n",
+    )
+    write(
+        root / "templates/admin/help.php",
+        "<?php $example = ['producer' => ['product' => 'edis-evidence-exporter', 'version' => EDIS_EVIDENCE_EXPORTER_VERSION]];\n",
+    )
+    write(root / "CHANGELOG.md", "## 3.7.13\n\nHistorical release notes remain valid.\n")
     write(root / "composer.lock", "{}\n")
 
 
@@ -160,6 +174,20 @@ def test_t17_all_version_authorities_fail_closed() -> None:
             "<?php final class X { private const PRODUCER_VERSION = '3.7.13'; }\n",
         ),
         "critical_files_plugin_version": lambda root: mutate_json(root / "config/critical-files.json", lambda value: value.__setitem__("plugin_version", "3.7.13")),
+        "security_supported_release_version": lambda root: write(
+            root / "SECURITY.md",
+            (root / "SECURITY.md").read_text(encoding="utf-8").replace(
+                "EDIS Evidence Exporter 3.7.16 is the currently supported",
+                "EDIS Evidence Exporter 3.7.13 is the currently supported",
+            ),
+        ),
+        "help_producer_projection": lambda root: write(
+            root / "templates/admin/help.php",
+            (root / "templates/admin/help.php").read_text(encoding="utf-8").replace(
+                "EDIS_EVIDENCE_EXPORTER_VERSION",
+                "'3.7.13'",
+            ),
+        ),
     }
 
     for label, mutation in mutations.items():
@@ -171,6 +199,106 @@ def test_t17_all_version_authorities_fail_closed() -> None:
         finally:
             tmp.cleanup()
 
+
+def test_t17_historical_release_references_remain_valid() -> None:
+    tmp, root = fresh()
+    try:
+        source_paths = identity_paths(root)
+        assert "3.7.13" in (root / "CHANGELOG.md").read_text(encoding="utf-8")
+        identity = release.release_identity(root, source_paths)
+        assert identity["plugin_version"] == VERSION
+        assert identity["worker_implementation_version"] == "3.7.15"
+    finally:
+        tmp.cleanup()
+
+
+def test_t19_current_help_projection_renders_canonical_version() -> None:
+    source_paths = identity_paths(ROOT)
+    identity = release.release_identity(ROOT, source_paths)
+    expected = identity["plugin_version"]
+    assert expected == VERSION
+
+    php_source = r'''<?php
+declare(strict_types=1);
+
+namespace EDIS\EvidenceExporter\Infrastructure\Support {
+    final class CanonicalJson
+    {
+        public static function canonicalizationDescriptor(): array
+        {
+            return ['id' => 'EDIS-CJ-2'];
+        }
+
+        public static function applyHashes(array &$value): void
+        {
+        }
+    }
+}
+
+namespace {
+    define('EDIS_EVIDENCE_EXPORTER_VERSION', __EXPECTED_VERSION__);
+
+    function esc_html__(string $text, string $domain = ''): string { return $text; }
+    function esc_html(string $text): string { return $text; }
+    function esc_attr__(string $text, string $domain = ''): string { return $text; }
+    function esc_attr(string $text): string { return $text; }
+    function wp_json_encode(mixed $value, int $flags = 0, int $depth = 512): string|false
+    {
+        return json_encode($value, $flags, $depth);
+    }
+
+    $definitions = [
+        (object) [
+            'id' => 'example',
+            'label' => 'Example',
+            'labelFa' => 'Example',
+            'componentType' => (object) ['value' => 'SYSTEM'],
+            'declaredTruthState' => (object) ['value' => 'VERIFIED'],
+            'documentation' => ['en' => [], 'fa' => [], 'official_references' => []],
+            'description' => '',
+            'descriptionFa' => '',
+            'schemaId' => 'example.schema',
+            'schemaVersion' => '1.0.0',
+            'defaultAvailability' => (object) ['value' => 'AVAILABLE'],
+            'artifactPath' => 'example.json',
+            'dependencies' => [],
+        ],
+    ];
+
+    ob_start();
+    require __HELP_TEMPLATE__;
+    $html = (string) ob_get_clean();
+    if (!preg_match('/"producer"\s*:\s*\{\s*"product"\s*:\s*"edis-evidence-exporter"\s*,\s*"version"\s*:\s*"([^"]+)"/s', $html, $matches)) {
+        fwrite(STDERR, "Help producer JSON projection was not rendered.\n");
+        exit(2);
+    }
+    if (($matches[1] ?? '') !== EDIS_EVIDENCE_EXPORTER_VERSION) {
+        fwrite(STDERR, "Help producer version mismatch: " . ($matches[1] ?? '<missing>') . "\n");
+        exit(3);
+    }
+    echo "Help producer version: " . $matches[1] . "\n";
+}
+'''
+    php_source = php_source.replace("__EXPECTED_VERSION__", json.dumps(expected))
+    php_source = php_source.replace("__HELP_TEMPLATE__", json.dumps(str(ROOT / "templates/admin/help.php")))
+
+    with tempfile.TemporaryDirectory(prefix="edis-help-projection-") as temp_dir:
+        runner = Path(temp_dir) / "render-help.php"
+        write(runner, php_source)
+        completed = subprocess.run(
+            ["php", str(runner)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    if completed.returncode != 0:
+        raise AssertionError(
+            "Help projection render failed: "
+            + completed.stdout
+            + completed.stderr
+        )
+    assert completed.stdout.strip() == f"Help producer version: {expected}"
 
 
 def test_t17_worker_identity_is_independent_and_fail_closed() -> None:
@@ -272,11 +400,13 @@ def main() -> int:
         test_t15_unknown_ordinary_file_fails,
         test_t16_missing_unsafe_and_symlink_fail,
         test_t17_all_version_authorities_fail_closed,
+        test_t17_historical_release_references_remain_valid,
         test_t17_worker_identity_is_independent_and_fail_closed,
         test_t17_package_lock_top_level_version_fails_closed,
         test_t17_package_lock_root_version_fails_closed,
         test_t17_package_lock_missing_empty_and_malformed_fail_closed,
         test_t18_clean_inventory_and_zip_are_deterministic,
+        test_t19_current_help_projection_renders_canonical_version,
     ]
     for test in tests:
         test()

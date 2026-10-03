@@ -2,7 +2,7 @@
 
 ## Supported release
 
-EDIS Evidence Exporter 3.7.13 is the currently supported degraded-admin recovery release in this package. Older development handoff builds should be treated as historical evidence only unless their release checksums and installation integrity pass.
+EDIS Evidence Exporter 3.7.16 is the currently supported degraded-admin recovery release in this package. Older development handoff builds should be treated as historical evidence only unless their release checksums and installation integrity pass.
 
 ## Capability model
 

@@ -169,6 +169,12 @@ def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
     plugin = manifest.get("plugin") if isinstance(manifest.get("plugin"), dict) else {}
     build = manifest.get("build") if isinstance(manifest.get("build"), dict) else {}
 
+    read_match(
+        root / "templates/admin/help.php",
+        r"'producer'\s*=>\s*\[\s*'product'\s*=>\s*'edis-evidence-exporter'\s*,\s*'version'\s*=>\s*(EDIS_EVIDENCE_EXPORTER_VERSION)\s*\]",
+        "Help producer version projection",
+    )
+
     authorities = {
         "plugin_header_version": read_match(root / "edis-evidence-exporter.php", r"^\s*\*\s*Version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$", "plugin header Version"),
         "exporter_constant_version": read_match(root / "edis-evidence-exporter.php", r"EDIS_EVIDENCE_EXPORTER_VERSION'\s*,\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "EDIS_EVIDENCE_EXPORTER_VERSION"),
@@ -182,6 +188,11 @@ def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
         "manifest_platform_version": str(manifest.get("platform_version", "")),
         "producer_version": read_match(root / "src/Application/ExportService.php", r"PRODUCER_VERSION\s*=\s*'([0-9]+\.[0-9]+\.[0-9]+)'", "ExportService producer version"),
         "critical_files_plugin_version": str(critical.get("plugin_version", "")),
+        "security_supported_release_version": read_match(
+            root / "SECURITY.md",
+            r"^EDIS Evidence Exporter ([0-9]+\.[0-9]+\.[0-9]+) is the currently supported\b.*\brelease in this package\.$",
+            "SECURITY.md supported release",
+        ),
     }
     values = set(authorities.values())
     if "" in values or len(values) != 1:
