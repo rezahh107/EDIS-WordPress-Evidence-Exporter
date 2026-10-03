@@ -190,7 +190,7 @@ def release_identity(root: Path, source_paths: list[str]) -> dict[str, str]:
         "critical_files_plugin_version": str(critical.get("plugin_version", "")),
         "security_supported_release_version": read_match(
             root / "SECURITY.md",
-            r"^EDIS Evidence Exporter ([0-9]+\.[0-9]+\.[0-9]+) is the currently supported\b.*\brelease in this package\.$",
+            r"^EDIS Evidence Exporter ([0-9]+\.[0-9]+\.[0-9]+) is the currently supported degraded-admin recovery release in this package\.",
             "SECURITY.md supported release",
         ),
     }
