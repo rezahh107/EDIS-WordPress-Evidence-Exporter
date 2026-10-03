@@ -106,11 +106,10 @@ jobs:
           (cd /tmp/edis-php86-release-a && sha256sum * | sort) > /tmp/edis-php86-release-a.sha256
           (cd /tmp/edis-php86-release-b && sha256sum * | sort) > /tmp/edis-php86-release-b.sha256
           diff -u /tmp/edis-php86-release-a.sha256 /tmp/edis-php86-release-b.sha256
-      - name: Execute EDIS-CJ-2 vector and numeric contract tests on exact final implementation tree
+      - name: Execute canonical vector and numeric contract tests on exact final implementation tree
         working-directory: /tmp/edis-final-under-test
         run: |
-          vendor/bin/phpunit --configuration phpunit.xml.dist --filter CanonicalV2VectorsTest
-          vendor/bin/phpunit --configuration phpunit.xml.dist --filter CanonicalNumeric
+          vendor/bin/phpunit --configuration phpunit.xml.dist --filter 'CanonicalV2VectorsTest|CanonicalVectorsTest|CanonicalJsonTest|ArtifactStoreLosslessRoundTripTest'
       - name: Prepare isolated capability-only source copy
         shell: bash
         run: |
