@@ -1,0 +1,200 @@
+name: PHP 8.6 qualification evidence
+
+on:
+  push:
+    branches:
+      - agent/php86-qualification-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  php86:
+    name: PHP 8.6 deterministic capability qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Verify evidence checkout identity
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'EXPECTED_EVIDENCE_SHA=%s\nACTUAL_EVIDENCE_SHA=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.6'
+          coverage: none
+          tools: composer:v2
+          extensions: mysqli, json, iconv
+      - name: Record PHP 8.6 qualification runtime
+        run: php -r 'printf("PHP_VERSION=%s PHP_VERSION_ID=%d PHP_SAPI=%s PHP_INT_SIZE=%d\\n", PHP_VERSION, PHP_VERSION_ID, PHP_SAPI, PHP_INT_SIZE);'
+      - name: Materialize clean final implementation tree for qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/edis-final-under-test
+          mkdir -p /tmp/edis-final-under-test
+          rsync -a --delete --exclude='.git' --exclude='.github/workflows/php86-qualification.yml' "$GITHUB_WORKSPACE/" /tmp/edis-final-under-test/
+          test ! -e /tmp/edis-final-under-test/.github/workflows/php86-qualification.yml
+          test "$(sha256sum "$GITHUB_WORKSPACE/.github/workflows/quality.yml" | cut -d' ' -f1)" = "$(sha256sum /tmp/edis-final-under-test/.github/workflows/quality.yml | cut -d' ' -f1)"
+      - name: Confirm unchanged production admission boundary
+        working-directory: /tmp/edis-final-under-test
+        run: |
+          grep -F "version_compare( PHP_VERSION, '8.6', '>=' )" edis-evidence-exporter.php
+          grep -F "version_compare(PHP_VERSION, '8.6', '>=')" src/Infrastructure/Support/CanonicalJson.php
+          grep -F "version_compare( PHP_VERSION, '8.6', '>=' )" src/WordPress/LifecycleManager.php
+          grep -F '"php": ">=8.2 <8.6"' composer.json
+      - name: Install test dependencies beneath unchanged Composer admission policy
+        working-directory: /tmp/edis-final-under-test
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=php
+      - name: PHP syntax on exact final implementation tree
+        working-directory: /tmp/edis-final-under-test
+        run: find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Execute full PHPUnit on exact final implementation tree and classify policy failures
+        shell: bash
+        working-directory: /tmp/edis-final-under-test
+        run: |
+          set -euo pipefail
+          set +e
+          vendor/bin/phpunit --configuration phpunit.xml.dist 2>&1 | tee /tmp/php86-exact-phpunit.log
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -F "edis_export_preflight_blocked" /tmp/php86-exact-phpunit.log
+          grep -F "FAILURES!" /tmp/php86-exact-phpunit.log
+      - name: Confirm existing runtime smoke stops at the version admission predicate
+        shell: bash
+        working-directory: /tmp/edis-final-under-test
+        run: |
+          set -euo pipefail
+          set +e
+          output="$(php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -ne 0
+          grep -F "EDIS-CJ-2 runtime preflight failed." <<<"$output"
+      - name: Release identity mutation suite and two deterministic builds on exact final implementation tree
+        shell: bash
+        working-directory: /tmp/edis-final-under-test
+        run: |
+          set -euo pipefail
+          python tests/release-authority-314.py
+          rm -rf /tmp/edis-php86-release-a /tmp/edis-php86-release-b
+          python tools/release/build-release.py --root . --output /tmp/edis-php86-release-a
+          python tools/release/build-release.py --root . --output /tmp/edis-php86-release-b
+          diff -qr /tmp/edis-php86-release-a /tmp/edis-php86-release-b
+          (cd /tmp/edis-php86-release-a && sha256sum * | sort) > /tmp/edis-php86-release-a.sha256
+          (cd /tmp/edis-php86-release-b && sha256sum * | sort) > /tmp/edis-php86-release-b.sha256
+          diff -u /tmp/edis-php86-release-a.sha256 /tmp/edis-php86-release-b.sha256
+      - name: Execute EDIS-CJ-2 vector and numeric contract tests on exact final implementation tree
+        working-directory: /tmp/edis-final-under-test
+        run: |
+          vendor/bin/phpunit --configuration phpunit.xml.dist --filter CanonicalV2VectorsTest
+          vendor/bin/phpunit --configuration phpunit.xml.dist --filter CanonicalNumeric
+      - name: Prepare isolated capability-only source copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/edis-php86-capability
+          rsync -a --delete /tmp/edis-final-under-test/ /tmp/edis-php86-capability/
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('/tmp/edis-php86-capability/src/Infrastructure/Support/CanonicalJson.php'): (
+                  "version_compare(PHP_VERSION, '8.2', '<') || version_compare(PHP_VERSION, '8.6', '>=') || PHP_INT_SIZE < 8",
+                  "version_compare(PHP_VERSION, '8.2', '<') || PHP_INT_SIZE < 8",
+              ),
+              Path('/tmp/edis-php86-capability/edis-evidence-exporter.php'): (
+                  "\t\t|| version_compare( PHP_VERSION, '8.6', '>=' )\n",
+                  "",
+              ),
+              Path('/tmp/edis-php86-capability/src/WordPress/LifecycleManager.php'): (
+                  "\t\t\t|| version_compare( PHP_VERSION, '8.6', '>=' )\n",
+                  "",
+              ),
+          }
+          for path, (old, new) in replacements.items():
+              source = path.read_text(encoding='utf-8')
+              if source.count(old) != 1:
+                  raise SystemExit(f'expected exactly one bounded PHP 8.6 admission predicate in {path}')
+              path.write_text(source.replace(old, new), encoding='utf-8')
+          PY
+          diff -u /tmp/edis-final-under-test/src/Infrastructure/Support/CanonicalJson.php /tmp/edis-php86-capability/src/Infrastructure/Support/CanonicalJson.php || true
+          diff -u /tmp/edis-final-under-test/edis-evidence-exporter.php /tmp/edis-php86-capability/edis-evidence-exporter.php || true
+          diff -u /tmp/edis-final-under-test/src/WordPress/LifecycleManager.php /tmp/edis-php86-capability/src/WordPress/LifecycleManager.php || true
+      - name: Execute deterministic runtime smoke with only version admission predicates bypassed
+        working-directory: /tmp/edis-php86-capability
+        run: php -d error_reporting=E_ALL -d display_errors=1 tests/runtime-smoke.php
+      - name: Re-run full PHPUnit with only version admission predicates bypassed
+        working-directory: /tmp/edis-php86-capability
+        run: vendor/bin/phpunit --configuration phpunit.xml.dist
+      - name: Install verified WP-CLI 2.12.0
+        env:
+          WP_CLI_SHA512: be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832
+        run: |
+          curl -fsSLo /tmp/wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar
+          printf '%s  %s\n' "$WP_CLI_SHA512" /tmp/wp-cli.phar | sha512sum --check --strict
+          chmod +x /tmp/wp-cli.phar
+          sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
+          wp --version
+      - name: Install WordPress 7.0, Elementor 4.1.3 and capability-probe EDIS
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/wordpress /tmp/edis-php86-private
+          mkdir -p /tmp/wordpress/wp-content/plugins
+          wp core download --path=/tmp/wordpress --version=7.0 --force
+          wp config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306
+          wp config set EDIS_EVIDENCE_PRIVATE_STORAGE_DIR /tmp/edis-php86-private --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set WP_DEBUG_LOG true --raw --path=/tmp/wordpress --type=constant
+          wp config set SCRIPT_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp config set ELEMENTOR_DEBUG true --raw --path=/tmp/wordpress --type=constant
+          wp core install --path=/tmp/wordpress --url=http://localhost --title=EDIS-PHP86 --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
+          ln -s /tmp/edis-php86-capability /tmp/wordpress/wp-content/plugins/edis-evidence-exporter
+          wp plugin install elementor --version=4.1.3 --activate --path=/tmp/wordpress
+          wp plugin activate edis-evidence-exporter --path=/tmp/wordpress
+      - name: PrivateStorage and canonical capability self-test on PHP 8.6
+        run: |
+          wp eval '
+            printf("WORDPRESS_PHP_VERSION=%s\n", PHP_VERSION);
+            if (! EDIS\EvidenceExporter\Infrastructure\Support\CanonicalJson::environmentReady()) {
+                fwrite(STDERR, "Capability-only CanonicalJson environment check failed.\n");
+                exit(1);
+            }
+            $storage = new EDIS\EvidenceExporter\Infrastructure\Support\PrivateStorage();
+            $result = $storage->selfTest(true);
+            echo wp_json_encode($result, JSON_UNESCAPED_SLASHES) . "\n";
+            if (! $storage->acceptsSelfTestResult($result)) {
+                fwrite(STDERR, "PrivateStorage deterministic capability self-test failed.\n");
+                exit(1);
+            }
+          ' --path=/tmp/wordpress
+      - name: Representative real export completion path on PHP 8.6
+        run: wp eval-file /tmp/edis-php86-capability/tests/integration/real-export-completion.php --path=/tmp/wordpress
+      - name: Require zero EDIS-origin debug output
+        run: |
+          if [ -f /tmp/wordpress/wp-content/debug.log ]; then
+            ! grep -E 'EDIS|edis-evidence-exporter' /tmp/wordpress/wp-content/debug.log
+          fi
